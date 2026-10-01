@@ -6,7 +6,8 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/ping`, `/balance`, `/daily`,
-`/ballet`, and `/shop` commands without replacing the guild's other commands.
+`/ballet`, `/shop`, `/inventory`, `/wardrobe`, and `/profile` commands without
+replacing the guild's other commands.
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, a first Ballet progression core, and a
 small curated shop with transactional purchases and persistent inventory are
@@ -56,6 +57,26 @@ To start the bot after providing valid local settings, build and run:
 npm run build
 npm start
 ```
+
+## Docker Compose
+
+Copy `.env.example` to `.env`, set local credentials, then run:
+
+```sh
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+```
+
+Compose runs the bot and PostgreSQL 18.6. PostgreSQL data lives in the named
+`postgres-data` volume and is not removed by ordinary `docker compose down`.
+Do not use `docker compose down -v` unless you deliberately intend to erase
+that database volume. PostgreSQL 18's official image stores its data under
+`/var/lib/postgresql`, so the Compose volume targets that directory.
+
+The bot receives `.env` values through a local, ignored env file; the database
+container receives only its own initialization settings. No database port is
+published to the host by default.
 
 ## Project layout
 
