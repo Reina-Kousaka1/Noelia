@@ -1,4 +1,5 @@
 import type Eris from 'eris';
+import type { BalletProgressPort } from '../ballet/types.js';
 import type { DailyClaimResult } from '../economy/types.js';
 
 export interface CommandContext {
@@ -18,6 +19,7 @@ export interface DailyClaimPort {
 export interface CommandServices {
   readonly economy: EconomyQueryPort;
   readonly daily: DailyClaimPort;
+  readonly ballet: BalletProgressPort;
 }
 
 export interface SlashCommand {

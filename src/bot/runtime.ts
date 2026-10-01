@@ -4,7 +4,9 @@ import type { Pool } from 'pg';
 import type { AppConfig } from '../config/environment.js';
 import { EconomyService } from '../economy/economy-service.js';
 import { DailyService } from '../economy/daily-service.js';
+import { BalletService } from '../ballet/ballet-service.js';
 import { balanceCommand } from '../commands/balance/balance.command.js';
+import { balletCommand } from '../commands/ballet/ballet.command.js';
 import { dailyCommand } from '../commands/daily/daily.command.js';
 import { pingCommand } from '../commands/ping/ping.command.js';
 import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
@@ -30,10 +32,12 @@ export function createDiscordRuntime(
   });
   const economy = new EconomyService(pool);
   const daily = new DailyService(pool, economy);
-  const registry = new CommandRegistry([pingCommand, balanceCommand, dailyCommand]);
+  const ballet = new BalletService(pool, economy);
+  const registry = new CommandRegistry([pingCommand, balanceCommand, dailyCommand, balletCommand]);
   const router = new InteractionRouter(registry, logger, {
     economy,
     daily,
+    ballet,
   });
   let stopping = false;
 

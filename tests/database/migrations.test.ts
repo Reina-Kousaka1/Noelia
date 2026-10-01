@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(3);
+    expect(migrations).toHaveLength(4);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -30,6 +30,12 @@ describe('PostgreSQL migrations', () => {
     });
     expect(migrations[2]?.sql).toContain('CREATE TABLE daily_claims');
     expect(migrations[2]?.sql).toContain('CREATE TRIGGER daily_claims_append_only');
+    expect(migrations[3]).toMatchObject({
+      version: 4,
+      name: 'ballet_progression',
+    });
+    expect(migrations[3]?.sql).toContain('CREATE TABLE ballet_activity_catalog');
+    expect(migrations[3]?.sql).toContain('CREATE TABLE ballet_activity_completions');
   });
 
   it('runs each pending migration in a transaction and releases the advisory lock', async () => {
@@ -42,8 +48,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 3,
-      currentVersion: 3,
+      appliedCount: 4,
+      currentVersion: 4,
     });
 
     expect(statements).toContain('BEGIN');
@@ -51,6 +57,7 @@ describe('PostgreSQL migrations', () => {
     expect(statements.some((sql) => sql.includes('CREATE TABLE discord_users'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE wallet_ledger'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE daily_claims'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_progress'))).toBe(true);
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
     expect(statements.some((sql) => sql.includes('DROP '))).toBe(false);
     expect(query).toHaveBeenCalledWith(
@@ -64,6 +71,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [3, 'daily_claims', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [4, 'ballet_progression', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

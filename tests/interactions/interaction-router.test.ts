@@ -37,6 +37,7 @@ describe('InteractionRouter', () => {
     const services = {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
       daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
     };
     const router = new InteractionRouter(
       new CommandRegistry([command]),
@@ -59,6 +60,7 @@ describe('InteractionRouter', () => {
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
       daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
     });
 
     await router.dispatch(interaction, client);
@@ -82,6 +84,7 @@ describe('InteractionRouter', () => {
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
       daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);
@@ -104,6 +107,7 @@ describe('InteractionRouter', () => {
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
       daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);

@@ -2,6 +2,8 @@ import type { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
+import { BalletService } from '../../src/ballet/ballet-service.js';
+import { BalletActivityLockedError, BalletCooldownError } from '../../src/ballet/errors.js';
 import { PostgresDiscordUserRepository } from '../../src/database/discord-user.repository.js';
 import { runMigrations } from '../../src/database/migrations/runner.js';
 import { withClientTransaction } from '../../src/database/transaction.js';
@@ -37,7 +39,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 3 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 4 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -142,6 +144,33 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       DailyCooldownError,
     );
     await expect(economy.getBalance(discordUserId)).resolves.toBe(100n);
+    await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
+  });
+
+  it('persists Ballet XP and rewards, replays safely, and enforces unlocks and cooldowns', async () => {
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const discordUserId = testSnowflake();
+    const interactionId = testSnowflake();
+
+    const firstPractice = await ballet.practice(interactionId, discordUserId, 'stretching');
+    const replay = await ballet.practice(interactionId, discordUserId, 'stretching');
+
+    expect(firstPractice.xpAwarded).toBe(8n);
+    expect(firstPractice.slippersAwarded).toBe(10n);
+    expect(firstPractice.totalXp).toBe(8n);
+    expect(replay.replayed).toBe(true);
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'stretching'),
+    ).rejects.toBeInstanceOf(BalletCooldownError);
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'center-practice'),
+    ).rejects.toBeInstanceOf(BalletActivityLockedError);
+    await expect(ballet.getProgress(discordUserId)).resolves.toMatchObject({
+      totalXp: 8n,
+      level: 1,
+    });
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(10n);
     await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
   });
 });

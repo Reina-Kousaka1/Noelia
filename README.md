@@ -8,8 +8,8 @@ The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/ping`, `/balance`, and `/daily`
 commands without replacing the guild's other commands. Ballet Slippers use
 integer wallet balances with an auditable ledger and interaction idempotency.
-Daily rewards are active; ballet progression, shop, inventory, and wardrobe are
-not implemented yet.
+Daily rewards and a first Ballet progression core are active; shop, inventory,
+and wardrobe are not implemented yet.
 
 ## Technology
 
@@ -69,11 +69,12 @@ migration history is part of this repository.
 
 The migration runner tracks immutable, checksummed SQL migrations in
 `noelia_schema_migrations`; V1 creates the Discord-user identity table, V2 adds
-the Ballet Slippers wallet, idempotency records, and append-only ledger, and V3
-adds append-only Daily claim history. Economy changes use PostgreSQL
-transactions and row locks to prevent negative balances during concurrent
-spending. Daily reward amount is centrally configured in
-`src/config/gameplay.ts` (currently 100 🩰) with a rolling 24-hour cooldown.
+the Ballet Slippers wallet, idempotency records, and append-only ledger, V3
+adds append-only Daily claim history, and V4 adds the first seeded Ballet
+activity catalog and progression history. Economy and practice rewards use
+PostgreSQL transactions and row locks to prevent negative balances or duplicate
+rewards during concurrent actions. Daily reward amount is centrally configured
+in `src/config/gameplay.ts` (currently 100 🩰) with a rolling 24-hour cooldown.
 Daily state and its wallet/ledger reward share one transaction. Discord
 interaction IDs are wallet idempotency keys. Queries with values use
 PostgreSQL parameters rather than string interpolation.
