@@ -343,7 +343,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     ).rejects.toBeInstanceOf(BalletActivityRequirementError);
     await ballet.practice(testSnowflake(), discordUserId, 'center-practice');
     const choreography = await ballet.practice(testSnowflake(), discordUserId, 'choreography');
-    expect(choreography.stat).toEqual({ key: 'musicality', gain: 3, value: 3 });
+    expect(choreography.stat).toEqual({ key: 'musicality', gain: 3, value: 5 });
 
     await pool.query(
       `UPDATE ballet_stats SET stat_value = 99
