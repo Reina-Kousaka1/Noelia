@@ -1,5 +1,10 @@
 export type InventorySource =
-  'SHOP_PURCHASE' | 'BALLET_REWARD' | 'DAILY_REWARD' | 'EVENT_REWARD' | 'ADMIN_GRANT';
+  | 'SHOP_PURCHASE'
+  | 'BALLET_REWARD'
+  | 'DAILY_REWARD'
+  | 'EVENT_REWARD'
+  | 'ADMIN_GRANT'
+  | 'MARKETPLACE';
 
 export interface InventoryEntry {
   readonly itemId: string;

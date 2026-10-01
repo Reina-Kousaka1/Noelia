@@ -5,6 +5,8 @@ import type {
   WalletMutationInput,
   WalletMutationResult,
   WalletSpendReason,
+  WalletTransferInput,
+  WalletTransferResult,
 } from './types.js';
 
 export interface WalletCreditTransactionPort {
@@ -19,4 +21,11 @@ export interface WalletSpendTransactionPort {
     client: PoolClient,
     input: WalletMutationInput & { readonly reason: WalletSpendReason },
   ): Promise<WalletMutationResult>;
+}
+
+export interface WalletTransferTransactionPort {
+  transferWithinTransaction(
+    client: PoolClient,
+    input: WalletTransferInput,
+  ): Promise<WalletTransferResult>;
 }

@@ -21,6 +21,21 @@ export interface WalletMutationInput {
   readonly amount: bigint;
 }
 
+export interface WalletTransferInput {
+  readonly interactionId: string;
+  readonly fromDiscordUserId: string;
+  readonly toDiscordUserId: string;
+  readonly amount: bigint;
+  readonly referenceId: string;
+}
+
+export interface WalletTransferResult {
+  readonly fromBalance: bigint;
+  readonly toBalance: bigint;
+  readonly transactionId: string;
+  readonly replayed: boolean;
+}
+
 export interface WalletMutationResult {
   readonly balance: bigint;
   readonly transactionId: string;

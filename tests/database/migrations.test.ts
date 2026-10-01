@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(6);
+    expect(migrations).toHaveLength(7);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -54,6 +54,16 @@ describe('PostgreSQL migrations', () => {
     });
     expect(migrations[5]?.sql).toContain('CREATE TABLE wardrobe_equipment');
     expect(migrations[5]?.sql).toContain('REFERENCES user_inventory (discord_user_id, item_id)');
+    expect(migrations[6]).toMatchObject({
+      version: 7,
+      name: 'marketplace_escrow',
+    });
+    expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_listings');
+    expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_escrow');
+    expect(migrations[6]?.sql).toContain('original_acquired_at timestamptz NOT NULL');
+    expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
+    expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
+    expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
   });
 
   it('runs each pending migration in a transaction and releases the advisory lock', async () => {
@@ -66,8 +76,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 6,
-      currentVersion: 6,
+      appliedCount: 7,
+      currentVersion: 7,
     });
 
     expect(statements).toContain('BEGIN');
@@ -80,8 +90,13 @@ describe('PostgreSQL migrations', () => {
     expect(statements.some((sql) => sql.includes('CREATE TABLE user_inventory'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE shop_purchases'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE wardrobe_equipment'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE marketplace_listings'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE marketplace_escrow'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE marketplace_sales'))).toBe(true);
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
-    expect(statements.some((sql) => sql.includes('DROP '))).toBe(false);
+    expect(statements.some((sql) => /\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i.test(sql))).toBe(
+      false,
+    );
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [1, 'initial_schema', expect.stringMatching(/^[a-f0-9]{64}$/)],
@@ -105,6 +120,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [6, 'wardrobe_equipment', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [7, 'marketplace_escrow', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

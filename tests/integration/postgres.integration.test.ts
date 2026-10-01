@@ -1,28 +1,55 @@
-import type { Pool } from 'pg';
+import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
+import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BalletService } from '../../src/ballet/ballet-service.js';
 import { BalletActivityLockedError, BalletCooldownError } from '../../src/ballet/errors.js';
 import { PostgresDiscordUserRepository } from '../../src/database/discord-user.repository.js';
-import { runMigrations } from '../../src/database/migrations/runner.js';
-import { withClientTransaction } from '../../src/database/transaction.js';
+import { loadMigrations, runMigrations } from '../../src/database/migrations/runner.js';
+import { withClientTransaction, withTransaction } from '../../src/database/transaction.js';
 import { EconomyService } from '../../src/economy/economy-service.js';
 import { DailyCooldownError } from '../../src/economy/daily-errors.js';
 import { DailyService } from '../../src/economy/daily-service.js';
-import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
+import {
+  IdempotencyConflictError,
+  InsufficientBalletSlippersError,
+} from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
 import { ShopItemAlreadyOwnedError } from '../../src/shop/errors.js';
 import { ShopService } from '../../src/shop/shop-service.js';
 import { InventoryService } from '../../src/inventory/inventory-service.js';
 import { WardrobeItemNotOwnedError } from '../../src/wardrobe/errors.js';
 import { WardrobeService } from '../../src/wardrobe/wardrobe-service.js';
+import {
+  MarketplaceItemEquippedError,
+  MarketplaceItemNotOwnedError,
+  MarketplaceListingUnavailableError,
+  MarketplaceNotSellerError,
+} from '../../src/marketplace/errors.js';
+import { MarketplaceService } from '../../src/marketplace/marketplace-service.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
 
 function testSnowflake(): string {
   const randomHex = randomUUID().replaceAll('-', '').slice(0, 15);
   return (BigInt(`0x${randomHex}`) + 1_000_000_000_000_000_000n).toString();
+}
+
+async function giveStarterBow(pool: Pool, discordUserId: string): Promise<void> {
+  const economy = new EconomyService(pool);
+  await economy.credit({
+    interactionId: testSnowflake(),
+    discordUserId,
+    amount: 80n,
+    reason: 'DAILY_REWARD',
+  });
+  await new ShopService(pool, economy).purchase(
+    testSnowflake(),
+    discordUserId,
+    'satin-ribbon-bow',
+    1,
+  );
 }
 
 integrationDescribe('isolated PostgreSQL integration', () => {
@@ -37,6 +64,46 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await pool?.end();
   });
 
+  it('upgrades a Phase-1 V1–V6 schema to the latest migration without resetting it', async () => {
+    const schemaName = `noelia_upgrade_${randomUUID().replaceAll('-', '')}`;
+    await pool.query(`CREATE SCHEMA ${schemaName}`);
+    const upgradePool = new Pool({
+      connectionString: process.env.NOELIA_TEST_DATABASE_URL,
+      options: `-c search_path=${schemaName}`,
+      max: 2,
+    });
+
+    try {
+      await upgradePool.query(`
+        CREATE TABLE noelia_schema_migrations (
+          version integer PRIMARY KEY CHECK (version > 0),
+          name text NOT NULL,
+          checksum char(64) NOT NULL,
+          applied_at timestamptz NOT NULL DEFAULT now()
+        )
+      `);
+      const migrations = await loadMigrations(resolve(process.cwd(), 'migrations'));
+      for (const migration of migrations.slice(0, 6)) {
+        await withTransaction(upgradePool, async (client) => {
+          await client.query(migration.sql);
+          await client.query(
+            `INSERT INTO noelia_schema_migrations (version, name, checksum)
+             VALUES ($1, $2, $3)`,
+            [migration.version, migration.name, migration.checksum],
+          );
+        });
+      }
+
+      await expect(runMigrations(upgradePool)).resolves.toEqual({
+        appliedCount: 1,
+        currentVersion: 7,
+      });
+    } finally {
+      await upgradePool.end();
+      await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
+    }
+  });
+
   it('applies migrations idempotently and persists Discord user identity', async () => {
     const migrationResult = await runMigrations(pool);
     const repository = new PostgresDiscordUserRepository(pool);
@@ -44,7 +111,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 6 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 7 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -265,5 +332,395 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       slots: ['hair_accessory'],
     });
     await expect(wardrobe.getOutfit(discordUserId)).resolves.toEqual([]);
+  });
+
+  it('escrows a listed item and cancellation restores it exactly once', async () => {
+    const seller = testSnowflake();
+    await giveStarterBow(pool, seller);
+    const originalInventory = await pool.query<{
+      readonly source: string;
+      readonly acquired_at: Date;
+    }>(
+      `SELECT source, acquired_at FROM user_inventory
+       WHERE discord_user_id = $1 AND item_id = 'satin-ribbon-bow'`,
+      [seller],
+    );
+    const market = new MarketplaceService(pool, new EconomyService(pool));
+    const createId = testSnowflake();
+    const listing = await market.createListing(createId, seller, 'satin-ribbon-bow', 1, 125n);
+    const replay = await market.createListing(createId, seller, 'satin-ribbon-bow', 1, 125n);
+
+    expect(listing).toMatchObject({
+      replayed: false,
+      listing: { sellerUserId: seller, itemId: 'satin-ribbon-bow', status: 'ACTIVE' },
+    });
+    expect(replay).toMatchObject({
+      replayed: true,
+      listing: { listingId: listing.listing.listingId },
+    });
+    await expect(
+      market.createListing(createId, seller, 'satin-ribbon-bow', 1, 126n),
+    ).rejects.toBeInstanceOf(IdempotencyConflictError);
+    await expect(
+      market.createListing(testSnowflake(), seller, 'satin-ribbon-bow', 1, 125n),
+    ).rejects.toBeInstanceOf(MarketplaceItemNotOwnedError);
+    await expect(
+      pool.query(`SELECT listing_id FROM marketplace_escrow WHERE listing_id = $1`, [
+        listing.listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    await expect(
+      pool.query(
+        `SELECT quantity FROM user_inventory
+         WHERE discord_user_id = $1 AND item_id = 'satin-ribbon-bow'`,
+        [seller],
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await expect(market.browse(1)).resolves.toMatchObject({
+      totalListings: expect.any(Number),
+      listings: expect.arrayContaining([
+        expect.objectContaining({ listingId: listing.listing.listingId }),
+      ]),
+    });
+    await expect(market.listMine(seller, 1)).resolves.toMatchObject({
+      listings: [expect.objectContaining({ status: 'ACTIVE' })],
+    });
+
+    const cancelId = testSnowflake();
+    await expect(market.cancel(cancelId, seller, listing.listing.listingId)).resolves.toMatchObject(
+      {
+        replayed: false,
+        listing: { status: 'CANCELLED' },
+      },
+    );
+    await expect(market.cancel(cancelId, seller, listing.listing.listingId)).resolves.toMatchObject(
+      {
+        replayed: true,
+        listing: { status: 'CANCELLED' },
+      },
+    );
+    await expect(
+      market.buy(testSnowflake(), testSnowflake(), listing.listing.listingId),
+    ).rejects.toBeInstanceOf(MarketplaceListingUnavailableError);
+    await expect(
+      pool.query(
+        `SELECT quantity, source, acquired_at FROM user_inventory
+         WHERE discord_user_id = $1 AND item_id = 'satin-ribbon-bow'`,
+        [seller],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          quantity: 1,
+          source: originalInventory.rows[0]?.source,
+          acquired_at: originalInventory.rows[0]?.acquired_at,
+        },
+      ],
+    });
+    await expect(
+      pool.query(`SELECT listing_id FROM marketplace_escrow WHERE listing_id = $1`, [
+        listing.listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+  });
+
+  it('buys through escrow with two ledger entries and replays without another transfer', async () => {
+    const economy = new EconomyService(pool);
+    const market = new MarketplaceService(pool, economy);
+    const seller = testSnowflake();
+    const buyer = testSnowflake();
+    await giveStarterBow(pool, seller);
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId: buyer,
+      amount: 200n,
+      reason: 'DAILY_REWARD',
+    });
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      seller,
+      'satin-ribbon-bow',
+      1,
+      125n,
+    );
+    const interactionId = testSnowflake();
+
+    const purchase = await market.buy(interactionId, buyer, listing.listingId);
+    const replay = await market.buy(interactionId, buyer, listing.listingId);
+
+    expect(purchase).toMatchObject({
+      totalPrice: 125n,
+      buyerBalance: 75n,
+      sellerBalance: 125n,
+      replayed: false,
+      listing: { status: 'SOLD' },
+    });
+    await expect(
+      market.buy(testSnowflake(), testSnowflake(), listing.listingId),
+    ).rejects.toBeInstanceOf(MarketplaceListingUnavailableError);
+    expect(replay).toMatchObject({
+      totalPrice: 125n,
+      buyerBalance: 75n,
+      sellerBalance: 125n,
+      replayed: true,
+      listing: { status: 'SOLD' },
+    });
+    await expect(economy.getBalance(buyer)).resolves.toBe(75n);
+    await expect(economy.getBalance(seller)).resolves.toBe(125n);
+    await expect(
+      pool.query(
+        `SELECT amount_delta FROM wallet_ledger
+         WHERE transaction_id = (
+           SELECT wallet_transaction_id FROM marketplace_sales WHERE interaction_id = $1
+         )
+         ORDER BY amount_delta::bigint`,
+        [interactionId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ amount_delta: '-125' }, { amount_delta: '125' }] });
+    await expect(
+      pool.query(
+        `SELECT quantity, source FROM user_inventory
+         WHERE discord_user_id = $1 AND item_id = 'satin-ribbon-bow'`,
+        [buyer],
+      ),
+    ).resolves.toMatchObject({ rows: [{ quantity: 1, source: 'MARKETPLACE' }] });
+    await expect(
+      pool.query(`SELECT listing_id FROM marketplace_escrow WHERE listing_id = $1`, [
+        listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+  });
+
+  it('rejects self-purchases, non-seller cancellation, and insufficient balances without consuming escrow', async () => {
+    const seller = testSnowflake();
+    const otherUser = testSnowflake();
+    await giveStarterBow(pool, seller);
+    const market = new MarketplaceService(pool, new EconomyService(pool));
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      seller,
+      'satin-ribbon-bow',
+      1,
+      125n,
+    );
+
+    await expect(market.buy(testSnowflake(), seller, listing.listingId)).rejects.toThrow(
+      'You cannot buy your own listing.',
+    );
+    await expect(
+      market.cancel(testSnowflake(), otherUser, listing.listingId),
+    ).rejects.toBeInstanceOf(MarketplaceNotSellerError);
+    const insufficientInteraction = testSnowflake();
+    await expect(
+      market.buy(insufficientInteraction, otherUser, listing.listingId),
+    ).rejects.toBeInstanceOf(InsufficientBalletSlippersError);
+    await expect(market.browse(1)).resolves.toMatchObject({
+      listings: [expect.objectContaining({ listingId: listing.listingId, status: 'ACTIVE' })],
+    });
+    await expect(
+      pool.query(`SELECT listing_id FROM marketplace_escrow WHERE listing_id = $1`, [
+        listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    await expect(
+      pool.query(
+        `SELECT count(*)::int AS total FROM marketplace_requests WHERE interaction_id = $1`,
+        [insufficientInteraction],
+      ),
+    ).resolves.toMatchObject({ rows: [{ total: 0 }] });
+  });
+
+  it('serializes concurrent buyers so exactly one receives the escrowed item', async () => {
+    const economy = new EconomyService(pool);
+    const market = new MarketplaceService(pool, economy);
+    const seller = testSnowflake();
+    const buyerOne = testSnowflake();
+    const buyerTwo = testSnowflake();
+    await giveStarterBow(pool, seller);
+    for (const buyer of [buyerOne, buyerTwo]) {
+      await economy.credit({
+        interactionId: testSnowflake(),
+        discordUserId: buyer,
+        amount: 200n,
+        reason: 'DAILY_REWARD',
+      });
+    }
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      seller,
+      'satin-ribbon-bow',
+      1,
+      125n,
+    );
+
+    const results = await Promise.allSettled([
+      market.buy(testSnowflake(), buyerOne, listing.listingId),
+      market.buy(testSnowflake(), buyerTwo, listing.listingId),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+    await expect(
+      pool.query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM marketplace_sales WHERE listing_id = $1`,
+        [listing.listingId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ total: 1 }] });
+    await expect(
+      pool.query<{ total: number }>(
+        `SELECT count(*)::int AS total FROM user_inventory
+         WHERE item_id = 'satin-ribbon-bow' AND discord_user_id = ANY($1::text[])`,
+        [[buyerOne, buyerTwo]],
+      ),
+    ).resolves.toMatchObject({ rows: [{ total: 1 }] });
+    await expect(new EconomyService(pool).getBalance(seller)).resolves.toBe(125n);
+  });
+
+  it('serializes equip versus sell and never leaves an equipped item in escrow', async () => {
+    const seller = testSnowflake();
+    await giveStarterBow(pool, seller);
+    const market = new MarketplaceService(pool, new EconomyService(pool));
+    const wardrobe = new WardrobeService(pool);
+
+    const results = await Promise.allSettled([
+      market.createListing(testSnowflake(), seller, 'satin-ribbon-bow', 1, 125n),
+      wardrobe.equip(seller, 'satin-ribbon-bow'),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+
+    const escrow = await pool.query<{ readonly listing_id: string }>(
+      `SELECT listing_id FROM marketplace_escrow
+       WHERE item_id = 'satin-ribbon-bow'
+         AND seller_user_id = $1`,
+      [seller],
+    );
+    const equipped = await wardrobe.getOutfit(seller);
+    expect(escrow.rows.length + equipped.length).toBe(1);
+    if (escrow.rows.length > 0) {
+      expect(equipped).toEqual([]);
+      expect(results[0]?.status).toBe('fulfilled');
+      expect(results[1]?.status).toBe('rejected');
+    } else {
+      expect(equipped).toHaveLength(1);
+      expect(results[1]?.status).toBe('fulfilled');
+      expect(results[0]).toMatchObject({
+        status: 'rejected',
+        reason: expect.any(MarketplaceItemEquippedError),
+      });
+    }
+  });
+
+  it('serializes a cancellation race against purchase into exactly one final state', async () => {
+    const economy = new EconomyService(pool);
+    const market = new MarketplaceService(pool, economy);
+    const seller = testSnowflake();
+    const buyer = testSnowflake();
+    await giveStarterBow(pool, seller);
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId: buyer,
+      amount: 200n,
+      reason: 'DAILY_REWARD',
+    });
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      seller,
+      'satin-ribbon-bow',
+      1,
+      125n,
+    );
+
+    const results = await Promise.allSettled([
+      market.cancel(testSnowflake(), seller, listing.listingId),
+      market.buy(testSnowflake(), buyer, listing.listingId),
+    ]);
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const state = await pool.query<{ readonly status: string }>(
+      `SELECT status FROM marketplace_listings WHERE listing_id = $1`,
+      [listing.listingId],
+    );
+    const status = state.rows[0]?.status;
+    expect(['SOLD', 'CANCELLED']).toContain(status);
+    await expect(
+      pool.query(`SELECT listing_id FROM marketplace_escrow WHERE listing_id = $1`, [
+        listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    if (status === 'CANCELLED') {
+      await expect(new EconomyService(pool).getBalance(buyer)).resolves.toBe(200n);
+      await expect(
+        pool.query(
+          `SELECT quantity FROM user_inventory
+           WHERE discord_user_id = $1 AND item_id = 'satin-ribbon-bow'`,
+          [seller],
+        ),
+      ).resolves.toMatchObject({ rows: [{ quantity: 1 }] });
+    } else {
+      await expect(new EconomyService(pool).getBalance(buyer)).resolves.toBe(75n);
+    }
+  });
+
+  it('rolls wallet, inventory, escrow, sale status, and idempotency back after a late DB failure', async () => {
+    const economy = new EconomyService(pool);
+    const market = new MarketplaceService(pool, economy);
+    const seller = testSnowflake();
+    const buyer = testSnowflake();
+    await giveStarterBow(pool, seller);
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId: buyer,
+      amount: 200n,
+      reason: 'DAILY_REWARD',
+    });
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      seller,
+      'satin-ribbon-bow',
+      1,
+      125n,
+    );
+    const interactionId = testSnowflake();
+    await pool.query(`
+      CREATE FUNCTION noelia_test_reject_marketplace_sale()
+      RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN
+        RAISE EXCEPTION 'injected marketplace sale failure';
+      END;
+      $$
+    `);
+    await pool.query(`
+      CREATE TRIGGER noelia_test_reject_marketplace_sale
+      BEFORE INSERT ON marketplace_sales
+      FOR EACH ROW EXECUTE FUNCTION noelia_test_reject_marketplace_sale()
+    `);
+
+    try {
+      await expect(market.buy(interactionId, buyer, listing.listingId)).rejects.toThrow(
+        'injected marketplace sale failure',
+      );
+    } finally {
+      await pool.query('DROP TRIGGER noelia_test_reject_marketplace_sale ON marketplace_sales');
+      await pool.query('DROP FUNCTION noelia_test_reject_marketplace_sale()');
+    }
+
+    await expect(economy.getBalance(buyer)).resolves.toBe(200n);
+    await expect(economy.getBalance(seller)).resolves.toBe(0n);
+    await expect(
+      pool.query(`SELECT status FROM marketplace_listings WHERE listing_id = $1`, [
+        listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rows: [{ status: 'ACTIVE' }] });
+    await expect(
+      pool.query(`SELECT listing_id FROM marketplace_escrow WHERE listing_id = $1`, [
+        listing.listingId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 1 });
+    await expect(
+      pool.query(`SELECT interaction_id FROM marketplace_requests WHERE interaction_id = $1`, [
+        interactionId,
+      ]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await expect(
+      pool.query(`SELECT id FROM wallet_transactions WHERE idempotency_key = $1`, [interactionId]),
+    ).resolves.toMatchObject({ rowCount: 0 });
   });
 });
