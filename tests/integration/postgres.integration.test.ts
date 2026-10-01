@@ -23,8 +23,13 @@ import { createIsolatedTestPool } from '../support/test-database.js';
 import { ShopItemAlreadyOwnedError } from '../../src/shop/errors.js';
 import { ShopService } from '../../src/shop/shop-service.js';
 import { InventoryService } from '../../src/inventory/inventory-service.js';
-import { WardrobeItemNotOwnedError } from '../../src/wardrobe/errors.js';
+import {
+  WardrobeItemNotOwnedError,
+  WardrobePresetItemsUnavailableError,
+  WardrobePresetNameTakenError,
+} from '../../src/wardrobe/errors.js';
 import { WardrobeService } from '../../src/wardrobe/wardrobe-service.js';
+import { WardrobePresetService } from '../../src/wardrobe/preset-service.js';
 import {
   MarketplaceItemEquippedError,
   MarketplaceItemNotOwnedError,
@@ -129,8 +134,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 4,
-        currentVersion: 10,
+        appliedCount: 5,
+        currentVersion: 11,
       });
       await expect(
         upgradePool.query(
@@ -158,7 +163,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 10 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 11 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -600,6 +605,111 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       slots: ['hair_accessory'],
     });
     await expect(wardrobe.getOutfit(discordUserId)).resolves.toEqual([]);
+  });
+
+  it('saves, replays, applies, and removes wardrobe presets without bypassing marketplace escrow', async () => {
+    const economy = new EconomyService(pool);
+    const shop = new ShopService(pool, economy);
+    const wardrobe = new WardrobeService(pool);
+    const presets = new WardrobePresetService(pool);
+    const market = new MarketplaceService(pool, economy);
+    const discordUserId = testSnowflake();
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 500n,
+      reason: 'DAILY_REWARD',
+    });
+    await shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1);
+    await shop.purchase(testSnowflake(), discordUserId, 'petal-practice-leotard', 1);
+    await wardrobe.equip(discordUserId, 'satin-ribbon-bow');
+
+    const createId = testSnowflake();
+    const created = await presets.createPreset(createId, discordUserId, 'Training');
+    const replayedCreate = await presets.createPreset(createId, discordUserId, 'Training');
+    expect(created).toMatchObject({ replayed: false, name: 'Training', itemCount: 1 });
+    expect(replayedCreate).toMatchObject({ ...created, replayed: true });
+    await expect(
+      presets.createPreset(testSnowflake(), discordUserId, ' training '),
+    ).rejects.toBeInstanceOf(WardrobePresetNameTakenError);
+
+    await wardrobe.equip(discordUserId, 'petal-practice-leotard');
+    const saveId = testSnowflake();
+    await expect(
+      presets.savePreset(saveId, discordUserId, created.presetId),
+    ).resolves.toMatchObject({
+      replayed: false,
+      itemCount: 2,
+    });
+    await expect(
+      presets.savePreset(saveId, discordUserId, created.presetId),
+    ).resolves.toMatchObject({
+      replayed: true,
+      itemCount: 2,
+    });
+
+    const clearId = testSnowflake();
+    await expect(presets.clear(clearId, discordUserId)).resolves.toEqual({
+      removedItemCount: 2,
+      replayed: false,
+    });
+    await expect(presets.clear(clearId, discordUserId)).resolves.toEqual({
+      removedItemCount: 2,
+      replayed: true,
+    });
+
+    const applyId = testSnowflake();
+    const applied = await presets.applyPreset(applyId, discordUserId, created.presetId);
+    expect(applied).toMatchObject({
+      replayed: false,
+      outfit: expect.arrayContaining([
+        expect.objectContaining({ itemId: 'satin-ribbon-bow' }),
+        expect.objectContaining({ itemId: 'petal-practice-leotard' }),
+      ]),
+    });
+    await expect(
+      presets.applyPreset(applyId, discordUserId, created.presetId),
+    ).resolves.toMatchObject({
+      replayed: true,
+      outfit: applied.outfit,
+    });
+
+    await presets.clear(testSnowflake(), discordUserId);
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      discordUserId,
+      'satin-ribbon-bow',
+      1,
+      100n,
+    );
+    await expect(
+      presets.applyPreset(testSnowflake(), discordUserId, created.presetId),
+    ).rejects.toBeInstanceOf(WardrobePresetItemsUnavailableError);
+    await expect(wardrobe.getOutfit(discordUserId)).resolves.toEqual([]);
+    await market.cancel(testSnowflake(), discordUserId, listing.listingId);
+
+    await expect(
+      presets.applyPreset(testSnowflake(), discordUserId, created.presetId),
+    ).resolves.toMatchObject({
+      outfit: expect.arrayContaining([
+        expect.objectContaining({ itemId: 'satin-ribbon-bow' }),
+        expect.objectContaining({ itemId: 'petal-practice-leotard' }),
+      ]),
+    });
+    const renamed = await presets.renamePreset(
+      testSnowflake(),
+      discordUserId,
+      created.presetId,
+      'Recital Look',
+    );
+    expect(renamed).toMatchObject({ name: 'Recital Look', itemCount: 2 });
+    await expect(presets.listPresets(discordUserId)).resolves.toContainEqual(
+      expect.objectContaining({ presetId: created.presetId, name: 'Recital Look', itemCount: 2 }),
+    );
+    await expect(
+      presets.deletePreset(testSnowflake(), discordUserId, created.presetId),
+    ).resolves.toMatchObject({ name: 'Recital Look', itemCount: 2, replayed: false });
+    await expect(presets.listPresets(discordUserId)).resolves.toEqual([]);
   });
 
   it('escrows a listed item and cancellation restores it exactly once', async () => {

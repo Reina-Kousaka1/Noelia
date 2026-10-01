@@ -8,6 +8,7 @@ import type { ProfilePort } from '../profile/types.js';
 import type { MarketplacePort } from '../marketplace/types.js';
 import type { PerformancePort } from '../performance/types.js';
 import type { CollectionPort } from '../collections/types.js';
+import type { WardrobePresetPort } from '../wardrobe/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -34,6 +35,7 @@ export interface CommandServices {
   readonly marketplace?: MarketplacePort;
   readonly performances?: PerformancePort;
   readonly collections?: CollectionPort;
+  readonly wardrobePresets?: WardrobePresetPort;
 }
 
 export interface SlashCommand {

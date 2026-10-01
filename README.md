@@ -12,7 +12,7 @@ Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, levelled Ballet practice with six
 persistent capped stats, and a curated 62-item shop with transactional purchases
 and persistent inventory are active. Inventory pages and a persistent,
-ownership-checked wardrobe are also available, and `/profile` aggregates
+ownership-checked wardrobe with saved outfit presets are also available, and `/profile` aggregates
 wallet, Ballet progress, and equipped look. `/market` uses the existing Ballet Slippers wallet and ledger; listings
 hold items in PostgreSQL escrow and use idempotency and row locks to protect
 concurrent purchases. Only listing sellers can cancel their own listings.
@@ -109,7 +109,7 @@ The moderation domain currently contains only a transport-independent case
 draft and input policy; it does not perform moderation actions or persist cases.
 Marketplace invariants and transaction behavior are documented in
 `docs/architecture/marketplace.md`, `docs/architecture/performance.md`, and
-`docs/architecture/catalog.md`.
+`docs/architecture/catalog.md`, and `docs/architecture/wardrobe.md`.
 
 ## PostgreSQL safety
 
@@ -121,12 +121,14 @@ catalog and progression history, V5 adds the curated shop catalog, persistent
 inventory, and immutable purchase history, V6 adds the persistent wardrobe
 equipment slots, V7 adds marketplace listings, escrow, idempotency records, and
 immutable sale history, V8 adds six Ballet stats, activity requirements, and
-six more data-defined activities, V9 adds deterministic performances, and V10
+six more data-defined activities, V9 adds deterministic performances, V10
 adds normalized collection membership and expands the curated catalog to 62
-original pieces. Rarity controls presentation only; collections grant no
+original pieces, and V11 adds persistent, idempotent outfit presets. Rarity
+controls presentation only; collections grant no
 automatic currency or gameplay bonuses. Purchases atomically check eligibility and balance, debit the wallet, add
-inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, and unequip; only owned items may
-be equipped, and metadata can make a costume occupy multiple slots. Economy,
+inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, unequip, clear, and persistent outfit presets. Only owned items may
+be equipped; preset application rechecks ownership, including marketplace
+escrow, and metadata can make a costume occupy multiple slots. Economy,
 practice rewards, and shop purchases use PostgreSQL transactions and row locks
 to prevent negative balances or duplicate rewards during concurrent actions.
 Daily reward amount is centrally configured in `src/config/gameplay.ts`

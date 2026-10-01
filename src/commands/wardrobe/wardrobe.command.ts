@@ -52,6 +52,94 @@ export const wardrobeCommand: SlashCommand = {
           },
         ],
       },
+      {
+        name: 'clear',
+        description: 'Remove every item from your current outfit.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+      },
+      {
+        name: 'presets',
+        description: 'Create, save, apply, rename, and delete outfit presets.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP,
+        options: [
+          {
+            name: 'list',
+            description: 'List your saved outfit presets.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+          },
+          {
+            name: 'create',
+            description: 'Save your current outfit as a new preset.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+            options: [
+              {
+                name: 'name',
+                description: 'Preset name (1–32 characters).',
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                required: true,
+              },
+            ],
+          },
+          {
+            name: 'save',
+            description: 'Replace a preset with your current outfit.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+            options: [
+              {
+                name: 'preset',
+                description: 'Preset ID shown by /wardrobe presets list.',
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                required: true,
+              },
+            ],
+          },
+          {
+            name: 'apply',
+            description: 'Wear a saved outfit preset.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+            options: [
+              {
+                name: 'preset',
+                description: 'Preset ID shown by /wardrobe presets list.',
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                required: true,
+              },
+            ],
+          },
+          {
+            name: 'rename',
+            description: 'Rename one of your presets.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+            options: [
+              {
+                name: 'preset',
+                description: 'Preset ID shown by /wardrobe presets list.',
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                required: true,
+              },
+              {
+                name: 'name',
+                description: 'New preset name (1–32 characters).',
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                required: true,
+              },
+            ],
+          },
+          {
+            name: 'delete',
+            description: 'Delete one of your saved presets.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+            options: [
+              {
+                name: 'preset',
+                description: 'Preset ID shown by /wardrobe presets list.',
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                required: true,
+              },
+            ],
+          },
+        ],
+      },
     ],
   },
   async execute({ interaction, services }) {
@@ -67,7 +155,12 @@ export const wardrobeCommand: SlashCommand = {
       throw new Error('The wardrobe command requires a subcommand.');
     }
 
-    const options = 'options' in subcommand ? subcommand.options : undefined;
+    const action =
+      subcommand.type === Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP
+        ? subcommand.options?.[0]
+        : subcommand;
+    if (action === undefined) throw new Error('The wardrobe preset group requires an action.');
+    const options = 'options' in action ? action.options : undefined;
     const readString = (name: string): string | undefined => {
       const option = options?.find((candidate) => candidate.name === name);
       return option !== undefined && 'value' in option && typeof option.value === 'string'
@@ -76,7 +169,7 @@ export const wardrobeCommand: SlashCommand = {
     };
     await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
 
-    if (subcommand.name === 'view') {
+    if (action.name === 'view') {
       const outfit = await services.wardrobe.getOutfit(discordUserId);
       const lines = outfit.map(
         (entry) =>
@@ -96,7 +189,7 @@ export const wardrobeCommand: SlashCommand = {
       return;
     }
 
-    if (subcommand.name === 'equip') {
+    if (action.name === 'equip') {
       const itemId = readString('item');
 
       if (itemId === undefined) {
@@ -120,7 +213,7 @@ export const wardrobeCommand: SlashCommand = {
       return;
     }
 
-    if (subcommand.name === 'unequip') {
+    if (action.name === 'unequip') {
       const slot = readString('slot');
 
       if (slot === undefined) {
@@ -141,6 +234,138 @@ export const wardrobeCommand: SlashCommand = {
         ],
       });
       return;
+    }
+
+    if (action.name === 'clear') {
+      const presets = services.wardrobePresets;
+      if (presets === undefined) throw new Error('The wardrobe preset service is not configured.');
+      const result = await presets.clear(interaction.id, discordUserId);
+      await interaction.createFollowup({
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.wardrobeCleared,
+            description: result.replayed
+              ? NOELIA_COPY.wardrobeClearReplay
+              : NOELIA_COPY.wardrobeClearRemoved(result.removedItemCount),
+            tone: result.replayed ? 'signature' : 'success',
+          }),
+        ],
+      });
+      return;
+    }
+
+    if (subcommand.name === 'presets') {
+      const presets = services.wardrobePresets;
+      if (presets === undefined) throw new Error('The wardrobe preset service is not configured.');
+
+      if (action.name === 'list') {
+        const saved = await presets.listPresets(discordUserId);
+        const lines = saved.map((preset) =>
+          NOELIA_COPY.wardrobePresetListEntry(preset.presetId, preset.name, preset.itemCount),
+        );
+        await interaction.createFollowup({
+          embeds: [
+            createNoeliaEmbed({
+              title: NOELIA_COPY.wardrobePresetsTitle,
+              description: lines.length === 0 ? NOELIA_COPY.wardrobePresetsEmpty : lines.join('\n'),
+            }),
+          ],
+        });
+        return;
+      }
+
+      if (action.name === 'create') {
+        const name = readString('name');
+        if (name === undefined) throw new Error('The wardrobe preset name is missing.');
+        const result = await presets.createPreset(interaction.id, discordUserId, name);
+        await interaction.createFollowup({
+          embeds: [
+            createNoeliaEmbed({
+              title: NOELIA_COPY.wardrobePresetSaved,
+              description: NOELIA_COPY.wardrobePresetSummary(
+                result.presetId,
+                result.name,
+                result.itemCount,
+                result.replayed,
+              ),
+              tone: result.replayed ? 'signature' : 'success',
+            }),
+          ],
+        });
+        return;
+      }
+
+      const presetId = readString('preset');
+      if (presetId === undefined) throw new Error('The wardrobe preset ID is missing.');
+
+      if (action.name === 'save') {
+        const result = await presets.savePreset(interaction.id, discordUserId, presetId);
+        await interaction.createFollowup({
+          embeds: [
+            createNoeliaEmbed({
+              title: NOELIA_COPY.wardrobePresetSaved,
+              description: NOELIA_COPY.wardrobePresetSummary(
+                result.presetId,
+                result.name,
+                result.itemCount,
+                result.replayed,
+              ),
+              tone: result.replayed ? 'signature' : 'success',
+            }),
+          ],
+        });
+        return;
+      }
+
+      if (action.name === 'apply') {
+        const result = await presets.applyPreset(interaction.id, discordUserId, presetId);
+        const items = result.outfit.map((item) => item.displayName).join(', ');
+        await interaction.createFollowup({
+          embeds: [
+            createNoeliaEmbed({
+              title: NOELIA_COPY.wardrobePresetApplied,
+              description: NOELIA_COPY.wardrobePresetAppliedSummary(
+                result.presetId,
+                result.name,
+                items,
+                result.replayed,
+              ),
+              tone: result.replayed ? 'signature' : 'success',
+            }),
+          ],
+        });
+        return;
+      }
+
+      if (action.name === 'rename') {
+        const name = readString('name');
+        if (name === undefined) throw new Error('The new wardrobe preset name is missing.');
+        const result = await presets.renamePreset(interaction.id, discordUserId, presetId, name);
+        await interaction.createFollowup({
+          embeds: [
+            createNoeliaEmbed({
+              title: NOELIA_COPY.wardrobePresetRenamed,
+              description: NOELIA_COPY.wardrobePresetRenameSummary(result.presetId, result.name),
+              tone: result.replayed ? 'signature' : 'success',
+            }),
+          ],
+        });
+        return;
+      }
+
+      if (action.name === 'delete') {
+        const result = await presets.deletePreset(interaction.id, discordUserId, presetId);
+        await interaction.createFollowup({
+          embeds: [
+            createNoeliaEmbed({
+              title: NOELIA_COPY.wardrobePresetDeleted,
+              description: NOELIA_COPY.wardrobePresetDeleteSummary(result.presetId, result.name),
+              tone: 'success',
+            }),
+          ],
+        });
+        return;
+      }
     }
 
     throw new Error('Unsupported wardrobe subcommand.');

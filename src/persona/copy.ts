@@ -34,6 +34,29 @@ export const NOELIA_COPY = {
   performanceHistoryEmpty: 'Your stage history is waiting for its first performance.',
   shopCollectionsTitle: 'Ballet collections',
   shopCollectionsEmpty: 'The studio collections are not available just now.',
+  wardrobePresetsTitle: 'Saved studio looks',
+  wardrobePresetsEmpty: 'No outfit presets yet. Save your current outfit to keep a look.',
+  wardrobePresetSaved: 'Your studio look is saved',
+  wardrobePresetApplied: 'Your studio look is ready',
+  wardrobePresetRenamed: 'Your preset has a new name',
+  wardrobePresetDeleted: 'Your preset was removed',
+  wardrobeCleared: 'Your wardrobe is ready for a fresh look',
+  wardrobeClearReplay: 'That wardrobe clear is already recorded.',
+  wardrobeClearRemoved: (count: number) =>
+    `Removed ${count} equipped ${count === 1 ? 'piece' : 'pieces'}.`,
+  wardrobePresetListEntry: (presetId: string, name: string, itemCount: number) =>
+    `#${presetId} **${name}** · ${itemCount} ${itemCount === 1 ? 'piece' : 'pieces'}`,
+  wardrobePresetSummary: (presetId: string, name: string, itemCount: number, replayed: boolean) =>
+    `#${presetId} **${name}** · ${itemCount} ${itemCount === 1 ? 'piece' : 'pieces'}${replayed ? ' · already saved' : ''}`,
+  wardrobePresetAppliedSummary: (
+    presetId: string,
+    name: string,
+    itemNames: string,
+    replayed: boolean,
+  ) =>
+    `#${presetId} **${name}**\n${itemNames}${replayed ? '\nThat look was already applied.' : ''}`,
+  wardrobePresetRenameSummary: (presetId: string, name: string) => `#${presetId} **${name}**`,
+  wardrobePresetDeleteSummary: (presetId: string, name: string) => `#${presetId} **${name}**`,
   currentLook: 'Current look',
 } as const;
 

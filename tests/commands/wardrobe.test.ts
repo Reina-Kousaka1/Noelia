@@ -8,6 +8,7 @@ function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
   const createFollowup = vi.fn().mockResolvedValue(undefined);
   const interaction = {
+    id: '111111111111111111',
     member: { id: '222222222222222222' },
     data: { options },
     defer,
@@ -25,22 +26,47 @@ function createServices() {
     shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+    wardrobePresets: {
+      clear: vi.fn(),
+      listPresets: vi.fn(),
+      createPreset: vi.fn(),
+      savePreset: vi.fn(),
+      applyPreset: vi.fn(),
+      renamePreset: vi.fn(),
+      deletePreset: vi.fn(),
+    },
     profile: { getProfile: vi.fn() },
   };
 }
 
 describe('wardrobe command', () => {
-  it('defines view, equip, and unequip subcommands', () => {
+  it('defines outfit clearing and a grouped outfit preset flow', () => {
     expect(wardrobeCommand.definition.options?.map((option) => option.name)).toEqual([
       'view',
       'equip',
       'unequip',
+      'clear',
+      'presets',
     ]);
     const equip = wardrobeCommand.definition.options?.find((option) => option.name === 'equip');
     if (equip?.type === Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND) {
       expect(equip.options?.[0]).not.toHaveProperty('choices');
     } else {
       throw new Error('The equip command must be a slash subcommand.');
+    }
+
+    const presets = wardrobeCommand.definition.options?.find((option) => option.name === 'presets');
+    if (presets?.type === Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP) {
+      expect(presets.options?.map((option) => option.name)).toEqual([
+        'list',
+        'create',
+        'save',
+        'apply',
+        'rename',
+        'delete',
+      ]);
+    } else {
+      throw new Error('Presets must be a grouped slash command.');
     }
   });
 
@@ -142,6 +168,77 @@ describe('wardrobe command', () => {
         expect.objectContaining({
           title: NOELIA_COPY.wardrobeTitle,
           description: 'Removed **Ivory Wrap Cardigan** from outerwear, wrap.',
+        }),
+      ],
+    });
+  });
+
+  it('clears the current outfit with the interaction ID as its idempotency key', async () => {
+    const { interaction, createFollowup } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'clear',
+      },
+    ]);
+    const services = createServices();
+    services.wardrobePresets.clear.mockResolvedValue({ removedItemCount: 2, replayed: false });
+
+    await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.wardrobePresets.clear).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+    );
+    expect(createFollowup).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.wardrobeCleared,
+          description: 'Removed 2 equipped pieces.',
+        }),
+      ],
+    });
+  });
+
+  it('routes nested preset create interactions into the preset domain', async () => {
+    const { interaction, createFollowup } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP,
+        name: 'presets',
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+            name: 'create',
+            options: [
+              {
+                type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+                name: 'name',
+                value: 'Training',
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    const services = createServices();
+    services.wardrobePresets.createPreset.mockResolvedValue({
+      presetId: '7',
+      name: 'Training',
+      itemCount: 2,
+      replayed: false,
+    });
+
+    await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.wardrobePresets.createPreset).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+      'Training',
+    );
+    expect(createFollowup).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.wardrobePresetSaved,
+          description: expect.stringContaining('#7 **Training**'),
         }),
       ],
     });
