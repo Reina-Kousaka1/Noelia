@@ -155,8 +155,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 11,
-        currentVersion: 17,
+        appliedCount: 12,
+        currentVersion: 18,
       });
       await expect(
         upgradePool.query(
@@ -184,7 +184,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 17 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 18 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -379,7 +379,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const memberships = new Set(
       membershipRows.rows.map((row) => `${row.item_id}:${row.collection_id}`),
     );
-    expect(membershipRows.rows).toHaveLength(128);
+    expect(membershipRows.rows).toHaveLength(98);
     for (const item of catalog.rows) {
       expect(SHOP_CATEGORIES).toContain(item.category);
       expect(SHOP_RARITIES).toContain(item.rarity);
@@ -809,6 +809,12 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       ballet.practice(testSnowflake(), discordUserId, 'pointe-practice'),
     ).rejects.toMatchObject({ requirement: 'STATS' });
     await pool.query(
+      `INSERT INTO ballet_stats (discord_user_id, stat_key)
+       VALUES ($1, 'technique')
+       ON CONFLICT (discord_user_id, stat_key) DO NOTHING`,
+      [discordUserId],
+    );
+    await pool.query(
       `UPDATE ballet_stats SET stat_value = 9
        WHERE discord_user_id = $1 AND stat_key = 'technique'`,
       [discordUserId],
@@ -1088,6 +1094,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       amount: 1_000n,
       reason: 'DAILY_REWARD',
     });
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 600, 3)`,
+      [discordUserId],
+    );
 
     const purchaseInteractionId = testSnowflake();
     const purchase = await shop.purchase(
