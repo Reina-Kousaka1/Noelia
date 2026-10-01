@@ -41,7 +41,7 @@ async function main(): Promise<void> {
       provider: 'postgresql',
     });
 
-    runtime = createDiscordRuntime(config, logger);
+    runtime = createDiscordRuntime(config, logger, pool);
 
     const shutdown = (signal?: NodeJS.Signals): Promise<void> => {
       if (shutdownPromise !== undefined) {

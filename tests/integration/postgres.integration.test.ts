@@ -1,12 +1,20 @@
 import type { Pool } from 'pg';
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { PostgresDiscordUserRepository } from '../../src/database/discord-user.repository.js';
 import { runMigrations } from '../../src/database/migrations/runner.js';
 import { withClientTransaction } from '../../src/database/transaction.js';
+import { EconomyService } from '../../src/economy/economy-service.js';
+import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
+
+function testSnowflake(): string {
+  const randomHex = randomUUID().replaceAll('-', '').slice(0, 15);
+  return (BigInt(`0x${randomHex}`) + 1_000_000_000_000_000_000n).toString();
+}
 
 integrationDescribe('isolated PostgreSQL integration', () => {
   let pool: Pool;
@@ -27,7 +35,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 1 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 2 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -51,5 +59,67 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     } finally {
       client.release();
     }
+  });
+
+  it('serializes concurrent spending so a wallet never becomes negative', async () => {
+    const service = new EconomyService(pool);
+    const discordUserId = testSnowflake();
+
+    await service.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 100n,
+      reason: 'DAILY_REWARD',
+    });
+
+    const spendResults = await Promise.allSettled([
+      service.spend({
+        interactionId: testSnowflake(),
+        discordUserId,
+        amount: 80n,
+        reason: 'SHOP_PURCHASE',
+      }),
+      service.spend({
+        interactionId: testSnowflake(),
+        discordUserId,
+        amount: 80n,
+        reason: 'SHOP_PURCHASE',
+      }),
+    ]);
+
+    expect(spendResults.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    const rejected = spendResults.find((result) => result.status === 'rejected');
+    expect(rejected).toMatchObject({
+      status: 'rejected',
+      reason: expect.any(InsufficientBalletSlippersError),
+    });
+    await expect(service.getBalance(discordUserId)).resolves.toBe(20n);
+    await expect(service.getLedger(discordUserId)).resolves.toHaveLength(2);
+  });
+
+  it('rolls back wallet, idempotency, and ledger writes with the caller transaction', async () => {
+    const service = new EconomyService(pool);
+    const discordUserId = testSnowflake();
+    const client = await pool.connect();
+    const failure = new Error('expected economy rollback');
+
+    try {
+      await expect(
+        withClientTransaction(client, async (transactionClient) => {
+          await service.creditWithinTransaction(transactionClient, {
+            interactionId: testSnowflake(),
+            discordUserId,
+            amount: 300n,
+            reason: 'BALLET_ACTIVITY',
+          });
+          throw failure;
+        }),
+      ).rejects.toBe(failure);
+    } finally {
+      client.release();
+    }
+
+    await expect(service.getBalance(discordUserId)).resolves.toBe(0n);
+    await expect(service.getLedger(discordUserId)).resolves.toHaveLength(0);
   });
 });

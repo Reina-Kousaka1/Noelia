@@ -2,6 +2,7 @@ import * as Eris from 'eris';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { SlashCommand } from '../../src/commands/command.js';
+import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
 import { CommandRegistry } from '../../src/commands/registry.js';
 import { InteractionRouter } from '../../src/interactions/interaction-router.js';
 import { StructuredLogger } from '../../src/infrastructure/logging/logger.js';
@@ -33,11 +34,16 @@ describe('InteractionRouter', () => {
     const command = createCommand(execute);
     const interaction = createInteraction('ping');
     const client = {} as Eris.Client;
-    const router = new InteractionRouter(new CommandRegistry([command]), new StructuredLogger());
+    const services = { economy: { getBalance: vi.fn().mockResolvedValue(0n) } };
+    const router = new InteractionRouter(
+      new CommandRegistry([command]),
+      new StructuredLogger(),
+      services,
+    );
 
     await router.dispatch(interaction, client);
 
-    expect(execute).toHaveBeenCalledWith({ client, interaction });
+    expect(execute).toHaveBeenCalledWith({ client, interaction, services });
     expect(interaction.createMessage).not.toHaveBeenCalled();
   });
 
@@ -47,7 +53,9 @@ describe('InteractionRouter', () => {
     const client = {} as Eris.Client;
     const logger = new StructuredLogger();
     const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
-    const router = new InteractionRouter(new CommandRegistry([command]), logger);
+    const router = new InteractionRouter(new CommandRegistry([command]), logger, {
+      economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+    });
 
     await router.dispatch(interaction, client);
 
@@ -67,7 +75,9 @@ describe('InteractionRouter', () => {
     const interaction = createInteraction('unknown');
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'warn').mockImplementation(() => {});
-    const router = new InteractionRouter(new CommandRegistry([command]), logger);
+    const router = new InteractionRouter(new CommandRegistry([command]), logger, {
+      economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+    });
 
     await router.dispatch(interaction, {} as Eris.Client);
 
@@ -76,5 +86,31 @@ describe('InteractionRouter', () => {
       content: 'That command is not available.',
       flags: Eris.Constants.MessageFlags.EPHEMERAL,
     });
+  });
+
+  it('returns an expected domain error without logging it as an internal failure', async () => {
+    const command = createCommand(
+      vi.fn().mockRejectedValue(new InsufficientBalletSlippersError(5n, 10n)),
+    );
+    const interaction = createInteraction('ping');
+    const logger = new StructuredLogger();
+    const logInfo = vi.spyOn(logger, 'info').mockImplementation(() => {});
+    const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
+    const router = new InteractionRouter(new CommandRegistry([command]), logger, {
+      economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+    });
+
+    await router.dispatch(interaction, {} as Eris.Client);
+
+    expect(interaction.createMessage).toHaveBeenCalledWith({
+      content: 'You need 10 🩰, but have 5 🩰.',
+      flags: Eris.Constants.MessageFlags.EPHEMERAL,
+    });
+    expect(logInfo).toHaveBeenCalledWith('discord.command_rejected', {
+      commandName: 'ping',
+      errorType: 'InsufficientBalletSlippersError',
+      interactionId: 'interaction-id',
+    });
+    expect(logError).not.toHaveBeenCalled();
   });
 });

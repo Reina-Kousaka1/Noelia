@@ -1,6 +1,9 @@
 import * as Eris from 'eris';
+import type { Pool } from 'pg';
 
 import type { AppConfig } from '../config/environment.js';
+import { EconomyService } from '../economy/economy-service.js';
+import { balanceCommand } from '../commands/balance/balance.command.js';
 import { pingCommand } from '../commands/ping/ping.command.js';
 import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
@@ -16,14 +19,17 @@ export type ErisClientFactory = (token: string, options: Eris.ClientOptions) => 
 export function createDiscordRuntime(
   config: AppConfig,
   logger: StructuredLogger,
+  pool: Pool,
   createClient: ErisClientFactory = (token, options) => new Eris.Client(token, options),
 ): DiscordRuntime {
   const client = createClient(config.discord.token, {
     intents: ['guilds'],
     autoreconnect: true,
   });
-  const registry = new CommandRegistry([pingCommand]);
-  const router = new InteractionRouter(registry, logger);
+  const registry = new CommandRegistry([pingCommand, balanceCommand]);
+  const router = new InteractionRouter(registry, logger, {
+    economy: new EconomyService(pool),
+  });
   let stopping = false;
 
   client.on('ready', () => {

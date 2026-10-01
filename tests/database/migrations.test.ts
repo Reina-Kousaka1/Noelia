@@ -10,13 +10,20 @@ describe('PostgreSQL migrations', () => {
   it('loads the new V1 schema with a SHA-256 checksum', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(1);
+    expect(migrations).toHaveLength(2);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
     });
     expect(migrations[0]?.checksum).toMatch(/^[a-f0-9]{64}$/);
     expect(migrations[0]?.sql).toContain('CREATE TABLE discord_users');
+    expect(migrations[1]).toMatchObject({
+      version: 2,
+      name: 'ballet_slippers_wallet',
+    });
+    expect(migrations[1]?.sql).toContain('CREATE TABLE wallet_ledger');
+    expect(migrations[1]?.sql).toContain('CREATE TRIGGER wallet_ledger_append_only');
+    expect(migrations[1]?.sql).toContain('CREATE TRIGGER wallet_ledger_no_truncate');
   });
 
   it('runs each pending migration in a transaction and releases the advisory lock', async () => {
@@ -29,18 +36,23 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 1,
-      currentVersion: 1,
+      appliedCount: 2,
+      currentVersion: 2,
     });
 
     expect(statements).toContain('BEGIN');
     expect(statements).toContain('COMMIT');
     expect(statements.some((sql) => sql.includes('CREATE TABLE discord_users'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE wallet_ledger'))).toBe(true);
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
     expect(statements.some((sql) => sql.includes('DROP '))).toBe(false);
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [1, 'initial_schema', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [2, 'ballet_slippers_wallet', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

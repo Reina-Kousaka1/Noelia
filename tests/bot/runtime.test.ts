@@ -2,6 +2,8 @@ import * as Eris from 'eris';
 import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { Pool } from 'pg';
+
 import type { AppConfig } from '../../src/config/environment.js';
 import { createDiscordRuntime } from '../../src/bot/runtime.js';
 import { StructuredLogger } from '../../src/infrastructure/logging/logger.js';
@@ -25,10 +27,15 @@ function createFakeClient() {
   return Object.assign(new EventEmitter(), {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
+    user: { username: 'Noelia' },
     getGuildCommands: vi.fn().mockResolvedValue([]),
     createGuildCommand: vi.fn().mockResolvedValue({}),
     editGuildCommand: vi.fn().mockResolvedValue({}),
   }) as unknown as Eris.Client;
+}
+
+function createFakePool(): Pool {
+  return { query: vi.fn(), connect: vi.fn(), end: vi.fn() } as unknown as Pool;
 }
 
 describe('createDiscordRuntime', () => {
@@ -38,7 +45,7 @@ describe('createDiscordRuntime', () => {
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
 
-    const runtime = createDiscordRuntime(config, logger, createClient);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), createClient);
 
     await runtime.start();
     await runtime.stop();
@@ -59,9 +66,25 @@ describe('createDiscordRuntime', () => {
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
 
-    const runtime = createDiscordRuntime(config, logger, () => client);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
 
     await expect(runtime.start()).rejects.toThrow('connection failed');
     expect(client.disconnect).toHaveBeenCalledWith({ reconnect: false });
+  });
+
+  it('registers the balance command without removing other guild commands', async () => {
+    const client = createFakeClient();
+    const logger = new StructuredLogger();
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
+    createDiscordRuntime(config, logger, createFakePool(), () => client);
+
+    client.emit('ready');
+    await vi.waitFor(() => {
+      expect(client.createGuildCommand).toHaveBeenCalledWith(
+        config.discord.guildId,
+        expect.objectContaining({ name: 'balance' }),
+      );
+    });
+    expect(client.getGuildCommands).toHaveBeenCalledWith(config.discord.guildId);
   });
 });
