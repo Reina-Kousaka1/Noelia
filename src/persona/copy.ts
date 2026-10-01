@@ -27,6 +27,11 @@ export const NOELIA_COPY = {
   marketListingCancelled: 'Your piece is back in your wardrobe',
   marketPurchaseComplete: 'A new piece is yours',
   marketPurchaseReplayed: 'That exchange is already recorded',
+  performanceTitle: 'A moment on stage',
+  performanceBrowseTitle: 'Studio performances',
+  performanceHistoryTitle: 'Your performance notes',
+  performanceEmpty: 'No performances are available yet.',
+  performanceHistoryEmpty: 'Your stage history is waiting for its first performance.',
   currentLook: 'Current look',
 } as const;
 

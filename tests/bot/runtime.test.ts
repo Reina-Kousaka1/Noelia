@@ -117,6 +117,10 @@ describe('createDiscordRuntime', () => {
         config.discord.guildId,
         expect.objectContaining({ name: 'market' }),
       );
+      expect(client.createGuildCommand).toHaveBeenCalledWith(
+        config.discord.guildId,
+        expect.objectContaining({ name: 'performance' }),
+      );
     });
     expect(client.editStatus).toHaveBeenCalledWith('online', {
       name: 'At the barre, finding my balance',

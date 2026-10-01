@@ -21,6 +21,8 @@ import { pingCommand } from '../commands/ping/ping.command.js';
 import { createHelpCommand } from '../commands/help/help.command.js';
 import { marketCommand } from '../commands/market/market.command.js';
 import { MarketplaceService } from '../marketplace/marketplace-service.js';
+import { PerformanceService } from '../performance/performance-service.js';
+import { performanceCommand } from '../commands/performance/performance.command.js';
 import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -53,6 +55,7 @@ export function createDiscordRuntime(
   const wardrobe = new WardrobeService(pool);
   const profile = new ProfileService(economy, ballet, wardrobe);
   const marketplace = new MarketplaceService(pool, economy);
+  const performances = new PerformanceService(pool, economy);
   const coreCommands = [
     pingCommand,
     balanceCommand,
@@ -63,6 +66,7 @@ export function createDiscordRuntime(
     wardrobeCommand,
     profileCommand,
     marketCommand,
+    performanceCommand,
   ];
   const registry = new CommandRegistry([...coreCommands, createHelpCommand(coreCommands)]);
   const router = new InteractionRouter(registry, logger, {
@@ -74,6 +78,7 @@ export function createDiscordRuntime(
     wardrobe,
     profile,
     marketplace,
+    performances,
   });
   let stopping = false;
 

@@ -33,6 +33,8 @@ import {
   MarketplaceSelfPurchaseError,
 } from '../../src/marketplace/errors.js';
 import { MarketplaceService } from '../../src/marketplace/marketplace-service.js';
+import { PerformanceService } from '../../src/performance/performance-service.js';
+import { PerformanceCooldownError, PerformanceLockedError } from '../../src/performance/errors.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -69,7 +71,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await pool?.end();
   });
 
-  it('upgrades a Phase-1 V1–V6 schema to the latest migration without resetting it', async () => {
+  it('upgrades a Phase-1 V1-V6 schema to the latest migration without resetting it', async () => {
     const schemaName = `noelia_upgrade_${randomUUID().replaceAll('-', '')}`;
     await pool.query(`CREATE SCHEMA ${schemaName}`);
     const upgradePool = new Pool({
@@ -126,8 +128,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 2,
-        currentVersion: 8,
+        appliedCount: 3,
+        currentVersion: 9,
       });
       await expect(
         upgradePool.query(
@@ -155,7 +157,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 8 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 9 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -376,6 +378,94 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
     await expect(economy.getBalance(discordUserId)).resolves.toBe(10n);
     await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
+  });
+
+  it('records deterministic performances transactionally, replays safely, and enforces cooldowns', async () => {
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const performances = new PerformanceService(pool, economy);
+    const discordUserId = testSnowflake();
+    const interactionId = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [discordUserId]);
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 900, 10)`,
+      [discordUserId],
+    );
+    await pool.query(
+      `INSERT INTO ballet_stats (discord_user_id, stat_key, stat_value) VALUES
+        ($1, 'technique', 50), ($1, 'flexibility', 0), ($1, 'musicality', 70),
+        ($1, 'performance', 80), ($1, 'pointe', 0), ($1, 'stamina', 0)`,
+      [discordUserId],
+    );
+
+    await ballet.practice(testSnowflake(), discordUserId, 'class');
+    await ballet.practice(testSnowflake(), discordUserId, 'rehearsal');
+    await ballet.practice(testSnowflake(), discordUserId, 'performance');
+    const balanceBefore = await economy.getBalance(discordUserId);
+    const progressBefore = await ballet.getProgress(discordUserId);
+    const triggerSuffix = randomUUID().replaceAll('-', '');
+    const functionName = `noelia_test_reject_performance_${triggerSuffix}`;
+    const triggerName = `noelia_test_performance_failure_${triggerSuffix}`;
+    await pool.query(`
+      CREATE FUNCTION ${functionName}() RETURNS trigger LANGUAGE plpgsql AS $$
+      BEGIN RAISE EXCEPTION 'injected Ballet performance failure'; END;
+      $$
+    `);
+    await pool.query(`
+      CREATE TRIGGER ${triggerName}
+      BEFORE INSERT ON ballet_performance_completions
+      FOR EACH ROW EXECUTE FUNCTION ${functionName}()
+    `);
+
+    try {
+      await expect(
+        performances.perform(interactionId, discordUserId, 'spring-recital'),
+      ).rejects.toThrow('injected Ballet performance failure');
+    } finally {
+      await pool.query(`DROP TRIGGER ${triggerName} ON ballet_performance_completions`);
+      await pool.query(`DROP FUNCTION ${functionName}()`);
+    }
+
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(balanceBefore);
+    await expect(ballet.getProgress(discordUserId)).resolves.toMatchObject({
+      totalXp: progressBefore.totalXp,
+    });
+    await expect(
+      pool.query(
+        'SELECT interaction_id FROM ballet_performance_completions WHERE interaction_id = $1',
+        [interactionId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+    await expect(
+      pool.query('SELECT id FROM wallet_transactions WHERE idempotency_key = $1', [interactionId]),
+    ).resolves.toMatchObject({ rowCount: 0 });
+
+    const results = await Promise.all([
+      performances.perform(interactionId, discordUserId, 'spring-recital'),
+      performances.perform(interactionId, discordUserId, 'spring-recital'),
+    ]);
+    expect(results.filter((result) => !result.replayed)).toHaveLength(1);
+    expect(results.filter((result) => result.replayed)).toHaveLength(1);
+    expect(results[0]).toMatchObject({ score: 72, tier: 'SILVER', slippersAwarded: 100n });
+    const history = await performances.listHistory(discordUserId, 1);
+    expect(history).toMatchObject({ totalEntries: 1, entries: [{ score: 72, tier: 'SILVER' }] });
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(balanceBefore + 100n);
+    await expect(
+      performances.perform(testSnowflake(), discordUserId, 'spring-recital'),
+    ).rejects.toBeInstanceOf(PerformanceCooldownError);
+    await expect(performances.listPerformances(discordUserId)).resolves.toContainEqual(
+      expect.objectContaining({ performanceId: 'spring-recital', availability: 'COOLDOWN' }),
+    );
+
+    const noviceId = testSnowflake();
+    const novice = await performances.listPerformances(noviceId);
+    expect(novice).toContainEqual(
+      expect.objectContaining({ performanceId: 'spring-recital', lockReason: 'LEVEL' }),
+    );
+    await expect(
+      performances.perform(testSnowflake(), noviceId, 'spring-recital'),
+    ).rejects.toBeInstanceOf(PerformanceLockedError);
   });
 
   it('purchases a seeded shop item atomically and safely replays the interaction', async () => {

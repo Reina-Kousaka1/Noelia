@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(8);
+    expect(migrations).toHaveLength(9);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -68,6 +68,13 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[7]?.sql).toContain('CREATE TABLE ballet_stats');
     expect(migrations[7]?.sql).toContain('required_equipped_item_id');
     expect(migrations[7]?.sql).toContain('stat_value_after');
+    expect(migrations[8]).toMatchObject({
+      version: 9,
+      name: 'ballet_performances',
+    });
+    expect(migrations[8]?.sql).toContain('CREATE TABLE ballet_performance_catalog');
+    expect(migrations[8]?.sql).toContain('CREATE TABLE ballet_performance_completions');
+    expect(migrations[8]?.sql).toContain('ballet_performance_completions_append_only');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -83,8 +90,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 8,
-      currentVersion: 8,
+      appliedCount: 9,
+      currentVersion: 9,
     });
 
     expect(statements).toContain('BEGIN');
@@ -101,6 +108,9 @@ describe('PostgreSQL migrations', () => {
     expect(statements.some((sql) => sql.includes('CREATE TABLE marketplace_escrow'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE marketplace_sales'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_stats'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_performance_catalog'))).toBe(
+      true,
+    );
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
     expect(statements.some((sql) => /\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i.test(sql))).toBe(
       false,
@@ -136,6 +146,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [8, 'ballet_stats_and_activities', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [9, 'ballet_performances', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

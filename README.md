@@ -6,7 +6,7 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
-`/ballet`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, and `/market` commands without
+`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, and `/market` commands without
 replacing the guild's other commands.
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, levelled Ballet practice with six
@@ -16,6 +16,9 @@ ownership-checked wardrobe are also available, and `/profile` aggregates
 wallet, Ballet progress, and equipped look. `/market` uses the existing Ballet Slippers wallet and ledger; listings
 hold items in PostgreSQL escrow and use idempotency and row locks to protect
 concurrent purchases. Only listing sellers can cancel their own listings.
+`/performance` uses a data-backed catalog, the existing Ballet progression and
+wallet, a fixed stat-weighted score, transactional rewards, and persistent
+history; it does not use random outcomes or introduce a second economy.
 
 ## Technology
 
@@ -114,8 +117,9 @@ append-only Daily claim history, V4 adds the first seeded Ballet activity
 catalog and progression history, V5 adds the curated shop catalog, persistent
 inventory, and immutable purchase history, V6 adds the persistent wardrobe
 equipment slots, V7 adds marketplace listings, escrow, idempotency records, and
-immutable sale history, and V8 adds six Ballet stats, activity requirements, and
-six more data-defined activities. The first shop seed is six Balletcore cosmetic items;
+immutable sale history, V8 adds six Ballet stats, activity requirements, and
+six more data-defined activities, and V9 adds the deterministic performance
+catalog, requirements, cooldowns, and append-only completion history. The first shop seed is six Balletcore cosmetic items;
 purchases atomically check eligibility and balance, debit the wallet, add
 inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, and unequip; only owned items may
 be equipped, and metadata can make a costume occupy multiple slots. Economy,
