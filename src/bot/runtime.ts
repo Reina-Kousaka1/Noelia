@@ -24,7 +24,7 @@ import { MarketplaceService } from '../marketplace/marketplace-service.js';
 import { PerformanceService } from '../performance/performance-service.js';
 import { performanceCommand } from '../commands/performance/performance.command.js';
 import { CollectionService } from '../collections/collection-service.js';
-import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
+import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
 
@@ -84,6 +84,7 @@ export function createDiscordRuntime(
     collections,
   });
   let stopping = false;
+  let commandSync: Promise<void> | undefined;
 
   client.on('ready', () => {
     presence.start();
@@ -91,17 +92,27 @@ export function createDiscordRuntime(
       botUsername: client.user.username,
     });
 
-    void synchronizeGuildCommands(client, config.discord.guildId, registry)
+    if (commandSync !== undefined || stopping) return;
+
+    commandSync = synchronizeApplicationCommands(
+      client,
+      config.discord.guildId,
+      registry,
+      (action, scope, name) => logger.info(`command_sync.${action}`, { scope, name }),
+    )
       .then(() => {
         logger.info('discord.commands.synchronized', {
           count: registry.list().length,
-          scope: 'guild',
+          scope: 'guild_and_global',
         });
       })
       .catch((error: unknown) => {
         logger.error('discord.commands.synchronization_failed', error, {
-          scope: 'guild',
+          scope: 'guild_and_global',
         });
+      })
+      .finally(() => {
+        commandSync = undefined;
       });
   });
 

@@ -32,6 +32,9 @@ function createFakeClient() {
     getGuildCommands: vi.fn().mockResolvedValue([]),
     createGuildCommand: vi.fn().mockResolvedValue({}),
     editGuildCommand: vi.fn().mockResolvedValue({}),
+    deleteGuildCommand: vi.fn().mockResolvedValue(undefined),
+    getCommands: vi.fn().mockResolvedValue([]),
+    deleteCommand: vi.fn().mockResolvedValue(undefined),
   }) as unknown as Eris.Client;
 }
 
@@ -73,7 +76,7 @@ describe('createDiscordRuntime', () => {
     expect(client.disconnect).toHaveBeenCalledWith({ reconnect: false });
   });
 
-  it('registers the balance command without removing other guild commands', async () => {
+  it('registers the Noélia guild catalog and clears stale global commands', async () => {
     const client = createFakeClient();
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
@@ -127,6 +130,7 @@ describe('createDiscordRuntime', () => {
       type: Eris.Constants.ActivityTypes.GAME,
     });
     expect(client.getGuildCommands).toHaveBeenCalledWith(config.discord.guildId);
+    await vi.waitFor(() => expect(client.getCommands).toHaveBeenCalledOnce());
     await runtime.stop();
   });
 });
