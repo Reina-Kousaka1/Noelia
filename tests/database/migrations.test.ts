@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(14);
+    expect(migrations).toHaveLength(15);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -97,6 +97,14 @@ describe('PostgreSQL migrations', () => {
     });
     expect(migrations[13]?.sql).toContain("'beauty'");
     expect(migrations[13]?.sql).toContain('prima-evening-pointe-shoes');
+    expect(migrations[14]).toMatchObject({
+      version: 15,
+      name: 'moderation_case_persistence',
+    });
+    expect(migrations[14]?.sql).toContain('CREATE TABLE moderation_cases');
+    expect(migrations[14]?.sql).toContain('moderation_cases_append_only');
+    expect(migrations[14]?.sql).toContain('CREATE TABLE moderation_case_outcomes');
+    expect(migrations[14]?.sql).toContain('moderation_case_outcomes_append_only');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -112,8 +120,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 14,
-      currentVersion: 14,
+      appliedCount: 15,
+      currentVersion: 15,
     });
 
     expect(statements).toContain('BEGIN');
@@ -145,6 +153,10 @@ describe('PostgreSQL migrations', () => {
     expect(statements.some((sql) => sql.includes('CREATE TABLE achievement_catalog'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE user_achievements'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE featured_user_achievements'))).toBe(
+      true,
+    );
+    expect(statements.some((sql) => sql.includes('CREATE TABLE moderation_cases'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE moderation_case_outcomes'))).toBe(
       true,
     );
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
@@ -202,6 +214,14 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [13, 'relationships_v1', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [14, 'catalog_beauty_content_expansion', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [15, 'moderation_case_persistence', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

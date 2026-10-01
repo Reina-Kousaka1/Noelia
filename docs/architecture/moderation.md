@@ -1,38 +1,41 @@
 # Moderation boundary
 
-Status: the initial, transport-independent case model and input policy are
-implemented. There are no moderation commands, Discord enforcement actions,
-database tables, AutoMod rules, or audit-log persistence yet.
+Status: the transport-independent case model and PostgreSQL case/outcome
+persistence are implemented. Discord enforcement commands and AutoMod runtime
+rules are still pending.
 
 ## Domain boundary
 
 `src/moderation/case.ts` validates case drafts independently of Eris and
-PostgreSQL. It defines the initial action vocabulary (`note`, `warning`,
-`timeout`, `kick`, and `ban`), manual/AutoMod/system sources, reason length,
-distinct actor and target, safe idempotency keys, and timeout-only expiry. The
-factory copies dates so callers cannot mutate the returned draft by changing
-their original `Date` instances.
+PostgreSQL. It defines the action vocabulary (`note`, `warning`, `timeout`,
+`kick`, and `ban`), manual/AutoMod/system sources, reason length, distinct
+actor and target, safe idempotency keys, and timeout-only expiry.
 
-This policy is not a Discord permission check and does not execute any action.
-When enforcement is added, authorization, Discord role hierarchy, bot
-permissions, and guild scope must be checked centrally before an action is
-attempted. Case persistence must record outcomes and failures factually and
-must not depend on persona rendering.
+`ModerationService.createAttempt` records an immutable case before an external
+Discord action. The guild and interaction idempotency key are unique; a replay
+with the same payload returns the original pending or completed case, while a
+different payload under the same key is rejected. `recordOutcome` stores one
+immutable `SUCCEEDED`, `FAILED`, or `UNKNOWN` result separately. Safe outcome
+codes may be stored, but raw Discord/API errors are not accepted by this API.
+An attempt without an outcome remains visible as unresolved; replaying it must
+not repeat an external side effect.
 
-## Next persistence and transport work
+Migration V15 is additive. Cases and outcomes have append-only triggers,
+foreign keys to the existing Discord-user table, guild/target history indexes,
+and no destructive migration behavior. PostgreSQL remains the sole source of
+truth. Integration tests are guarded by the isolated `noelia_test` database
+configuration.
 
-Add versioned PostgreSQL migrations and repositories only alongside an actual
-moderation feature. Cases should be append-only audit facts, keyed by guild and
-target, with the invoking interaction ID as the idempotency key for manual
-mutations. Automated records should use a stable source-event key. Preserve
-actor, action, reason, source, timestamps, expiry, and action outcome without
-logging secrets or exposing private notes to the target.
+## Enforcement boundary
 
-Keep Discord handlers thin: parse and authorize, call a moderation service,
-then render a factual result. Warning/kick/ban/timeout operations and their case
-records need a deliberate consistency strategy for Discord API failures; never
-claim an enforcement action succeeded merely because a database insert did.
+The persistence layer does not authorize users or execute Discord actions.
+When commands are added, authorization, guild scope, bot permissions, role
+hierarchy, and target membership must be checked centrally before the action.
+The case attempt is written first; the Discord call follows; then its result is
+recorded. If the process crashes between those steps, the case stays
+unresolved and must be reviewed rather than blindly replayed. Warning, kick,
+ban, and timeout results must never be reported as successful until Discord
+confirms the action and the result has been recorded.
 
-Tests for a future persistence layer must use the isolated `noelia_test`
-database guard. This foundation intentionally makes no schema or runtime
-behavior changes.
+Moderation records and audit output remain factual and do not use persona
+rendering. No moderation commands or AutoMod message/join listeners exist yet.

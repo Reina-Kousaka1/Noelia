@@ -51,6 +51,8 @@ import { CollectionService } from '../../src/collections/collection-service.js';
 import { PerformanceCooldownError, PerformanceLockedError } from '../../src/performance/errors.js';
 import { RelationshipService } from '../../src/relationships/relationship-service.js';
 import { ProfileService } from '../../src/profile/profile-service.js';
+import { ModerationService } from '../../src/moderation/moderation-service.js';
+import { ModerationIdempotencyConflictError } from '../../src/moderation/moderation-errors.js';
 import { WARDROBE_SLOTS } from '../../src/wardrobe/types.js';
 import {
   MarriageParticipantUnavailableError,
@@ -150,8 +152,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 8,
-        currentVersion: 14,
+        appliedCount: 9,
+        currentVersion: 15,
       });
       await expect(
         upgradePool.query(
@@ -179,9 +181,69 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 14 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 15 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
+  });
+
+  it('stores moderation attempts and immutable idempotent outcomes', async () => {
+    const moderation = new ModerationService(pool);
+    const guildId = testSnowflake();
+    const actorUserId = testSnowflake();
+    const targetUserId = testSnowflake();
+    const interactionId = testSnowflake();
+    const input = {
+      idempotencyKey: interactionId,
+      guildId,
+      actorUserId,
+      targetUserId,
+      action: 'warning' as const,
+      source: 'manual' as const,
+      reason: 'Repeated off-topic messages',
+      occurredAt: new Date(),
+    };
+
+    const first = await moderation.createAttempt(input);
+    const replay = await moderation.createAttempt(input);
+    expect(first.created).toBe(true);
+    expect(replay.created).toBe(false);
+    expect(replay.case.caseId).toBe(first.case.caseId);
+    expect(first.case.outcome).toBeNull();
+    await expect(
+      moderation.createAttempt({ ...input, reason: 'Different request' }),
+    ).rejects.toBeInstanceOf(ModerationIdempotencyConflictError);
+
+    await expect(moderation.recordOutcome(first.case.caseId, 'SUCCEEDED')).resolves.toMatchObject({
+      outcome: 'SUCCEEDED',
+      outcomeCode: null,
+      replayed: false,
+    });
+    await expect(moderation.recordOutcome(first.case.caseId, 'SUCCEEDED')).resolves.toMatchObject({
+      replayed: true,
+    });
+    await expect(
+      moderation.recordOutcome(first.case.caseId, 'FAILED', 'DISCORD_REQUEST_FAILED'),
+    ).rejects.toBeInstanceOf(ModerationIdempotencyConflictError);
+
+    await expect(moderation.getCase(guildId, first.case.caseId)).resolves.toMatchObject({
+      caseId: first.case.caseId,
+      action: 'warning',
+      reason: 'Repeated off-topic messages',
+      outcome: 'SUCCEEDED',
+    });
+    await expect(moderation.listCases(guildId, targetUserId, 1, 'warning')).resolves.toMatchObject({
+      totalCases: 1,
+      totalPages: 1,
+      cases: [{ caseId: first.case.caseId, outcome: 'SUCCEEDED' }],
+    });
+    await expect(
+      pool.query('UPDATE moderation_cases SET reason = NULL WHERE case_id = $1', [
+        first.case.caseId,
+      ]),
+    ).rejects.toThrow('moderation case history is immutable');
+    await expect(
+      pool.query('DELETE FROM moderation_case_outcomes WHERE case_id = $1', [first.case.caseId]),
+    ).rejects.toThrow('moderation action outcomes are immutable');
   });
 
   it('validates the expanded catalog and counts active marketplace escrow in collections', async () => {
