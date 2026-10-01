@@ -8,16 +8,17 @@ import {
   InsufficientBalletSlippersError,
   WalletBalanceLimitError,
 } from './errors.js';
+import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import type {
   WalletCreditReason,
   WalletEntryType,
   WalletLedgerEntry,
   WalletMutationResult,
+  WalletMutationInput,
   WalletSpendReason,
 } from './types.js';
 
 const MAX_POSTGRES_BIGINT = 9_223_372_036_854_775_807n;
-const discordSnowflakePattern = /^\d{17,20}$/;
 
 interface IdRow extends QueryResultRow {
   readonly id: string;
@@ -45,12 +46,6 @@ interface LedgerRow extends QueryResultRow {
   readonly created_at: Date;
 }
 
-export interface WalletMutationInput {
-  readonly interactionId: string;
-  readonly discordUserId: string;
-  readonly amount: bigint;
-}
-
 export interface WalletAdjustmentInput {
   readonly interactionId: string;
   readonly discordUserId: string;
@@ -61,7 +56,7 @@ export class EconomyService {
   public constructor(private readonly pool: Pool) {}
 
   public async getBalance(discordUserId: string): Promise<bigint> {
-    this.validateDiscordId(discordUserId, 'Discord user ID');
+    assertDiscordSnowflake(discordUserId, 'Discord user ID');
     const result = await this.pool.query<BalanceRow>(
       `SELECT balance
        FROM ballet_slippers_wallets
@@ -73,7 +68,7 @@ export class EconomyService {
   }
 
   public async getLedger(discordUserId: string, limit = 20): Promise<readonly WalletLedgerEntry[]> {
-    this.validateDiscordId(discordUserId, 'Discord user ID');
+    assertDiscordSnowflake(discordUserId, 'Discord user ID');
 
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
       throw new RangeError('Ledger page size must be an integer from 1 to 100.');
@@ -160,8 +155,8 @@ export class EconomyService {
     entryType: WalletEntryType,
     amountDelta: bigint,
   ): Promise<WalletMutationResult> {
-    this.validateDiscordId(input.discordUserId, 'Discord user ID');
-    this.validateDiscordId(input.interactionId, 'Discord interaction ID');
+    assertDiscordSnowflake(input.discordUserId, 'Discord user ID');
+    assertDiscordSnowflake(input.interactionId, 'Discord interaction ID');
     const requestFingerprint = createHash('sha256')
       .update(`${input.discordUserId}\u0000${entryType}\u0000${amountDelta.toString()}`)
       .digest('hex');
@@ -283,12 +278,6 @@ export class EconomyService {
        ON CONFLICT (discord_user_id) DO NOTHING`,
       [discordUserId],
     );
-  }
-
-  private validateDiscordId(value: string, name: string): void {
-    if (!discordSnowflakePattern.test(value)) {
-      throw new TypeError(`${name} must be a 17- to 20-digit numeric ID.`);
-    }
   }
 
   private validateAmount(amount: bigint): void {

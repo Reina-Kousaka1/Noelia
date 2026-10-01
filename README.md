@@ -5,11 +5,11 @@ balletcore identity. It is developed in TypeScript with Eris and is not a port
 of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
-fresh schema, and registers development-guild `/ping` and `/balance` commands
-without replacing the guild's other commands. Ballet Slippers use integer
-wallet balances with an auditable ledger and interaction idempotency. Daily
-rewards, ballet progression, shop, inventory, and wardrobe are not implemented
-yet.
+fresh schema, and registers development-guild `/ping`, `/balance`, and `/daily`
+commands without replacing the guild's other commands. Ballet Slippers use
+integer wallet balances with an auditable ledger and interaction idempotency.
+Daily rewards are active; ballet progression, shop, inventory, and wardrobe are
+not implemented yet.
 
 ## Technology
 
@@ -68,12 +68,15 @@ migration history is part of this repository.
 ## PostgreSQL safety
 
 The migration runner tracks immutable, checksummed SQL migrations in
-`noelia_schema_migrations`; V1 creates the Discord-user identity table and V2
-adds the Ballet Slippers wallet, idempotency records, and append-only ledger.
-Economy changes use PostgreSQL transactions and row locks to prevent negative
-balances during concurrent spending. Discord interaction IDs are wallet
-idempotency keys. Transactions always use one checked-out PostgreSQL client.
-Queries with values use PostgreSQL parameters rather than string interpolation.
+`noelia_schema_migrations`; V1 creates the Discord-user identity table, V2 adds
+the Ballet Slippers wallet, idempotency records, and append-only ledger, and V3
+adds append-only Daily claim history. Economy changes use PostgreSQL
+transactions and row locks to prevent negative balances during concurrent
+spending. Daily reward amount is centrally configured in
+`src/config/gameplay.ts` (currently 100 🩰) with a rolling 24-hour cooldown.
+Daily state and its wallet/ledger reward share one transaction. Discord
+interaction IDs are wallet idempotency keys. Queries with values use
+PostgreSQL parameters rather than string interpolation.
 
 Integration tests are skipped unless `NOELIA_TEST_DATABASE_URL` is supplied.
 When enabled, a hard guard requires `NODE_ENV=test`, a loopback host, and the

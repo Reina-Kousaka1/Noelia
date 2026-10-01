@@ -34,7 +34,10 @@ describe('InteractionRouter', () => {
     const command = createCommand(execute);
     const interaction = createInteraction('ping');
     const client = {} as Eris.Client;
-    const services = { economy: { getBalance: vi.fn().mockResolvedValue(0n) } };
+    const services = {
+      economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+      daily: { claimDaily: vi.fn() },
+    };
     const router = new InteractionRouter(
       new CommandRegistry([command]),
       new StructuredLogger(),
@@ -55,6 +58,7 @@ describe('InteractionRouter', () => {
     const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+      daily: { claimDaily: vi.fn() },
     });
 
     await router.dispatch(interaction, client);
@@ -77,6 +81,7 @@ describe('InteractionRouter', () => {
     vi.spyOn(logger, 'warn').mockImplementation(() => {});
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+      daily: { claimDaily: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);
@@ -98,6 +103,7 @@ describe('InteractionRouter', () => {
     const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+      daily: { claimDaily: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);

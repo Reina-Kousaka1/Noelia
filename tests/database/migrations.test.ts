@@ -7,10 +7,10 @@ import { loadMigrations, runMigrations } from '../../src/database/migrations/run
 const migrationsDirectory = resolve(process.cwd(), 'migrations');
 
 describe('PostgreSQL migrations', () => {
-  it('loads the new V1 schema with a SHA-256 checksum', async () => {
+  it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(2);
+    expect(migrations).toHaveLength(3);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -24,6 +24,12 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[1]?.sql).toContain('CREATE TABLE wallet_ledger');
     expect(migrations[1]?.sql).toContain('CREATE TRIGGER wallet_ledger_append_only');
     expect(migrations[1]?.sql).toContain('CREATE TRIGGER wallet_ledger_no_truncate');
+    expect(migrations[2]).toMatchObject({
+      version: 3,
+      name: 'daily_claims',
+    });
+    expect(migrations[2]?.sql).toContain('CREATE TABLE daily_claims');
+    expect(migrations[2]?.sql).toContain('CREATE TRIGGER daily_claims_append_only');
   });
 
   it('runs each pending migration in a transaction and releases the advisory lock', async () => {
@@ -36,14 +42,15 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 2,
-      currentVersion: 2,
+      appliedCount: 3,
+      currentVersion: 3,
     });
 
     expect(statements).toContain('BEGIN');
     expect(statements).toContain('COMMIT');
     expect(statements.some((sql) => sql.includes('CREATE TABLE discord_users'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE wallet_ledger'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE daily_claims'))).toBe(true);
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
     expect(statements.some((sql) => sql.includes('DROP '))).toBe(false);
     expect(query).toHaveBeenCalledWith(
@@ -53,6 +60,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [2, 'ballet_slippers_wallet', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [3, 'daily_claims', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

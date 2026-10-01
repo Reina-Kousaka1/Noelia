@@ -6,24 +6,27 @@ import { formatBalance } from '../../src/commands/balance/format-balance.js';
 
 describe('balance command', () => {
   it('uses the caller wallet and responds privately with a formatted balance', async () => {
-    const createMessage = vi.fn().mockResolvedValue(undefined);
+    const defer = vi.fn().mockResolvedValue(undefined);
+    const createFollowup = vi.fn().mockResolvedValue(undefined);
     const getBalance = vi.fn().mockResolvedValue(1_240n);
     const interaction = {
       member: { id: '123456789012345678' },
-      createMessage,
+      defer,
+      createFollowup,
     } as unknown as Eris.CommandInteraction;
 
     await balanceCommand.execute({
       client: {} as Eris.Client,
       interaction,
-      services: { economy: { getBalance } },
+      services: {
+        economy: { getBalance },
+        daily: { claimDaily: vi.fn() },
+      },
     });
 
     expect(getBalance).toHaveBeenCalledWith('123456789012345678');
-    expect(createMessage).toHaveBeenCalledWith({
-      content: 'Your Ballet Slippers: 1,240 🩰',
-      flags: Eris.Constants.MessageFlags.EPHEMERAL,
-    });
+    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
+    expect(createFollowup).toHaveBeenCalledWith({ content: 'Your Ballet Slippers: 1,240 🩰' });
   });
 
   it('formats zero and large bigint balances without floating-point conversion', () => {

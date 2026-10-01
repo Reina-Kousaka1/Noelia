@@ -84,6 +84,10 @@ describe('createDiscordRuntime', () => {
         config.discord.guildId,
         expect.objectContaining({ name: 'balance' }),
       );
+      expect(client.createGuildCommand).toHaveBeenCalledWith(
+        config.discord.guildId,
+        expect.objectContaining({ name: 'daily' }),
+      );
     });
     expect(client.getGuildCommands).toHaveBeenCalledWith(config.discord.guildId);
   });

@@ -6,6 +6,8 @@ import { PostgresDiscordUserRepository } from '../../src/database/discord-user.r
 import { runMigrations } from '../../src/database/migrations/runner.js';
 import { withClientTransaction } from '../../src/database/transaction.js';
 import { EconomyService } from '../../src/economy/economy-service.js';
+import { DailyCooldownError } from '../../src/economy/daily-errors.js';
+import { DailyService } from '../../src/economy/daily-service.js';
 import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
 
@@ -35,7 +37,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 2 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 3 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -121,5 +123,25 @@ integrationDescribe('isolated PostgreSQL integration', () => {
 
     await expect(service.getBalance(discordUserId)).resolves.toBe(0n);
     await expect(service.getLedger(discordUserId)).resolves.toHaveLength(0);
+  });
+
+  it('awards one daily reward, replays safely, and enforces the rolling cooldown', async () => {
+    const economy = new EconomyService(pool);
+    const daily = new DailyService(pool, economy);
+    const discordUserId = testSnowflake();
+    const interactionId = testSnowflake();
+
+    const firstClaim = await daily.claimDaily(interactionId, discordUserId);
+    const replay = await daily.claimDaily(interactionId, discordUserId);
+
+    expect(firstClaim.rewardAmount).toBe(100n);
+    expect(firstClaim.replayed).toBe(false);
+    expect(replay.replayed).toBe(true);
+    expect(replay.balance).toBe(firstClaim.balance);
+    await expect(daily.claimDaily(testSnowflake(), discordUserId)).rejects.toBeInstanceOf(
+      DailyCooldownError,
+    );
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(100n);
+    await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
   });
 });

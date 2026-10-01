@@ -16,11 +16,11 @@ export const balanceCommand: SlashCommand = {
       throw new Error('The balance command requires a guild member context.');
     }
 
+    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
     const balance = await services.economy.getBalance(discordUserId);
 
-    await interaction.createMessage({
+    await interaction.createFollowup({
       content: `Your Ballet Slippers: ${formatBalance(balance)}`,
-      flags: Eris.Constants.MessageFlags.EPHEMERAL,
     });
   },
 };

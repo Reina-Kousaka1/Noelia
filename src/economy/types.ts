@@ -15,6 +15,12 @@ export type WalletCreditReason =
 
 export type WalletSpendReason = 'SHOP_PURCHASE' | 'MARKET_PURCHASE';
 
+export interface WalletMutationInput {
+  readonly interactionId: string;
+  readonly discordUserId: string;
+  readonly amount: bigint;
+}
+
 export interface WalletMutationResult {
   readonly balance: bigint;
   readonly transactionId: string;
@@ -27,4 +33,12 @@ export interface WalletLedgerEntry {
   readonly amountDelta: bigint;
   readonly balanceAfter: bigint;
   readonly createdAt: Date;
+}
+
+export interface DailyClaimResult {
+  readonly rewardAmount: bigint;
+  readonly balance: bigint;
+  readonly claimedAt: Date;
+  readonly nextClaimAt: Date;
+  readonly replayed: boolean;
 }
