@@ -1,5 +1,7 @@
 export const NOELIA_COPY = {
   embedFooter: 'Noélia · ballet studio',
+  helpTitle: 'A little studio guide',
+  helpIntro: 'Choose a command to see what we can do together:',
   balanceTitle: 'Your Ballet Slippers',
   dailyTitle: 'A little reward for showing up',
   dailyClaimed: 'Daily reward claimed',

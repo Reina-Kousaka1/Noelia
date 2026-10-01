@@ -18,6 +18,7 @@ import { inventoryCommand } from '../commands/inventory/inventory.command.js';
 import { wardrobeCommand } from '../commands/wardrobe/wardrobe.command.js';
 import { profileCommand } from '../commands/profile/profile.command.js';
 import { pingCommand } from '../commands/ping/ping.command.js';
+import { createHelpCommand } from '../commands/help/help.command.js';
 import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -49,7 +50,7 @@ export function createDiscordRuntime(
   const inventory = new InventoryService(pool);
   const wardrobe = new WardrobeService(pool);
   const profile = new ProfileService(economy, ballet, wardrobe);
-  const registry = new CommandRegistry([
+  const coreCommands = [
     pingCommand,
     balanceCommand,
     dailyCommand,
@@ -58,7 +59,8 @@ export function createDiscordRuntime(
     inventoryCommand,
     wardrobeCommand,
     profileCommand,
-  ]);
+  ];
+  const registry = new CommandRegistry([...coreCommands, createHelpCommand(coreCommands)]);
   const router = new InteractionRouter(registry, logger, {
     economy,
     daily,

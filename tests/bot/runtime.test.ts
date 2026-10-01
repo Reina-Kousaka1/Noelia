@@ -109,6 +109,10 @@ describe('createDiscordRuntime', () => {
         config.discord.guildId,
         expect.objectContaining({ name: 'profile' }),
       );
+      expect(client.createGuildCommand).toHaveBeenCalledWith(
+        config.discord.guildId,
+        expect.objectContaining({ name: 'help' }),
+      );
     });
     expect(client.editStatus).toHaveBeenCalledWith('online', {
       name: 'At the barre, finding my balance',

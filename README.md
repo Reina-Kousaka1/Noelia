@@ -5,7 +5,7 @@ balletcore identity. It is developed in TypeScript with Eris and is not a port
 of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
-fresh schema, and registers development-guild `/ping`, `/balance`, `/daily`,
+fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
 `/ballet`, `/shop`, `/inventory`, `/wardrobe`, and `/profile` commands without
 replacing the guild's other commands.
 Ballet Slippers use integer wallet balances with an auditable ledger and
