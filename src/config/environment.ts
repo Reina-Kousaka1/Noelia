@@ -15,6 +15,15 @@ export interface AppConfig {
     readonly user: string;
     readonly password: string;
   };
+  readonly persona: {
+    readonly generationEnabled: boolean;
+    readonly endpoint?: string;
+    readonly apiKey?: string;
+    readonly model?: string;
+    readonly timeoutMs: number;
+    readonly maxConcurrent: number;
+    readonly maxRequestsPerMinute: number;
+  };
 }
 
 export class EnvironmentValidationError extends Error {
@@ -50,8 +59,94 @@ function readRequired(
   return preserveWhitespace ? value : value.trim();
 }
 
+function readBoundedInteger(
+  environment: NodeJS.ProcessEnv,
+  name: string,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+  problems: string[],
+): number {
+  const text = environment[name]?.trim();
+  if (text === undefined || text.length === 0) return fallback;
+
+  const value = Number(text);
+  if (!/^\d+$/.test(text) || !Number.isSafeInteger(value) || value < minimum || value > maximum) {
+    problems.push(`${name} must be an integer from ${minimum} to ${maximum}`);
+    return fallback;
+  }
+
+  return value;
+}
+
 export function parseEnvironment(environment: NodeJS.ProcessEnv): AppConfig {
   const problems: string[] = [];
+  const generationText = environment.PERSONA_GENERATION_ENABLED?.trim().toLowerCase() ?? 'false';
+  const generationEnabled = generationText === 'true';
+
+  if (generationText !== 'true' && generationText !== 'false') {
+    problems.push('PERSONA_GENERATION_ENABLED must be true or false');
+  }
+
+  let personaEndpoint: string | undefined;
+  let personaApiKey: string | undefined;
+  let personaModel: string | undefined;
+
+  if (generationEnabled) {
+    personaEndpoint = readRequired(environment, 'PERSONA_GENERATION_ENDPOINT', problems);
+    personaApiKey = readRequired(environment, 'PERSONA_GENERATION_API_KEY', problems);
+    personaModel = readRequired(environment, 'PERSONA_GENERATION_MODEL', problems);
+
+    if (personaEndpoint !== undefined) {
+      try {
+        const endpoint = new URL(personaEndpoint);
+        const localHttp =
+          endpoint.protocol === 'http:' &&
+          ['localhost', '127.0.0.1', '::1'].includes(endpoint.hostname) &&
+          environment.NODE_ENV?.trim() !== 'production';
+        const hasCredentialQuery = [...endpoint.searchParams.keys()].some((key) =>
+          /(?:token|key|secret|password|auth)/i.test(key),
+        );
+
+        if (
+          (endpoint.protocol !== 'https:' && !localHttp) ||
+          endpoint.username.length > 0 ||
+          endpoint.password.length > 0 ||
+          endpoint.hash.length > 0 ||
+          hasCredentialQuery
+        ) {
+          problems.push('PERSONA_GENERATION_ENDPOINT must be a safe HTTPS endpoint');
+        }
+      } catch {
+        problems.push('PERSONA_GENERATION_ENDPOINT must be a valid HTTPS endpoint');
+      }
+    }
+  }
+
+  const personaTimeoutMs = readBoundedInteger(
+    environment,
+    'PERSONA_GENERATION_TIMEOUT_MS',
+    1_100,
+    100,
+    2_000,
+    problems,
+  );
+  const personaMaxConcurrent = readBoundedInteger(
+    environment,
+    'PERSONA_GENERATION_MAX_CONCURRENT',
+    2,
+    1,
+    4,
+    problems,
+  );
+  const personaMaxRequestsPerMinute = readBoundedInteger(
+    environment,
+    'PERSONA_GENERATION_MAX_PER_MINUTE',
+    20,
+    1,
+    60,
+    problems,
+  );
   const discordToken = readRequired(environment, 'DISCORD_TOKEN', problems);
   const guildId = readRequired(environment, 'DISCORD_GUILD_ID', problems);
   const postgresHost = readRequired(environment, 'POSTGRES_HOST', problems);
@@ -102,6 +197,15 @@ export function parseEnvironment(environment: NodeJS.ProcessEnv): AppConfig {
       database: postgresDatabase!,
       user: postgresUser!,
       password: postgresPassword!,
+    },
+    persona: {
+      generationEnabled,
+      ...(personaEndpoint === undefined ? {} : { endpoint: personaEndpoint }),
+      ...(personaApiKey === undefined ? {} : { apiKey: personaApiKey }),
+      ...(personaModel === undefined ? {} : { model: personaModel }),
+      timeoutMs: personaTimeoutMs,
+      maxConcurrent: personaMaxConcurrent,
+      maxRequestsPerMinute: personaMaxRequestsPerMinute,
     },
   };
 }

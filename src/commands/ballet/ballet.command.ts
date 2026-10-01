@@ -3,8 +3,8 @@ import * as Eris from 'eris';
 import { BALLET_ACTIVITY_CODES } from '../../ballet/activity-codes.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 const activityChoices = BALLET_ACTIVITY_CODES.map((code) => ({
   name: code
@@ -53,6 +53,8 @@ export const balletCommand: SlashCommand = {
       throw new Error('The ballet command requires a guild member context.');
     }
 
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'ballet', discordUserId);
+
     const subcommand = interaction.data.options?.[0];
 
     if (subcommand === undefined) {
@@ -70,22 +72,33 @@ export const balletCommand: SlashCommand = {
           : `${formatInteger(progress.xpToNextLevel)} XP to the next level.`;
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.balletStatusTitle,
-            fields: [
-              {
-                name: 'Technique · Flexibility · Musicality',
-                value: `${progress.stats.technique} · ${progress.stats.flexibility} · ${progress.stats.musicality}`,
-                inline: true,
-              },
-              {
-                name: 'Performance · Pointe · Stamina',
-                value: `${progress.stats.performance} · ${progress.stats.pointe} · ${progress.stats.stamina}`,
-                inline: true,
-              },
-            ],
-            description: `Ballet Level ${progress.level} · ${formatInteger(progress.totalXp)} XP\n${nextLevelText}`,
-          }),
+          await personaEmbed(
+            'status_view',
+            {
+              level: progress.level,
+              total_xp: progress.totalXp.toString(),
+              xp_to_next_level: progress.xpToNextLevel?.toString() ?? null,
+              technique: progress.stats.technique,
+              flexibility: progress.stats.flexibility,
+              musicality: progress.stats.musicality,
+            },
+            {
+              title: NOELIA_COPY.balletStatusTitle,
+              fields: [
+                {
+                  name: 'Technique · Flexibility · Musicality',
+                  value: `${progress.stats.technique} · ${progress.stats.flexibility} · ${progress.stats.musicality}`,
+                  inline: true,
+                },
+                {
+                  name: 'Performance · Pointe · Stamina',
+                  value: `${progress.stats.performance} · ${progress.stats.pointe} · ${progress.stats.stamina}`,
+                  inline: true,
+                },
+              ],
+              description: `Ballet Level ${progress.level} · ${formatInteger(progress.totalXp)} XP\n${nextLevelText}`,
+            },
+          ),
         ],
       });
       return;
@@ -108,18 +121,28 @@ export const balletCommand: SlashCommand = {
       });
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.balletActivitiesTitle,
-            fields: activities.map((activity) => ({
-              name: `${activity.displayName} · ${activity.statKey} +${activity.statGain}`,
-              value: `${activity.description}${activity.requiredEquippedItemId === null ? '' : ` · Equip ${activity.requiredEquippedItemId}`}${activity.requiredActivityCode === null ? '' : ` · Complete ${activity.requiredActivityCode}`}`,
-              inline: false,
-            })),
-            description:
-              lines.length === 0
-                ? 'No Ballet activities are available right now.'
-                : lines.join('\n'),
-          }),
+          await personaEmbed(
+            'activities_view',
+            {
+              activity_count: activities.length,
+              ready_count: activities.filter((activity) => activity.availability === 'AVAILABLE')
+                .length,
+              locked_count: activities.filter((activity) => activity.availability === 'LOCKED')
+                .length,
+            },
+            {
+              title: NOELIA_COPY.balletActivitiesTitle,
+              fields: activities.map((activity) => ({
+                name: `${activity.displayName} · ${activity.statKey} +${activity.statGain}`,
+                value: `${activity.description}${activity.requiredEquippedItemId === null ? '' : ` · Equip ${activity.requiredEquippedItemId}`}${activity.requiredActivityCode === null ? '' : ` · Complete ${activity.requiredActivityCode}`}`,
+                inline: false,
+              })),
+              description:
+                lines.length === 0
+                  ? 'No Ballet activities are available right now.'
+                  : lines.join('\n'),
+            },
+          ),
         ],
       });
       return;
@@ -152,21 +175,34 @@ export const balletCommand: SlashCommand = {
 
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: heading,
-            fields:
-              result.stat === null
-                ? []
-                : [
-                    {
-                      name: `${result.stat.key} · +${result.stat.gain}`,
-                      value: `${result.stat.value}/100`,
-                      inline: true,
-                    },
-                  ],
-            description: `${result.displayName} · +${formatInteger(result.xpAwarded)} Ballet XP · +${formatBalance(result.slippersAwarded)}\nLevel ${result.level} · ${formatInteger(result.totalXp)} XP · ${nextLevelText}`,
-            tone: result.replayed ? 'signature' : 'success',
-          }),
+          await personaEmbed(
+            result.replayed ? 'practice_replayed' : 'practice_complete',
+            {
+              activity: result.activityCode.replaceAll('-', '_'),
+              xp_gained: result.xpAwarded.toString(),
+              slippers_gained: result.slippersAwarded.toString(),
+              stat: result.stat?.key ?? null,
+              stat_gain: result.stat?.gain ?? 0,
+              level: result.level,
+              xp_to_next_level: result.nextLevelXp?.toString() ?? null,
+              replayed: result.replayed,
+            },
+            {
+              title: heading,
+              fields:
+                result.stat === null
+                  ? []
+                  : [
+                      {
+                        name: `${result.stat.key} · +${result.stat.gain}`,
+                        value: `${result.stat.value}/100`,
+                        inline: true,
+                      },
+                    ],
+              description: `${result.displayName} · +${formatInteger(result.xpAwarded)} Ballet XP · +${formatBalance(result.slippersAwarded)}\nLevel ${result.level} · ${formatInteger(result.totalXp)} XP · ${nextLevelText}`,
+              tone: result.replayed ? 'signature' : 'success',
+            },
+          ),
         ],
       });
       return;

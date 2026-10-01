@@ -1,8 +1,8 @@
 import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 export function createHelpCommand(commands: readonly SlashCommand[]): SlashCommand {
   const helpDefinition: SlashCommand['definition'] = {
@@ -13,18 +13,27 @@ export function createHelpCommand(commands: readonly SlashCommand[]): SlashComma
 
   return {
     definition: helpDefinition,
-    async execute({ interaction }) {
+    async execute({ interaction, services }) {
       const entries = [...commands, { definition: helpDefinition }]
         .map(({ definition }) => `/${definition.name} — ${definition.description}`)
         .join('\n');
+      const personaEmbed = createPersonaEmbedRenderer(
+        services.persona,
+        'help',
+        interaction.member?.id,
+      );
 
       await interaction.createMessage({
         flags: Eris.Constants.MessageFlags.EPHEMERAL,
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.helpTitle,
-            description: `${NOELIA_COPY.helpIntro}\n\n${entries}`,
-          }),
+          await personaEmbed(
+            'guide_view',
+            { command_count: commands.length },
+            {
+              title: NOELIA_COPY.helpTitle,
+              description: `${NOELIA_COPY.helpIntro}\n\n${entries}`,
+            },
+          ),
         ],
       });
     },

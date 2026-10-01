@@ -83,6 +83,61 @@ describe('achievements command', () => {
     });
   });
 
+  it('uses celebratory prose while keeping milestone facts in the deterministic response', async () => {
+    const { interaction, createFollowup } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'list',
+      },
+    ]);
+    const services = createServices();
+    const achievements: AchievementSummary[] = [
+      {
+        achievementId: 'first-steps',
+        displayName: 'First Steps',
+        description: 'Complete your first Ballet activity.',
+        badgeMark: '🩰',
+        unlockedAt: new Date('2026-10-01T12:00:00.000Z'),
+        featured: true,
+      },
+      {
+        achievementId: 'first-performance',
+        displayName: 'First Performance',
+        description: 'Complete your first Ballet performance.',
+        badgeMark: '🦢',
+        unlockedAt: null,
+        featured: false,
+      },
+    ];
+    services.achievements.list.mockResolvedValue(achievements);
+    const generate = vi.fn().mockResolvedValue('Bravo, every milestone has its own little glow.');
+    const servicesWithPersona = { ...services, persona: { generate } };
+
+    await achievementsCommand.execute({
+      client: {} as Eris.Client,
+      interaction,
+      services: servicesWithPersona as never,
+    });
+
+    expect(generate).toHaveBeenCalledWith(
+      {
+        domain: 'achievements',
+        action: 'list_view',
+        facts: { achievement_count: 2, unlocked_count: 1, featured_count: 1 },
+      },
+      '222222222222222222',
+      undefined,
+    );
+    expect(createFollowup).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          title: 'Bravo, every milestone has its own little glow.',
+          description: expect.stringContaining('ID: first-performance'),
+        }),
+      ],
+    });
+  });
+
   it('features an unlocked achievement using the interaction ID for replay safety', async () => {
     const { interaction, createFollowup } = createInteraction([
       {

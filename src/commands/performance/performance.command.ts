@@ -4,7 +4,7 @@ import { formatBalance } from '../balance/format-balance.js';
 import type { SlashCommand } from '../command.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
 import { BALLET_PERFORMANCE_IDS } from '../../performance/catalog.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 const subcommandOption = Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND;
 const integerOption = Eris.Constants.ApplicationCommandOptionTypes.INTEGER;
@@ -63,6 +63,7 @@ export const performanceCommand: SlashCommand = {
     if (discordUserId === undefined) {
       throw new Error('The performance command requires a guild member context.');
     }
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'performance', discordUserId);
     const performances = services.performances;
     if (performances === undefined) {
       throw new Error('The performance service is not configured.');
@@ -99,10 +100,18 @@ export const performanceCommand: SlashCommand = {
       });
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.performanceBrowseTitle,
-            description: rows.length === 0 ? NOELIA_COPY.performanceEmpty : lines.join('\n\n'),
-          }),
+          await personaEmbed(
+            'browse',
+            {
+              performance_count: rows.length,
+              available_count: rows.filter((row) => row.availability === 'AVAILABLE').length,
+              locked_count: rows.filter((row) => row.availability === 'LOCKED').length,
+            },
+            {
+              title: NOELIA_COPY.performanceBrowseTitle,
+              description: rows.length === 0 ? NOELIA_COPY.performanceEmpty : lines.join('\n\n'),
+            },
+          ),
         ],
       });
       return;
@@ -126,13 +135,24 @@ export const performanceCommand: SlashCommand = {
       const result = await performances.perform(interaction.id, discordUserId, performanceId);
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: result.replayed
-              ? NOELIA_COPY.performanceHistoryTitle
-              : NOELIA_COPY.performanceTitle,
-            description: `**${result.displayName} · ${result.tier}**\nScore ${result.score}/100 · +${formatInteger(result.xpAwarded)} Ballet XP · +${formatBalance(result.slippersAwarded)}\nLevel ${result.level} · ready again <t:${Math.floor(result.nextAvailableAt.getTime() / 1_000)}:R>`,
-            tone: result.replayed ? 'signature' : 'success',
-          }),
+          await personaEmbed(
+            result.replayed ? 'attempt_replayed' : 'attempt_complete',
+            {
+              score: result.score,
+              tier: result.tier.toLowerCase(),
+              xp_gained: result.xpAwarded.toString(),
+              slippers_gained: result.slippersAwarded.toString(),
+              level: result.level,
+              replayed: result.replayed,
+            },
+            {
+              title: result.replayed
+                ? NOELIA_COPY.performanceHistoryTitle
+                : NOELIA_COPY.performanceTitle,
+              description: `**${result.displayName} · ${result.tier}**\nScore ${result.score}/100 · +${formatInteger(result.xpAwarded)} Ballet XP · +${formatBalance(result.slippersAwarded)}\nLevel ${result.level} · ready again <t:${Math.floor(result.nextAvailableAt.getTime() / 1_000)}:R>`,
+              tone: result.replayed ? 'signature' : 'success',
+            },
+          ),
         ],
       });
       return;
@@ -152,13 +172,21 @@ export const performanceCommand: SlashCommand = {
       );
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.performanceHistoryTitle,
-            description:
-              lines.length === 0
-                ? NOELIA_COPY.performanceHistoryEmpty
-                : `Page ${history.page}/${history.totalPages}\n${lines.join('\n\n')}`,
-          }),
+          await personaEmbed(
+            'history_view',
+            {
+              entry_count: history.entries.length,
+              page: history.page,
+              total_pages: history.totalPages,
+            },
+            {
+              title: NOELIA_COPY.performanceHistoryTitle,
+              description:
+                lines.length === 0
+                  ? NOELIA_COPY.performanceHistoryEmpty
+                  : `Page ${history.page}/${history.totalPages}\n${lines.join('\n\n')}`,
+            },
+          ),
         ],
       });
       return;

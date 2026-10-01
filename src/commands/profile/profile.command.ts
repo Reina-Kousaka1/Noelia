@@ -2,9 +2,9 @@ import * as Eris from 'eris';
 
 import { formatBalance } from '../balance/format-balance.js';
 import type { SlashCommand } from '../command.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
 import { BALLET_STAT_KEYS } from '../../ballet/types.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 export const profileCommand: SlashCommand = {
   definition: {
@@ -19,6 +19,7 @@ export const profileCommand: SlashCommand = {
       throw new Error('The profile command requires a guild member context.');
     }
 
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'profile', discordUserId);
     await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
     const profile = await services.profile.getProfile(discordUserId);
     const nextLevel =
@@ -59,10 +60,28 @@ export const profileCommand: SlashCommand = {
 
     await interaction.createFollowup({
       embeds: [
-        createNoeliaEmbed({
-          title: NOELIA_COPY.profileTitle,
-          description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
-        }),
+        await personaEmbed(
+          'progress_view',
+          {
+            ballet_level: profile.ballet.level,
+            ballet_xp: profile.ballet.totalXp.toString(),
+            slippers: profile.balletSlippers.toString(),
+            equipped_item_count: profile.outfit.length,
+            completed_collections: profile.completedCollections,
+            total_collections: profile.totalCollections,
+            has_featured_achievement: profile.featuredAchievement !== null,
+            technique: profile.ballet.stats.technique,
+            flexibility: profile.ballet.stats.flexibility,
+            musicality: profile.ballet.stats.musicality,
+            performance: profile.ballet.stats.performance,
+            pointe: profile.ballet.stats.pointe,
+            stamina: profile.ballet.stats.stamina,
+          },
+          {
+            title: NOELIA_COPY.profileTitle,
+            description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
+          },
+        ),
       ],
     });
   },

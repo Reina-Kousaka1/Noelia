@@ -2,9 +2,9 @@ import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
 import { MarketplacePriceError } from '../../marketplace/errors.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 const integerOption = Eris.Constants.ApplicationCommandOptionTypes.INTEGER;
 const stringOption = Eris.Constants.ApplicationCommandOptionTypes.STRING;
@@ -100,6 +100,7 @@ export const marketCommand: SlashCommand = {
     if (discordUserId === undefined) {
       throw new Error('The market command requires a guild member context.');
     }
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'market', discordUserId);
     const market = services.marketplace;
     if (market === undefined) {
       throw new Error('The marketplace service is not configured.');
@@ -137,13 +138,21 @@ export const marketCommand: SlashCommand = {
       );
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.marketTitle,
-            description:
-              lines.length === 0
-                ? NOELIA_COPY.marketEmpty
-                : `Page ${result.page}/${result.totalPages}\n${lines.join('\n')}`,
-          }),
+          await personaEmbed(
+            subcommand.name === 'mine' ? 'my_listings' : 'browse',
+            {
+              listing_count: result.listings.length,
+              page: result.page,
+              total_pages: result.totalPages,
+            },
+            {
+              title: NOELIA_COPY.marketTitle,
+              description:
+                lines.length === 0
+                  ? NOELIA_COPY.marketEmpty
+                  : `Page ${result.page}/${result.totalPages}\n${lines.join('\n')}`,
+            },
+          ),
         ],
       });
       return;
@@ -168,11 +177,19 @@ export const marketCommand: SlashCommand = {
       );
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.marketListingCreated,
-            description: `#${listing.listing.listingId} · ${listing.listing.displayName} · ${listing.listing.quantity} · ${formatBalance(listing.listing.unitPrice)} each`,
-            tone: listing.replayed ? 'signature' : 'success',
-          }),
+          await personaEmbed(
+            listing.replayed ? 'listing_replayed' : 'listing_created',
+            {
+              quantity: listing.listing.quantity,
+              unit_price: listing.listing.unitPrice.toString(),
+              replayed: listing.replayed,
+            },
+            {
+              title: NOELIA_COPY.marketListingCreated,
+              description: `#${listing.listing.listingId} · ${listing.listing.displayName} · ${listing.listing.quantity} · ${formatBalance(listing.listing.unitPrice)} each`,
+              tone: listing.replayed ? 'signature' : 'success',
+            },
+          ),
         ],
       });
       return;
@@ -186,13 +203,22 @@ export const marketCommand: SlashCommand = {
       const purchase = await market.buy(interaction.id, discordUserId, listingId);
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: purchase.replayed
-              ? NOELIA_COPY.marketPurchaseReplayed
-              : NOELIA_COPY.marketPurchaseComplete,
-            description: `#${purchase.listing.listingId} · ${purchase.listing.displayName} · ${purchase.listing.quantity}\nPaid ${formatBalance(purchase.totalPrice)} · Wallet ${formatBalance(purchase.buyerBalance)}`,
-            tone: purchase.replayed ? 'signature' : 'success',
-          }),
+          await personaEmbed(
+            purchase.replayed ? 'purchase_replayed' : 'purchase_complete',
+            {
+              quantity: purchase.listing.quantity,
+              total_price: purchase.totalPrice.toString(),
+              wallet_balance: purchase.buyerBalance.toString(),
+              replayed: purchase.replayed,
+            },
+            {
+              title: purchase.replayed
+                ? NOELIA_COPY.marketPurchaseReplayed
+                : NOELIA_COPY.marketPurchaseComplete,
+              description: `#${purchase.listing.listingId} · ${purchase.listing.displayName} · ${purchase.listing.quantity}\nPaid ${formatBalance(purchase.totalPrice)} · Wallet ${formatBalance(purchase.buyerBalance)}`,
+              tone: purchase.replayed ? 'signature' : 'success',
+            },
+          ),
         ],
       });
       return;
@@ -206,11 +232,18 @@ export const marketCommand: SlashCommand = {
       const cancelled = await market.cancel(interaction.id, discordUserId, listingId);
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.marketListingCancelled,
-            description: `#${cancelled.listing.listingId} · ${cancelled.listing.displayName} · ${cancelled.listing.quantity}`,
-            tone: 'success',
-          }),
+          await personaEmbed(
+            cancelled.replayed ? 'cancel_replayed' : 'listing_cancelled',
+            {
+              quantity: cancelled.listing.quantity,
+              replayed: cancelled.replayed,
+            },
+            {
+              title: NOELIA_COPY.marketListingCancelled,
+              description: `#${cancelled.listing.listingId} · ${cancelled.listing.displayName} · ${cancelled.listing.quantity}`,
+              tone: 'success',
+            },
+          ),
         ],
       });
       return;

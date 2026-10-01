@@ -21,6 +21,12 @@ const config: AppConfig = {
     user: 'noelia',
     password: 'test-postgres-password',
   },
+  persona: {
+    generationEnabled: false,
+    timeoutMs: 1_100,
+    maxConcurrent: 2,
+    maxRequestsPerMinute: 20,
+  },
 };
 
 function createFakeClient() {

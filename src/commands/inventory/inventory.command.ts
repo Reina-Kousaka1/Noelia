@@ -1,9 +1,9 @@
 import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
 import { SHOP_RARITY_LABELS } from '../../shop/rarity.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 export const inventoryCommand: SlashCommand = {
   definition: {
@@ -26,6 +26,8 @@ export const inventoryCommand: SlashCommand = {
       throw new Error('The inventory command requires a guild member context.');
     }
 
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'inventory', discordUserId);
+
     const pageOption = interaction.data.options?.find((option) => option.name === 'page');
     const page =
       pageOption !== undefined && 'value' in pageOption && typeof pageOption.value === 'number'
@@ -44,10 +46,18 @@ export const inventoryCommand: SlashCommand = {
 
     await interaction.createFollowup({
       embeds: [
-        createNoeliaEmbed({
-          title: NOELIA_COPY.inventoryTitle,
-          description: content,
-        }),
+        await personaEmbed(
+          'inventory_view',
+          {
+            item_count: inventory.totalItems,
+            page: inventory.page,
+            total_pages: inventory.totalPages,
+          },
+          {
+            title: NOELIA_COPY.inventoryTitle,
+            description: content,
+          },
+        ),
       ],
     });
   },

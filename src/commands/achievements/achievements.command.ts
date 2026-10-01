@@ -1,8 +1,8 @@
 import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 export const achievementsCommand: SlashCommand = {
   definition: {
@@ -44,6 +44,11 @@ export const achievementsCommand: SlashCommand = {
     if (achievementService === undefined) {
       throw new Error('The achievement service is not configured.');
     }
+    const personaEmbed = createPersonaEmbedRenderer(
+      services.persona,
+      'achievements',
+      discordUserId,
+    );
     const subcommand = interaction.data.options?.[0];
     if (subcommand === undefined)
       throw new Error('The achievements command requires a subcommand.');
@@ -65,13 +70,22 @@ export const achievementsCommand: SlashCommand = {
       );
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.achievementsTitle,
-            description:
-              lines.length === 0
-                ? NOELIA_COPY.achievementsEmpty
-                : `${NOELIA_COPY.achievementsIntro}\n\n${lines.join('\n\n')}`,
-          }),
+          await personaEmbed(
+            'list_view',
+            {
+              achievement_count: achievements.length,
+              unlocked_count: achievements.filter((achievement) => achievement.unlockedAt !== null)
+                .length,
+              featured_count: achievements.filter((achievement) => achievement.featured).length,
+            },
+            {
+              title: NOELIA_COPY.achievementsTitle,
+              description:
+                lines.length === 0
+                  ? NOELIA_COPY.achievementsEmpty
+                  : `${NOELIA_COPY.achievementsIntro}\n\n${lines.join('\n\n')}`,
+            },
+          ),
         ],
       });
       return;
@@ -89,14 +103,18 @@ export const achievementsCommand: SlashCommand = {
       if (featured === null) throw new Error('The featured achievement result is missing.');
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.achievementFeatureTitle,
-            description: NOELIA_COPY.achievementFeaturedSummary(
-              featured.badgeMark,
-              featured.displayName,
-            ),
-            tone: result.replayed ? 'signature' : 'success',
-          }),
+          await personaEmbed(
+            result.replayed ? 'feature_replayed' : 'feature_set',
+            { featured: true, replayed: result.replayed },
+            {
+              title: NOELIA_COPY.achievementFeatureTitle,
+              description: NOELIA_COPY.achievementFeaturedSummary(
+                featured.badgeMark,
+                featured.displayName,
+              ),
+              tone: result.replayed ? 'signature' : 'success',
+            },
+          ),
         ],
       });
       return;
@@ -106,10 +124,14 @@ export const achievementsCommand: SlashCommand = {
       await achievementService.clearFeatured(interaction.id, discordUserId);
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.achievementFeatureTitle,
-            description: NOELIA_COPY.achievementFeatureCleared,
-          }),
+          await personaEmbed(
+            'feature_cleared',
+            { featured: false },
+            {
+              title: NOELIA_COPY.achievementFeatureTitle,
+              description: NOELIA_COPY.achievementFeatureCleared,
+            },
+          ),
         ],
       });
       return;

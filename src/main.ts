@@ -16,7 +16,11 @@ async function main(): Promise<void> {
 
   try {
     const config = loadEnvironmentConfig();
-    logger = createLogger([config.discord.token, config.postgres.password]);
+    logger = createLogger([
+      config.discord.token,
+      config.postgres.password,
+      ...(config.persona.apiKey === undefined ? [] : [config.persona.apiKey]),
+    ]);
     logger.info('application.starting', {
       name: NOELIA_NAME,
       nodeEnvironment: config.nodeEnvironment,

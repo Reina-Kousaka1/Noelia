@@ -2,8 +2,8 @@ import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 export const dailyCommand: SlashCommand = {
   definition: {
@@ -18,6 +18,8 @@ export const dailyCommand: SlashCommand = {
       throw new Error('The daily command requires a guild member context.');
     }
 
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'daily', discordUserId);
+
     await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
     const claim = await services.daily.claimDaily(interaction.id, discordUserId);
     const status = claim.replayed ? NOELIA_COPY.dailyReplayed : NOELIA_COPY.dailyClaimed;
@@ -25,11 +27,19 @@ export const dailyCommand: SlashCommand = {
 
     await interaction.createFollowup({
       embeds: [
-        createNoeliaEmbed({
-          title: NOELIA_COPY.dailyTitle,
-          description: `${status}\n+${formatBalance(claim.rewardAmount)} · Balance ${formatBalance(claim.balance)}\nNext in <t:${nextClaimTimestamp}:R>.`,
-          tone: claim.replayed ? 'signature' : 'success',
-        }),
+        await personaEmbed(
+          claim.replayed ? 'claim_replayed' : 'claim_complete',
+          {
+            reward: claim.rewardAmount.toString(),
+            balance: claim.balance.toString(),
+            replayed: claim.replayed,
+          },
+          {
+            title: NOELIA_COPY.dailyTitle,
+            description: `${status}\n+${formatBalance(claim.rewardAmount)} · Balance ${formatBalance(claim.balance)}\nNext in <t:${nextClaimTimestamp}:R>.`,
+            tone: claim.replayed ? 'signature' : 'success',
+          },
+        ),
       ],
     });
   },

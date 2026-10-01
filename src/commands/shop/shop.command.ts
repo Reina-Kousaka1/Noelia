@@ -6,8 +6,8 @@ import { SHOP_RARITY_LABELS } from '../../shop/rarity.js';
 import type { ShopCategory } from '../../shop/types.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 const categoryChoices = SHOP_CATEGORIES.map((category) => ({
   name: category
@@ -89,6 +89,8 @@ export const shopCommand: SlashCommand = {
       throw new Error('The shop command requires a guild member context.');
     }
 
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'shop', discordUserId);
+
     const subcommand = interaction.data.options?.[0];
 
     if (subcommand === undefined) {
@@ -126,13 +128,22 @@ export const shopCommand: SlashCommand = {
       );
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.shopTitle,
-            description:
-              lines.length === 0
-                ? NOELIA_COPY.shopEmpty
-                : `Page ${page}/${totalPages}\n${lines.join('\n')}`,
-          }),
+          await personaEmbed(
+            'browse',
+            {
+              category: category ?? 'all',
+              item_count: items.length,
+              page,
+              total_pages: totalPages,
+            },
+            {
+              title: NOELIA_COPY.shopTitle,
+              description:
+                lines.length === 0
+                  ? NOELIA_COPY.shopEmpty
+                  : `Page ${page}/${totalPages}\n${lines.join('\n')}`,
+            },
+          ),
         ],
       });
       return;
@@ -150,10 +161,18 @@ export const shopCommand: SlashCommand = {
       );
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: NOELIA_COPY.shopCollectionsTitle,
-            description: lines.length === 0 ? NOELIA_COPY.shopCollectionsEmpty : lines.join('\n\n'),
-          }),
+          await personaEmbed(
+            'collections_view',
+            {
+              collection_count: progress.length,
+              completed_count: progress.filter((collection) => collection.complete).length,
+            },
+            {
+              title: NOELIA_COPY.shopCollectionsTitle,
+              description:
+                lines.length === 0 ? NOELIA_COPY.shopCollectionsEmpty : lines.join('\n\n'),
+            },
+          ),
         ],
       });
       return;
@@ -174,10 +193,20 @@ export const shopCommand: SlashCommand = {
       const purchaseState = item.purchasable ? '' : ' This item is not currently purchasable.';
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: `${NOELIA_COPY.shopItemTitle}: ${item.displayName}`,
-            description: `${SHOP_RARITY_LABELS[item.rarity]} · ${item.description}\nPrice: ${formatBalance(item.price)}.${requirement}${purchaseState}`,
-          }),
+          await personaEmbed(
+            'item_details',
+            {
+              category: item.category,
+              rarity: item.rarity,
+              price: item.price.toString(),
+              purchasable: item.purchasable,
+              minimum_level: item.minimumBalletLevel,
+            },
+            {
+              title: `${NOELIA_COPY.shopItemTitle}: ${item.displayName}`,
+              description: `${SHOP_RARITY_LABELS[item.rarity]} · ${item.description}\nPrice: ${formatBalance(item.price)}.${requirement}${purchaseState}`,
+            },
+          ),
         ],
       });
       return;
@@ -208,11 +237,22 @@ export const shopCommand: SlashCommand = {
         : NOELIA_COPY.shopPurchaseComplete;
       await interaction.createFollowup({
         embeds: [
-          createNoeliaEmbed({
-            title: heading,
-            description: `${purchase.quantity} × ${purchase.item.displayName} · ${formatBalance(purchase.totalPrice)}\nWallet: ${formatBalance(purchase.walletBalance)} · Owned: ${purchase.inventoryQuantity}`,
-            tone: purchase.replayed ? 'signature' : 'success',
-          }),
+          await personaEmbed(
+            purchase.replayed ? 'purchase_replayed' : 'purchase_complete',
+            {
+              category: purchase.item.category,
+              quantity: purchase.quantity,
+              total_price: purchase.totalPrice.toString(),
+              wallet_balance: purchase.walletBalance.toString(),
+              inventory_quantity: purchase.inventoryQuantity,
+              replayed: purchase.replayed,
+            },
+            {
+              title: heading,
+              description: `${purchase.quantity} × ${purchase.item.displayName} · ${formatBalance(purchase.totalPrice)}\nWallet: ${formatBalance(purchase.walletBalance)} · Owned: ${purchase.inventoryQuantity}`,
+              tone: purchase.replayed ? 'signature' : 'success',
+            },
+          ),
         ],
       });
       return;

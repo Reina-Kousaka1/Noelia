@@ -2,8 +2,8 @@ import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from './format-balance.js';
-import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 
 export const balanceCommand: SlashCommand = {
   definition: {
@@ -18,15 +18,21 @@ export const balanceCommand: SlashCommand = {
       throw new Error('The balance command requires a guild member context.');
     }
 
+    const personaEmbed = createPersonaEmbedRenderer(services.persona, 'balance', discordUserId);
+
     await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
     const balance = await services.economy.getBalance(discordUserId);
 
     await interaction.createFollowup({
       embeds: [
-        createNoeliaEmbed({
-          title: NOELIA_COPY.balanceTitle,
-          description: formatBalance(balance),
-        }),
+        await personaEmbed(
+          'balance_view',
+          { slippers_balance: balance.toString() },
+          {
+            title: NOELIA_COPY.balanceTitle,
+            description: formatBalance(balance),
+          },
+        ),
       ],
     });
   },

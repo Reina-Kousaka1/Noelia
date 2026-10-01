@@ -53,6 +53,24 @@ Required settings are `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `POSTGRES_HOST`,
 `production`. Validation errors identify variable names only and never echo
 provided values.
 
+Optional presentation-only persona text is disabled by default. To enable it,
+configure `PERSONA_GENERATION_ENABLED=true`, a compatible HTTPS Chat Completions
+endpoint, `PERSONA_GENERATION_API_KEY`, and `PERSONA_GENERATION_MODEL`. Credentials
+are read only from environment variables and are redacted by the logger. The
+provider is behind the `PersonaGenerator` interface; commands depend only on the
+provider-neutral presentation port. Set `PERSONA_GENERATION_ENABLED=false` to
+return to deterministic copy without provider credentials.
+
+The provider receives only a validated domain, action, and allowlisted structured
+facts after the domain operation completes. It writes one short embed title; the
+existing description and structured reward, price, level, and stat details remain
+the source of truth. Responses are limited to 180 characters and reject mentions,
+URLs, Markdown, and secret-like text. Requests time out quickly, do not retry,
+and are bounded by concurrent and per-minute limits plus a per-user cooldown.
+Provider errors and rejected output use the existing deterministic title. Only
+normal user-facing command responses use this feature; moderation records and
+operational logs remain deterministic.
+
 Run the project checks:
 
 ```sh
@@ -103,12 +121,13 @@ migration history is part of this repository.
 
 ## Persona and visual language
 
-Noélia's user-facing copy and Balletcore presence messages are centralized in
-`src/persona/copy.ts`; embed colors and semantic success/warning accents live in
-`src/ui/theme.ts`. Progression, shop, inventory, wardrobe, and profile responses
-use a consistent blush-pink embed. Presence rotates every 15 minutes through
-short studio-themed status lines. Infrastructure errors and future moderation
-and audit messages remain direct and factual.
+Noélia's deterministic user-facing copy and Balletcore presence messages are
+centralized in `src/persona/copy.ts`; the optional context-based presentation
+boundary lives in `src/persona/`. Embed colors and semantic success/warning
+accents live in `src/ui/theme.ts`. Progression, shop, inventory, wardrobe, and
+profile responses use a consistent blush-pink embed. Presence rotates every 15
+minutes through short studio-themed status lines. Infrastructure errors and
+future moderation and audit messages remain direct and factual.
 
 The moderation domain currently contains only a transport-independent case
 draft and input policy; it does not perform moderation actions or persist cases.

@@ -27,6 +27,8 @@ import { CollectionService } from '../collections/collection-service.js';
 import { WardrobePresetService } from '../wardrobe/preset-service.js';
 import { AchievementService } from '../achievements/achievement-service.js';
 import { achievementsCommand } from '../commands/achievements/achievements.command.js';
+import { ChatCompletionsPersonaGenerator } from '../persona/chat-completions-generator.js';
+import { SafePersonaPresenter } from '../persona/presentation.js';
 import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -63,6 +65,29 @@ export function createDiscordRuntime(
   const wardrobePresets = new WardrobePresetService(pool);
   const achievements = new AchievementService(pool);
   const profile = new ProfileService(economy, ballet, wardrobe, collections, achievements);
+  const personaGenerator = config.persona.generationEnabled
+    ? new ChatCompletionsPersonaGenerator({
+        endpoint: config.persona.endpoint!,
+        apiKey: config.persona.apiKey!,
+        model: config.persona.model!,
+      })
+    : undefined;
+  const persona = new SafePersonaPresenter(
+    {
+      enabled: config.persona.generationEnabled,
+      ...(personaGenerator === undefined ? {} : { generator: personaGenerator }),
+      timeoutMs: config.persona.timeoutMs,
+      maxConcurrent: config.persona.maxConcurrent,
+      maxRequestsPerMinute: config.persona.maxRequestsPerMinute,
+    },
+    logger,
+    Date.now,
+    [
+      config.discord.token,
+      config.postgres.password,
+      ...(config.persona.apiKey === undefined ? [] : [config.persona.apiKey]),
+    ],
+  );
   const coreCommands = [
     pingCommand,
     balanceCommand,
@@ -90,6 +115,7 @@ export function createDiscordRuntime(
     collections,
     wardrobePresets,
     achievements,
+    persona,
   });
   let stopping = false;
   let commandSync: Promise<void> | undefined;
