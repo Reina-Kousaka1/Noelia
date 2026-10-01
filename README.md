@@ -6,14 +6,16 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
-`/ballet`, `/shop`, `/inventory`, `/wardrobe`, and `/profile` commands without
+`/ballet`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, and `/market` commands without
 replacing the guild's other commands.
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, a first Ballet progression core, and a
 small curated shop with transactional purchases and persistent inventory are
 active. Inventory pages and a persistent, ownership-checked wardrobe are also
 available, and `/profile` aggregates wallet, Ballet progress, and equipped
-look; marketplace trading is not implemented.
+look. `/market` uses the existing Ballet Slippers wallet and ledger; listings
+hold items in PostgreSQL escrow and use idempotency and row locks to protect
+concurrent purchases. Only listing sellers can cancel their own listings.
 
 ## Technology
 
@@ -100,8 +102,8 @@ and audit messages remain direct and factual.
 
 The moderation domain currently contains only a transport-independent case
 draft and input policy; it does not perform moderation actions or persist cases.
-Marketplace trading is not implemented; its transaction and escrow invariants
-are recorded in `docs/architecture/marketplace.md`.
+Marketplace invariants and transaction behavior are documented in
+`docs/architecture/marketplace.md`.
 
 ## PostgreSQL safety
 
@@ -110,8 +112,9 @@ The migration runner tracks immutable, checksummed SQL migrations in
 the Ballet Slippers wallet, idempotency records, and append-only ledger, V3 adds
 append-only Daily claim history, V4 adds the first seeded Ballet activity
 catalog and progression history, V5 adds the curated shop catalog, persistent
-inventory, and immutable purchase history, and V6 adds the persistent wardrobe
-equipment slots. The first shop seed is six Balletcore cosmetic items;
+inventory, and immutable purchase history, V6 adds the persistent wardrobe
+equipment slots, and V7 adds marketplace listings, escrow, idempotency records,
+and immutable sale history. The first shop seed is six Balletcore cosmetic items;
 purchases atomically check eligibility and balance, debit the wallet, add
 inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, and unequip; only owned items may
 be equipped, and metadata can make a costume occupy multiple slots. Economy,

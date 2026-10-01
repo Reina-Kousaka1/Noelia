@@ -21,6 +21,12 @@ export const NOELIA_COPY = {
   wardrobeTitle: 'Your studio look',
   wardrobeEmpty: 'Your wardrobe is ready for its first look.',
   profileTitle: 'Your studio profile',
+  marketTitle: 'The studio exchange',
+  marketEmpty: 'No pieces are listed just now. Your studio exchange is taking a quiet moment.',
+  marketListingCreated: 'Your piece is on the exchange',
+  marketListingCancelled: 'Your piece is back in your wardrobe',
+  marketPurchaseComplete: 'A new piece is yours',
+  marketPurchaseReplayed: 'That exchange is already recorded',
   currentLook: 'Current look',
 } as const;
 

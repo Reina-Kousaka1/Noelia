@@ -1,7 +1,8 @@
-# Marketplace boundary (planned)
+# Marketplace V1
 
-Status: architecture prepared; marketplace commands, schema, and trading are
-not implemented.
+Status: Marketplace V1 persistence and `/market` commands are implemented.
+Listings, escrow, request idempotency, two-sided wallet transfers, and sale
+history are stored in PostgreSQL migration V7.
 
 ## Ownership and persistence
 
@@ -33,20 +34,20 @@ wallet. Shop purchases remain distinct from user-to-user listings.
 
 ## Future persistence shape
 
-When marketplace implementation is approved, introduce fresh versioned
-migrations for listings, escrow, and completed trades. Use foreign keys to
-existing Discord-user and inventory identities, explicit listing states, a
-unique interaction/idempotency constraint, and checks that reject non-positive
-quantities or prices. Keep completed trade and wallet-ledger records
-append-only. Do not retrofit old schemas or move data from an archived bot.
+Migration V7 implements fresh listing, escrow, request, and sale tables with
+foreign keys to existing Discord-user and catalog identities, explicit listing
+states, interaction/idempotency constraints, checks for positive quantities and
+prices, and append-only sale history. The service retains completed listings
+and ledger records; it does not retrofit old schemas or import data.
 
 ## Application boundary
 
-The future `marketplace` domain should expose a testable service/port for
-create-listing, cancel-listing, browse, and purchase operations. Discord
-commands should only parse input, defer/respond, and call that port. Rendering
-and persona copy stay outside the service. Integration tests must use the
-isolated `noelia_test` database guard and cover rollback, replay, concurrent
-purchase, insufficient balance, cancellation, and escrow ownership.
+The `marketplace` domain exposes a testable service/port for create-listing,
+cancel-listing, browse, mine, and purchase. `/market` only parses input,
+defers/responds, and calls that port; rendering and persona copy stay outside
+the service. PostgreSQL integration tests use the isolated `noelia_test`
+database guard and cover rollback, replay, concurrent purchase, insufficient
+balance, cancellation, and escrow ownership.
 
-No marketplace tables or service are created by this architecture note.
+Only the seller can cancel in V1. Administrative cancellation, fees, auctions,
+and any moderation-driven listing takedown are intentionally not implemented.
