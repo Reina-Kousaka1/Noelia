@@ -620,6 +620,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       amount: 500n,
       reason: 'DAILY_REWARD',
     });
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 100, 2)`,
+      [discordUserId],
+    );
     await shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1);
     await shop.purchase(testSnowflake(), discordUserId, 'petal-practice-leotard', 1);
     await wardrobe.equip(discordUserId, 'satin-ribbon-bow');
