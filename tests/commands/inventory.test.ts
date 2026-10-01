@@ -50,6 +50,7 @@ describe('inventory command', () => {
         }),
       },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
     };
 
     await inventoryCommand.execute({ client: {} as Eris.Client, interaction, services });
@@ -78,6 +79,7 @@ describe('inventory command', () => {
         }),
       },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
     };
 
     await inventoryCommand.execute({ client: {} as Eris.Client, interaction, services });

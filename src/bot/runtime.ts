@@ -8,12 +8,14 @@ import { BalletService } from '../ballet/ballet-service.js';
 import { ShopService } from '../shop/shop-service.js';
 import { InventoryService } from '../inventory/inventory-service.js';
 import { WardrobeService } from '../wardrobe/wardrobe-service.js';
+import { ProfileService } from '../profile/profile-service.js';
 import { balanceCommand } from '../commands/balance/balance.command.js';
 import { balletCommand } from '../commands/ballet/ballet.command.js';
 import { dailyCommand } from '../commands/daily/daily.command.js';
 import { shopCommand } from '../commands/shop/shop.command.js';
 import { inventoryCommand } from '../commands/inventory/inventory.command.js';
 import { wardrobeCommand } from '../commands/wardrobe/wardrobe.command.js';
+import { profileCommand } from '../commands/profile/profile.command.js';
 import { pingCommand } from '../commands/ping/ping.command.js';
 import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
@@ -42,6 +44,7 @@ export function createDiscordRuntime(
   const shop = new ShopService(pool, economy);
   const inventory = new InventoryService(pool);
   const wardrobe = new WardrobeService(pool);
+  const profile = new ProfileService(economy, ballet, wardrobe);
   const registry = new CommandRegistry([
     pingCommand,
     balanceCommand,
@@ -50,6 +53,7 @@ export function createDiscordRuntime(
     shopCommand,
     inventoryCommand,
     wardrobeCommand,
+    profileCommand,
   ]);
   const router = new InteractionRouter(registry, logger, {
     economy,
@@ -58,6 +62,7 @@ export function createDiscordRuntime(
     shop,
     inventory,
     wardrobe,
+    profile,
   });
   let stopping = false;
 

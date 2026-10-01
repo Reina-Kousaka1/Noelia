@@ -4,6 +4,7 @@ import type { DailyClaimResult } from '../economy/types.js';
 import type { ShopPort } from '../shop/types.js';
 import type { InventoryPort } from '../inventory/types.js';
 import type { WardrobePort } from '../wardrobe/types.js';
+import type { ProfilePort } from '../profile/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -26,6 +27,7 @@ export interface CommandServices {
   readonly shop: ShopPort;
   readonly inventory: InventoryPort;
   readonly wardrobe: WardrobePort;
+  readonly profile: ProfilePort;
 }
 
 export interface SlashCommand {

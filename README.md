@@ -11,7 +11,8 @@ Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, a first Ballet progression core, and a
 small curated shop with transactional purchases and persistent inventory are
 active. Inventory pages and a persistent, ownership-checked wardrobe are also
-available; marketplace trading is not implemented.
+available, and `/profile` aggregates wallet, Ballet progress, and equipped
+look; marketplace trading is not implemented.
 
 ## Technology
 

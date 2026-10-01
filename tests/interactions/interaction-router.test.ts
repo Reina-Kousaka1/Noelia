@@ -41,6 +41,7 @@ describe('InteractionRouter', () => {
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
       inventory: { listInventory: vi.fn() },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
     };
     const router = new InteractionRouter(
       new CommandRegistry([command]),
@@ -67,6 +68,7 @@ describe('InteractionRouter', () => {
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
       inventory: { listInventory: vi.fn() },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
     });
 
     await router.dispatch(interaction, client);
@@ -94,6 +96,7 @@ describe('InteractionRouter', () => {
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
       inventory: { listInventory: vi.fn() },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);
@@ -120,6 +123,7 @@ describe('InteractionRouter', () => {
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
       inventory: { listInventory: vi.fn() },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);
