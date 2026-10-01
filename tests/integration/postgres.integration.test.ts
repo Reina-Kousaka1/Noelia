@@ -26,6 +26,7 @@ import {
   MarketplaceItemNotOwnedError,
   MarketplaceListingUnavailableError,
   MarketplaceNotSellerError,
+  MarketplaceSelfPurchaseError,
 } from '../../src/marketplace/errors.js';
 import { MarketplaceService } from '../../src/marketplace/marketplace-service.js';
 
@@ -504,8 +505,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       125n,
     );
 
-    await expect(market.buy(testSnowflake(), seller, listing.listingId)).rejects.toThrow(
-      'You cannot buy your own listing.',
+    await expect(market.buy(testSnowflake(), seller, listing.listingId)).rejects.toBeInstanceOf(
+      MarketplaceSelfPurchaseError,
     );
     await expect(
       market.cancel(testSnowflake(), otherUser, listing.listingId),
