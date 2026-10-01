@@ -47,6 +47,12 @@ import { MarketplaceService } from '../../src/marketplace/marketplace-service.js
 import { PerformanceService } from '../../src/performance/performance-service.js';
 import { CollectionService } from '../../src/collections/collection-service.js';
 import { PerformanceCooldownError, PerformanceLockedError } from '../../src/performance/errors.js';
+import { RelationshipService } from '../../src/relationships/relationship-service.js';
+import {
+  MarriageParticipantUnavailableError,
+  MarriageProposalActorError,
+  MarriageProposalUnavailableError,
+} from '../../src/relationships/errors.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -140,8 +146,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 6,
-        currentVersion: 12,
+        appliedCount: 7,
+        currentVersion: 13,
       });
       await expect(
         upgradePool.query(
@@ -169,7 +175,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 12 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 13 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -1212,6 +1218,118 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     } else {
       await expect(new EconomyService(pool).getBalance(buyer)).resolves.toBe(75n);
     }
+  });
+
+  it('serializes concurrent marriage accepts and makes duplicate decisions and divorce idempotent', async () => {
+    const relationships = new RelationshipService(pool);
+    const guildId = testSnowflake();
+    const proposer = testSnowflake();
+    const target = testSnowflake();
+    const proposal = await relationships.propose(testSnowflake(), guildId, proposer, target);
+    const acceptIds = [testSnowflake(), testSnowflake()] as const;
+
+    const decisions = await Promise.allSettled([
+      relationships.respond(acceptIds[0], guildId, target, proposal.proposal.proposalId, 'ACCEPT'),
+      relationships.respond(acceptIds[1], guildId, target, proposal.proposal.proposalId, 'ACCEPT'),
+    ]);
+    const acceptedIndex = decisions.findIndex((decision) => decision.status === 'fulfilled');
+    const rejected = decisions.find((decision) => decision.status === 'rejected');
+    expect(acceptedIndex).toBeGreaterThanOrEqual(0);
+    expect(rejected?.status).toBe('rejected');
+    if (rejected?.status === 'rejected') {
+      expect(rejected.reason).toBeInstanceOf(MarriageProposalUnavailableError);
+    }
+    const acceptedRequestId = acceptIds[acceptedIndex];
+    expect(acceptedRequestId).toBeDefined();
+    const replay = await relationships.respond(
+      acceptedRequestId!,
+      guildId,
+      target,
+      proposal.proposal.proposalId,
+      'ACCEPT',
+    );
+    expect(replay).toMatchObject({ status: 'ACCEPTED', replayed: true });
+
+    const proposerMarriage = await relationships.getMarriage(proposer);
+    const targetMarriage = await relationships.getMarriage(target);
+    expect(proposerMarriage).toMatchObject({ partnerUserId: target });
+    expect(targetMarriage).toMatchObject({
+      relationshipId: proposerMarriage?.relationshipId,
+      partnerUserId: proposer,
+    });
+    await expect(
+      relationships.propose(testSnowflake(), guildId, proposer, testSnowflake()),
+    ).rejects.toBeInstanceOf(MarriageParticipantUnavailableError);
+
+    const divorceId = testSnowflake();
+    const divorce = await relationships.divorce(divorceId, target);
+    expect(divorce.replayed).toBe(false);
+    await expect(relationships.getMarriage(proposer)).resolves.toBeNull();
+    await expect(relationships.getMarriage(target)).resolves.toBeNull();
+    await expect(relationships.divorce(divorceId, target)).resolves.toEqual({
+      relationshipId: divorce.relationshipId,
+      replayed: true,
+    });
+  });
+
+  it('prevents overlapping proposals and enforces target-only decisions and proposer-only cancellation', async () => {
+    const relationships = new RelationshipService(pool);
+    const guildId = testSnowflake();
+    const proposer = testSnowflake();
+    const firstTarget = testSnowflake();
+    const secondTarget = testSnowflake();
+    const proposalIds = [testSnowflake(), testSnowflake()] as const;
+    const proposals = await Promise.allSettled([
+      relationships.propose(proposalIds[0], guildId, proposer, firstTarget),
+      relationships.propose(proposalIds[1], guildId, proposer, secondTarget),
+    ]);
+    expect(proposals.filter((proposal) => proposal.status === 'fulfilled')).toHaveLength(1);
+    const rejected = proposals.find((proposal) => proposal.status === 'rejected');
+    if (rejected?.status === 'rejected') {
+      expect(rejected.reason).toBeInstanceOf(MarriageParticipantUnavailableError);
+    }
+    const activeIndex = proposals.findIndex((proposal) => proposal.status === 'fulfilled');
+    const active = proposals[activeIndex];
+    expect(active?.status).toBe('fulfilled');
+    if (active?.status !== 'fulfilled') throw new Error('Expected one proposal to be created.');
+
+    await expect(
+      relationships.respond(
+        testSnowflake(),
+        guildId,
+        testSnowflake(),
+        active.value.proposal.proposalId,
+        'ACCEPT',
+      ),
+    ).rejects.toBeInstanceOf(MarriageProposalActorError);
+    const targetUserId = active.value.proposal.targetUserId;
+    await expect(
+      relationships.cancel(
+        testSnowflake(),
+        guildId,
+        targetUserId,
+        active.value.proposal.proposalId,
+      ),
+    ).rejects.toBeInstanceOf(MarriageProposalActorError);
+    await expect(
+      relationships.cancel(testSnowflake(), guildId, proposer, active.value.proposal.proposalId),
+    ).resolves.toMatchObject({ status: 'CANCELLED', replayed: false });
+
+    const afterCancel = await relationships.propose(
+      testSnowflake(),
+      guildId,
+      proposer,
+      testSnowflake(),
+    );
+    const declined = await relationships.respond(
+      testSnowflake(),
+      guildId,
+      afterCancel.proposal.targetUserId,
+      afterCancel.proposal.proposalId,
+      'DECLINE',
+    );
+    expect(declined).toMatchObject({ status: 'DECLINED', relationshipId: null, replayed: false });
+    await expect(relationships.getMarriage(proposer)).resolves.toBeNull();
   });
 
   it('rolls wallet, inventory, escrow, sale status, and idempotency back after a late DB failure', async () => {

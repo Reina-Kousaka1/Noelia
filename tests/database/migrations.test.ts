@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(12);
+    expect(migrations).toHaveLength(13);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -88,6 +88,9 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[11]?.sql).toContain('CREATE TABLE user_achievements');
     expect(migrations[11]?.sql).toContain('CREATE TABLE featured_user_achievements');
     expect(migrations[11]?.sql).toContain("('first-steps', 'First Steps'");
+    expect(migrations[12]).toMatchObject({ version: 13, name: 'relationships_v1' });
+    expect(migrations[12]?.sql).toContain('CREATE TABLE relationship_proposals');
+    expect(migrations[12]?.sql).toContain('CREATE TABLE relationship_members');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -103,8 +106,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 12,
-      currentVersion: 12,
+      appliedCount: 13,
+      currentVersion: 13,
     });
 
     expect(statements).toContain('BEGIN');
@@ -189,6 +192,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [12, 'achievements_v1', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [13, 'relationships_v1', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

@@ -11,6 +11,7 @@ import type { CollectionPort } from '../collections/types.js';
 import type { WardrobePresetPort } from '../wardrobe/types.js';
 import type { AchievementPort } from '../achievements/types.js';
 import type { PersonaTextPort } from '../persona/generator.js';
+import type { RelationshipPort } from '../relationships/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -40,6 +41,7 @@ export interface CommandServices {
   readonly wardrobePresets?: WardrobePresetPort;
   readonly achievements?: AchievementPort;
   readonly persona?: PersonaTextPort;
+  readonly relationships?: RelationshipPort;
 }
 
 export interface SlashCommand {

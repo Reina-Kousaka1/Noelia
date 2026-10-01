@@ -79,7 +79,24 @@ export const NOELIA_COPY = {
   profileFeaturedAchievement: (badgeMark: string, displayName: string) =>
     `Featured badge: ${badgeMark} **${displayName}**`,
   profileNoFeaturedAchievement: 'No featured badge selected.',
+  profileMarriage: (partnerUserId: string | null) =>
+    partnerUserId === null ? 'Relationship: not married' : `Studio partner: <@${partnerUserId}>`,
   currentLook: 'Current look',
+  marriageTitle: 'A little studio promise',
+  marriageProposal: (proposerUserId: string, targetUserId: string) =>
+    `🎀 <@${proposerUserId}> has sent <@${targetUserId}> a little studio proposal.\n\nOnly <@${targetUserId}> can accept or decline. The sender can cancel it.`,
+  marriageAccepted: '🩰 The studio proposal was accepted. Congratulations to you both!',
+  marriageDeclined: 'The studio proposal was declined.',
+  marriageCancelled: 'The sender cancelled the pending studio proposal.',
+  marriagePending: 'That studio proposal is still waiting for an answer.',
+  marriageNone: 'No active studio promise is recorded for you.',
+  marriageStatus: (partnerUserId: string, since: string) =>
+    `Your studio partner is <@${partnerUserId}>. Together since ${since}.`,
+  marriageDivorced:
+    'The studio promise has been ended. Your relationship history remains recorded.',
+  marriageAcceptButton: 'Accept',
+  marriageDeclineButton: 'Decline',
+  marriageCancelButton: 'Cancel proposal',
 } as const;
 
 export const NOELIA_PRESENCE = [

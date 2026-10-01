@@ -28,6 +28,12 @@ describe('profile command', () => {
   it('renders Ballet stats, collections, featured badge, and outfit privately', async () => {
     const { interaction, services, defer, createFollowup } = createContext({
       balletSlippers: 1_240n,
+      marriage: {
+        relationshipId: '31',
+        guildId: '333333333333333333',
+        partnerUserId: '444444444444444444',
+        marriedAt: new Date('2026-10-01T11:00:00.000Z'),
+      },
       ballet: {
         totalXp: 240n,
         level: 3,
@@ -70,12 +76,14 @@ describe('profile command', () => {
     expect(description).toContain('Performance 40 · Pointe 5 · Stamina 6');
     expect(description).toContain('Satin Ribbon Bow');
     expect(description).toContain(NOELIA_COPY.profileCollectionProgress(2, 11));
+    expect(description).toContain(NOELIA_COPY.profileMarriage('444444444444444444'));
     expect(description).toContain(NOELIA_COPY.profileFeaturedAchievement('🩰', 'First Steps'));
   });
 
   it('shows empty outfit and no extra progress at maximum Ballet level', async () => {
     const { interaction, services, createFollowup } = createContext({
       balletSlippers: 0n,
+      marriage: null,
       ballet: {
         totalXp: 9_900n,
         level: 100,
@@ -102,6 +110,7 @@ describe('profile command', () => {
     expect(description).toContain('Maximum Ballet level reached.');
     expect(description).toContain(NOELIA_COPY.wardrobeEmpty);
     expect(description).toContain(NOELIA_COPY.profileCollectionProgress(0, 11));
+    expect(description).toContain(NOELIA_COPY.profileMarriage(null));
     expect(description).toContain(NOELIA_COPY.profileNoFeaturedAchievement);
   });
 });

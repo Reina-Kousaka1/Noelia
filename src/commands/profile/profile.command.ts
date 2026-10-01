@@ -58,32 +58,32 @@ export const profileCommand: SlashCommand = {
             profile.featuredAchievement.displayName,
           );
 
-    await interaction.createFollowup({
-      embeds: [
-        await personaEmbed(
-          'progress_view',
-          {
-            ballet_level: profile.ballet.level,
-            ballet_xp: profile.ballet.totalXp.toString(),
-            slippers: profile.balletSlippers.toString(),
-            equipped_item_count: profile.outfit.length,
-            completed_collections: profile.completedCollections,
-            total_collections: profile.totalCollections,
-            has_featured_achievement: profile.featuredAchievement !== null,
-            technique: profile.ballet.stats.technique,
-            flexibility: profile.ballet.stats.flexibility,
-            musicality: profile.ballet.stats.musicality,
-            performance: profile.ballet.stats.performance,
-            pointe: profile.ballet.stats.pointe,
-            stamina: profile.ballet.stats.stamina,
-          },
-          {
-            title: NOELIA_COPY.profileTitle,
-            description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
-          },
-        ),
-      ],
-    });
+    const embed = await personaEmbed(
+      'progress_view',
+      {
+        ballet_level: profile.ballet.level,
+        ballet_xp: profile.ballet.totalXp.toString(),
+        slippers: profile.balletSlippers.toString(),
+        equipped_item_count: profile.outfit.length,
+        completed_collections: profile.completedCollections,
+        total_collections: profile.totalCollections,
+        has_featured_achievement: profile.featuredAchievement !== null,
+        technique: profile.ballet.stats.technique,
+        flexibility: profile.ballet.stats.flexibility,
+        musicality: profile.ballet.stats.musicality,
+        performance: profile.ballet.stats.performance,
+        pointe: profile.ballet.stats.pointe,
+        stamina: profile.ballet.stats.stamina,
+      },
+      {
+        title: NOELIA_COPY.profileTitle,
+        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
+      },
+    );
+    const marriageLine = NOELIA_COPY.profileMarriage(profile.marriage?.partnerUserId ?? null);
+    const description = [embed.description, marriageLine].filter(Boolean).join('\n');
+
+    await interaction.createFollowup({ embeds: [{ ...embed, description }] });
   },
 };
 

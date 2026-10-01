@@ -10,7 +10,7 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
-`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, `/market`, and `/achievements` commands.
+`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, `/market`, `/achievements`, `/marry`, `/marriage`, and `/divorce` commands.
 On startup it reconciles the configured guild's application commands against the registry:
 missing commands are created, changed definitions are updated, and stale commands are
 removed. After the guild catalog is ready, it removes old global application commands
@@ -29,7 +29,9 @@ concurrent purchases. Only listing sellers can cancel their own listings.
 wallet, a fixed stat-weighted score, transactional rewards, and persistent
 history; it does not use random outcomes or introduce a second economy. The
 `/shop collections` command shows progress across 11 named collections; items held in
-active marketplace escrow continue to count toward collection progress.
+active marketplace escrow continue to count toward collection progress. The
+relationship domain stores proposals, current marriages, and divorce history
+transactionally; it does not alter economy or gameplay state.
 
 ## Technology
 

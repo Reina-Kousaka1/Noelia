@@ -29,6 +29,12 @@ import { AchievementService } from '../achievements/achievement-service.js';
 import { achievementsCommand } from '../commands/achievements/achievements.command.js';
 import { ChatCompletionsPersonaGenerator } from '../persona/chat-completions-generator.js';
 import { SafePersonaPresenter } from '../persona/presentation.js';
+import { RelationshipService } from '../relationships/relationship-service.js';
+import {
+  marryCommand,
+  marriageCommand,
+  divorceCommand,
+} from '../commands/marriage/marriage.command.js';
 import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -64,7 +70,15 @@ export function createDiscordRuntime(
   const collections = new CollectionService(pool);
   const wardrobePresets = new WardrobePresetService(pool);
   const achievements = new AchievementService(pool);
-  const profile = new ProfileService(economy, ballet, wardrobe, collections, achievements);
+  const relationships = new RelationshipService(pool);
+  const profile = new ProfileService(
+    economy,
+    ballet,
+    wardrobe,
+    collections,
+    achievements,
+    relationships,
+  );
   const personaGenerator = config.persona.generationEnabled
     ? new ChatCompletionsPersonaGenerator({
         endpoint: config.persona.endpoint!,
@@ -100,6 +114,9 @@ export function createDiscordRuntime(
     marketCommand,
     performanceCommand,
     achievementsCommand,
+    marryCommand,
+    marriageCommand,
+    divorceCommand,
   ];
   const registry = new CommandRegistry([...coreCommands, createHelpCommand(coreCommands)]);
   const router = new InteractionRouter(registry, logger, {
@@ -116,6 +133,7 @@ export function createDiscordRuntime(
     wardrobePresets,
     achievements,
     persona,
+    relationships,
   });
   let stopping = false;
   let commandSync: Promise<void> | undefined;
@@ -154,6 +172,12 @@ export function createDiscordRuntime(
     if (interaction instanceof Eris.CommandInteraction) {
       void router.dispatch(interaction, client).catch((error: unknown) => {
         logger.error('discord.interaction_dispatch_failed', error, {
+          interactionId: interaction.id,
+        });
+      });
+    } else if (interaction instanceof Eris.ComponentInteraction) {
+      void router.dispatchComponent(interaction).catch((error: unknown) => {
+        logger.error('discord.component_dispatch_failed', error, {
           interactionId: interaction.id,
         });
       });

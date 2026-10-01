@@ -5,6 +5,9 @@ import type { CommandServices } from '../commands/command.js';
 import type { CommandRegistry } from '../commands/registry.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
 import { ExpectedDomainError } from '../utils/expected-domain-error.js';
+import { NOELIA_COPY } from '../persona/copy.js';
+import { parseRelationshipButtonId } from '../relationships/components.js';
+import type { RelationshipProposalStatus } from '../relationships/types.js';
 
 export class InteractionRouter {
   public constructor(
@@ -65,6 +68,93 @@ export class InteractionRouter {
         });
       }
     }
+  }
+
+  public async dispatchComponent(interaction: Eris.ComponentInteraction): Promise<void> {
+    const parsed = parseRelationshipButtonId(interaction.data.custom_id);
+    if (parsed === null) {
+      await interaction.createMessage({
+        content: 'That interaction is no longer available.',
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      });
+      return;
+    }
+
+    const guildId = interaction.guildID;
+    const actorUserId = interaction.member?.id;
+    const relationships = this.services.relationships;
+    if (guildId === undefined || actorUserId === undefined || relationships === undefined) {
+      await interaction.createMessage({
+        content: 'This proposal can only be answered in its server.',
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      });
+      return;
+    }
+
+    try {
+      await interaction.deferUpdate();
+      let status: RelationshipProposalStatus;
+
+      if (parsed.action === 'cancel') {
+        const result = await relationships.cancel(
+          interaction.id,
+          guildId,
+          actorUserId,
+          parsed.proposalId,
+        );
+        status = result.status;
+      } else {
+        const result = await relationships.respond(
+          interaction.id,
+          guildId,
+          actorUserId,
+          parsed.proposalId,
+          parsed.action === 'accept' ? 'ACCEPT' : 'DECLINE',
+        );
+        status = result.status;
+      }
+
+      const content = this.relationshipResultCopy(status);
+      await interaction.editParent({ content, components: [] });
+    } catch (error) {
+      if (error instanceof ExpectedDomainError) {
+        this.logger.info('discord.component_rejected', {
+          component: 'marriage_proposal',
+          errorType: error.name,
+          interactionId: interaction.id,
+        });
+        await this.respondComponent(interaction, error.userMessage);
+        return;
+      }
+
+      this.logger.error('discord.component_failed', error, {
+        component: 'marriage_proposal',
+        interactionId: interaction.id,
+      });
+      await this.respondComponent(
+        interaction,
+        'Noélia could not complete that action. Please try again in a moment.',
+      );
+    }
+  }
+
+  private async respondComponent(
+    interaction: Eris.ComponentInteraction,
+    content: string,
+  ): Promise<void> {
+    const response = { content, flags: Eris.Constants.MessageFlags.EPHEMERAL };
+    if (interaction.acknowledged) {
+      await interaction.createFollowup(response);
+      return;
+    }
+    await interaction.createMessage(response);
+  }
+
+  private relationshipResultCopy(status: RelationshipProposalStatus): string {
+    if (status === 'ACCEPTED') return NOELIA_COPY.marriageAccepted;
+    if (status === 'DECLINED') return NOELIA_COPY.marriageDeclined;
+    if (status === 'CANCELLED') return NOELIA_COPY.marriageCancelled;
+    return NOELIA_COPY.marriagePending;
   }
 
   private async respond(

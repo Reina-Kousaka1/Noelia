@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { SlashCommand } from '../../src/commands/command.js';
 import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
+import { MarriageProposalActorError } from '../../src/relationships/errors.js';
 import { CommandRegistry } from '../../src/commands/registry.js';
 import { InteractionRouter } from '../../src/interactions/interaction-router.js';
 import { StructuredLogger } from '../../src/infrastructure/logging/logger.js';
@@ -138,5 +139,101 @@ describe('InteractionRouter', () => {
       interactionId: 'interaction-id',
     });
     expect(logError).not.toHaveBeenCalled();
+  });
+
+  it('routes a marriage button and edits the proposal after the transaction succeeds', async () => {
+    const interaction = {
+      id: '555555555555555555',
+      data: { custom_id: 'noelia:marriage:accept:57' },
+      guildID: '333333333333333333',
+      member: { id: '444444444444444444' },
+      acknowledged: false,
+      deferUpdate: vi.fn().mockResolvedValue(undefined),
+      editParent: vi.fn().mockResolvedValue(undefined),
+      createFollowup: vi.fn().mockResolvedValue(undefined),
+      createMessage: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Eris.ComponentInteraction;
+    const relationships = {
+      respond: vi.fn().mockResolvedValue({
+        proposalId: '57',
+        status: 'ACCEPTED',
+        relationshipId: '81',
+        replayed: false,
+      }),
+    };
+    const services = {
+      economy: { getBalance: vi.fn() },
+      daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
+      relationships,
+    };
+    const router = new InteractionRouter(
+      new CommandRegistry([]),
+      new StructuredLogger(),
+      services as never,
+    );
+
+    await router.dispatchComponent(interaction);
+
+    expect(interaction.deferUpdate).toHaveBeenCalledOnce();
+    expect(relationships.respond).toHaveBeenCalledWith(
+      '555555555555555555',
+      '333333333333333333',
+      '444444444444444444',
+      '57',
+      'ACCEPT',
+    );
+    expect(interaction.editParent).toHaveBeenCalledWith({
+      content: expect.stringContaining('proposal was accepted'),
+      components: [],
+    });
+  });
+
+  it('shows expected marriage button authorization errors privately', async () => {
+    const createFollowup = vi.fn().mockResolvedValue(undefined);
+    const interaction = {
+      id: '555555555555555555',
+      data: { custom_id: 'noelia:marriage:accept:57' },
+      guildID: '333333333333333333',
+      member: { id: '444444444444444444' },
+      acknowledged: false,
+      deferUpdate: vi.fn().mockImplementation(function (this: { acknowledged: boolean }) {
+        this.acknowledged = true;
+        return Promise.resolve();
+      }),
+      createFollowup,
+      createMessage: vi.fn().mockResolvedValue(undefined),
+      editParent: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Eris.ComponentInteraction;
+    const relationships = {
+      respond: vi.fn().mockRejectedValue(new MarriageProposalActorError()),
+    };
+    const services = {
+      economy: { getBalance: vi.fn() },
+      daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
+      relationships,
+    };
+    const router = new InteractionRouter(
+      new CommandRegistry([]),
+      new StructuredLogger(),
+      services as never,
+    );
+
+    await router.dispatchComponent(interaction);
+
+    expect(createFollowup).toHaveBeenCalledWith({
+      content:
+        'Only the person this proposal was sent to can answer it; only its sender can cancel it.',
+      flags: Eris.Constants.MessageFlags.EPHEMERAL,
+    });
   });
 });
