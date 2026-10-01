@@ -6,8 +6,12 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
-`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, and `/market` commands without
-replacing the guild's other commands.
+`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, and `/market` commands.
+On startup it reconciles the configured guild's application commands against the registry:
+missing commands are created, changed definitions are updated, and stale commands are
+removed. After the guild catalog is ready, it removes old global application commands
+from the shared Discord application. A second startup with the same catalog makes no
+command writes. The Discord application and its token are never deleted.
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, levelled Ballet practice with six
 persistent capped stats, and a curated 62-item shop with transactional purchases
