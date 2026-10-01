@@ -39,6 +39,8 @@ describe('InteractionRouter', () => {
       daily: { claimDaily: vi.fn() },
       ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     };
     const router = new InteractionRouter(
       new CommandRegistry([command]),
@@ -63,6 +65,8 @@ describe('InteractionRouter', () => {
       daily: { claimDaily: vi.fn() },
       ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     });
 
     await router.dispatch(interaction, client);
@@ -88,6 +92,8 @@ describe('InteractionRouter', () => {
       daily: { claimDaily: vi.fn() },
       ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);
@@ -112,6 +118,8 @@ describe('InteractionRouter', () => {
       daily: { claimDaily: vi.fn() },
       ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
       shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     });
 
     await router.dispatch(interaction, {} as Eris.Client);

@@ -14,6 +14,9 @@ import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
 import { ShopItemAlreadyOwnedError } from '../../src/shop/errors.js';
 import { ShopService } from '../../src/shop/shop-service.js';
+import { InventoryService } from '../../src/inventory/inventory-service.js';
+import { WardrobeItemNotOwnedError } from '../../src/wardrobe/errors.js';
+import { WardrobeService } from '../../src/wardrobe/wardrobe-service.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -41,7 +44,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 5 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 6 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -223,5 +226,44 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1),
     ).rejects.toBeInstanceOf(ShopItemAlreadyOwnedError);
     await expect(economy.getBalance(discordUserId)).resolves.toBe(20n);
+  });
+
+  it('persists inventory pages and only equips items the user owns', async () => {
+    const economy = new EconomyService(pool);
+    const shop = new ShopService(pool, economy);
+    const inventory = new InventoryService(pool);
+    const wardrobe = new WardrobeService(pool);
+    const discordUserId = testSnowflake();
+
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 100n,
+      reason: 'DAILY_REWARD',
+    });
+    await shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1);
+
+    await expect(inventory.listInventory(discordUserId, 1)).resolves.toMatchObject({
+      page: 1,
+      totalItems: 1,
+      totalPages: 1,
+      entries: [{ itemId: 'satin-ribbon-bow', quantity: 1, source: 'SHOP_PURCHASE' }],
+    });
+    await expect(wardrobe.equip(discordUserId, 'satin-ribbon-bow')).resolves.toMatchObject({
+      itemId: 'satin-ribbon-bow',
+      slots: ['hair_accessory'],
+      displacedItems: [],
+    });
+    await expect(wardrobe.getOutfit(discordUserId)).resolves.toMatchObject([
+      { itemId: 'satin-ribbon-bow', slots: ['hair_accessory'] },
+    ]);
+    await expect(wardrobe.equip(discordUserId, 'soft-pink-leotard')).rejects.toBeInstanceOf(
+      WardrobeItemNotOwnedError,
+    );
+    await expect(wardrobe.unequip(discordUserId, 'hair_accessory')).resolves.toMatchObject({
+      itemId: 'satin-ribbon-bow',
+      slots: ['hair_accessory'],
+    });
+    await expect(wardrobe.getOutfit(discordUserId)).resolves.toEqual([]);
   });
 });

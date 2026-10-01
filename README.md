@@ -10,8 +10,8 @@ fresh schema, and registers development-guild `/ping`, `/balance`, `/daily`,
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, a first Ballet progression core, and a
 small curated shop with transactional purchases and persistent inventory are
-active. Dedicated inventory browsing and wardrobe/equipment are not yet
-implemented.
+active. Inventory pages and a persistent, ownership-checked wardrobe are also
+available; marketplace trading is not implemented.
 
 ## Technology
 
@@ -73,10 +73,12 @@ The migration runner tracks immutable, checksummed SQL migrations in
 `noelia_schema_migrations`; V1 creates the Discord-user identity table, V2 adds
 the Ballet Slippers wallet, idempotency records, and append-only ledger, V3 adds
 append-only Daily claim history, V4 adds the first seeded Ballet activity
-catalog and progression history, and V5 adds the curated shop catalog,
-persistent inventory, and immutable purchase history. The first shop seed is
-six Balletcore cosmetic items; purchases atomically check eligibility and
-balance, debit the wallet, add inventory, and record the purchase. Economy,
+catalog and progression history, V5 adds the curated shop catalog, persistent
+inventory, and immutable purchase history, and V6 adds the persistent wardrobe
+equipment slots. The first shop seed is six Balletcore cosmetic items;
+purchases atomically check eligibility and balance, debit the wallet, add
+inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, and unequip; only owned items may
+be equipped, and metadata can make a costume occupy multiple slots. Economy,
 practice rewards, and shop purchases use PostgreSQL transactions and row locks
 to prevent negative balances or duplicate rewards during concurrent actions.
 Daily reward amount is centrally configured in `src/config/gameplay.ts`

@@ -31,6 +31,8 @@ describe('daily command', () => {
         daily: { claimDaily },
         ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
         shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+        inventory: { listInventory: vi.fn() },
+        wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
       },
     });
 

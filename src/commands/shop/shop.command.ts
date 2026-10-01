@@ -1,19 +1,11 @@
 import * as Eris from 'eris';
 
 import { ShopItemUnavailableError } from '../../shop/errors.js';
+import { SHOP_ITEM_CHOICES } from '../../shop/item-choices.js';
 import { SHOP_CATEGORIES } from '../../shop/types.js';
 import type { ShopCategory } from '../../shop/types.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
-
-const itemChoices = [
-  { name: 'Satin Ribbon Bow', value: 'satin-ribbon-bow' },
-  { name: 'Soft Pink Leotard', value: 'soft-pink-leotard' },
-  { name: 'Classic Ballet Flats', value: 'classic-ballet-flats' },
-  { name: 'Ivory Wrap Cardigan', value: 'ivory-wrap-cardigan' },
-  { name: 'Rose Chiffon Skirt', value: 'rose-chiffon-skirt' },
-  { name: 'Pearl Pointe Shoes', value: 'pearl-pointe-shoes' },
-];
 
 const categoryChoices = SHOP_CATEGORIES.map((category) => ({
   name: category
@@ -53,7 +45,7 @@ export const shopCommand: SlashCommand = {
             description: 'Choose an item.',
             type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
             required: true,
-            choices: itemChoices,
+            choices: SHOP_ITEM_CHOICES,
           },
         ],
       },
@@ -67,7 +59,7 @@ export const shopCommand: SlashCommand = {
             description: 'Choose an item.',
             type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
             required: true,
-            choices: itemChoices,
+            choices: SHOP_ITEM_CHOICES,
           },
           {
             name: 'quantity',
