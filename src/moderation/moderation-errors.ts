@@ -19,3 +19,10 @@ export class ModerationCaseIdError extends ExpectedDomainError {
     this.name = 'ModerationCaseIdError';
   }
 }
+
+export class ModerationCommandInputError extends ExpectedDomainError {
+  public constructor(userMessage: string) {
+    super('Moderation command input is invalid.', userMessage);
+    this.name = 'ModerationCommandInputError';
+  }
+}

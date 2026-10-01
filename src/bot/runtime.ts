@@ -35,6 +35,8 @@ import {
   marriageCommand,
   divorceCommand,
 } from '../commands/marriage/marriage.command.js';
+import { moderationCommands } from '../commands/moderation/moderation.command.js';
+import { ModerationService } from '../moderation/moderation-service.js';
 import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -54,6 +56,7 @@ export function createDiscordRuntime(
 ): DiscordRuntime {
   const client = createClient(config.discord.token, {
     intents: ['guilds'],
+    restMode: true,
     autoreconnect: true,
   });
   const presence = new PersonaPresenceRotator(client, (error) => {
@@ -71,6 +74,7 @@ export function createDiscordRuntime(
   const wardrobePresets = new WardrobePresetService(pool);
   const achievements = new AchievementService(pool);
   const relationships = new RelationshipService(pool);
+  const moderation = new ModerationService(pool);
   const profile = new ProfileService(
     economy,
     ballet,
@@ -118,7 +122,8 @@ export function createDiscordRuntime(
     marriageCommand,
     divorceCommand,
   ];
-  const registry = new CommandRegistry([...coreCommands, createHelpCommand(coreCommands)]);
+  const commands = [...coreCommands, ...moderationCommands];
+  const registry = new CommandRegistry([...commands, createHelpCommand(commands)]);
   const router = new InteractionRouter(registry, logger, {
     economy,
     daily,
@@ -134,6 +139,7 @@ export function createDiscordRuntime(
     achievements,
     persona,
     relationships,
+    moderation,
   });
   let stopping = false;
   let commandSync: Promise<void> | undefined;

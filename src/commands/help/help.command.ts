@@ -16,7 +16,10 @@ export function createHelpCommand(commands: readonly SlashCommand[]): SlashComma
     definition: helpDefinition,
     async execute({ interaction, services }) {
       await deferCommand(interaction);
-      const entries = [...commands, { definition: helpDefinition }]
+      const visibleCommands = commands.filter((command) =>
+        commandVisibleToMember(command, interaction.member),
+      );
+      const entries = [...visibleCommands, { definition: helpDefinition }]
         .map(({ definition }) => `/${definition.name} — ${definition.description}`)
         .join('\n');
       const personaEmbed = createPersonaEmbedRenderer(
@@ -39,4 +42,17 @@ export function createHelpCommand(commands: readonly SlashCommand[]): SlashComma
       });
     },
   };
+}
+
+export function commandVisibleToMember(
+  command: SlashCommand,
+  member: Eris.Member | undefined,
+): boolean {
+  const required = command.definition.defaultMemberPermissions;
+  if (required === undefined || required === null) return true;
+  if (member === undefined) return false;
+  if (member.id === member.guild.ownerID) return true;
+
+  const bits = required instanceof Eris.Permission ? required.allow : BigInt(required);
+  return member.permissions.has(bits);
 }

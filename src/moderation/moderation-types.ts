@@ -1,4 +1,4 @@
-import type { ModerationAction, ModerationSource } from './case.js';
+import type { CreateModerationCaseInput, ModerationAction, ModerationSource } from './case.js';
 
 export const MODERATION_OUTCOMES = ['SUCCEEDED', 'FAILED', 'UNKNOWN'] as const;
 export type ModerationActionOutcome = (typeof MODERATION_OUTCOMES)[number];
@@ -32,4 +32,25 @@ export interface ModerationOutcomeResult {
   readonly outcome: ModerationActionOutcome;
   readonly outcomeCode: string | null;
   readonly replayed: boolean;
+}
+
+export interface ModerationCaseAttemptResult {
+  readonly case: ModerationCaseRecord;
+  readonly created: boolean;
+}
+
+export interface ModerationPort {
+  createAttempt(input: CreateModerationCaseInput): Promise<ModerationCaseAttemptResult>;
+  recordOutcome(
+    caseId: string,
+    outcome: ModerationActionOutcome,
+    outcomeCode?: string | null,
+  ): Promise<ModerationOutcomeResult>;
+  getCase(guildId: string, caseId: string): Promise<ModerationCaseRecord | null>;
+  listCases(
+    guildId: string,
+    targetUserId: string,
+    page: number,
+    action?: ModerationAction,
+  ): Promise<ModerationCasePage>;
 }

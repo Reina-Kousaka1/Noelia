@@ -9,7 +9,9 @@ import type { CreateModerationCaseInput, ModerationAction } from './case.js';
 import { ModerationIdempotencyConflictError, ModerationCaseIdError } from './moderation-errors.js';
 import type {
   ModerationActionOutcome,
+  ModerationCaseAttemptResult,
   ModerationCasePage,
+  ModerationPort,
   ModerationCaseRecord,
   ModerationOutcomeResult,
 } from './moderation-types.js';
@@ -39,12 +41,7 @@ const MAX_PAGE = 100_000;
 const CASE_ID_PATTERN = /^[1-9][0-9]{0,18}$/;
 const OUTCOME_CODE_PATTERN = /^[A-Za-z0-9_:-]{1,64}$/;
 
-export interface ModerationCaseAttemptResult {
-  readonly case: ModerationCaseRecord;
-  readonly created: boolean;
-}
-
-export class ModerationService {
+export class ModerationService implements ModerationPort {
   public constructor(private readonly pool: Pool) {}
 
   /** Create the immutable case before any external Discord side effect. */

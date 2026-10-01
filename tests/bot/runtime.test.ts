@@ -63,6 +63,7 @@ describe('createDiscordRuntime', () => {
 
     expect(createClient).toHaveBeenCalledWith('test-discord-token', {
       intents: ['guilds'],
+      restMode: true,
       autoreconnect: true,
     });
     expect(client.connect).toHaveBeenCalledOnce();
@@ -142,6 +143,12 @@ describe('createDiscordRuntime', () => {
         config.discord.guildId,
         expect.objectContaining({ name: 'divorce' }),
       );
+      for (const moderationCommand of ['warn', 'warnings', 'modcase', 'timeout', 'kick', 'ban']) {
+        expect(client.createGuildCommand).toHaveBeenCalledWith(
+          config.discord.guildId,
+          expect.objectContaining({ name: moderationCommand }),
+        );
+      }
     });
     expect(client.editStatus).toHaveBeenCalledWith('online', {
       name: 'At the barre, finding my balance',

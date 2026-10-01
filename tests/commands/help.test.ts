@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createHelpCommand } from '../../src/commands/help/help.command.js';
 import type { SlashCommand } from '../../src/commands/command.js';
+import { banCommand, warnCommand } from '../../src/commands/moderation/moderation.command.js';
 import { pingCommand } from '../../src/commands/ping/ping.command.js';
 import { NOELIA_COPY } from '../../src/persona/copy.js';
 
@@ -23,7 +24,7 @@ describe('help command', () => {
       },
       async execute() {},
     };
-    const help = createHelpCommand([pingCommand, balanceCommand]);
+    const help = createHelpCommand([pingCommand, balanceCommand, banCommand]);
 
     await help.execute({
       client: {} as Eris.Client,
@@ -43,7 +44,32 @@ describe('help command', () => {
     const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
     const embeds = typeof response === 'string' ? undefined : response?.embeds;
     const description = embeds?.[0]?.description;
-    expect(description).toContain('/balance — See your Ballet Slippers balance.');
-    expect(description).toContain('/help — See the available Noélia commands.');
+    expect(description).toContain('/balance');
+    expect(description).not.toContain('/ban');
+    expect(description).toContain('/help');
+  });
+  it('shows permission-sensitive moderation help only to members with the permission', async () => {
+    const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
+    const interaction = {
+      acknowledged: true,
+      member: {
+        id: '111111111111111111',
+        guild: { ownerID: '222222222222222222' },
+        permissions: new Eris.Permission(Eris.Constants.Permissions.manageMessages),
+      },
+      defer: vi.fn().mockResolvedValue(undefined),
+      editOriginalMessage,
+    } as unknown as Eris.CommandInteraction;
+
+    await createHelpCommand([warnCommand, banCommand]).execute({
+      client: {} as Eris.Client,
+      interaction,
+      services: {} as never,
+    });
+
+    const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
+    const embeds = typeof response === 'string' ? undefined : response?.embeds;
+    expect(embeds?.[0]?.description).toContain('/warn');
+    expect(embeds?.[0]?.description).not.toContain('/ban');
   });
 });

@@ -1,8 +1,9 @@
 # Moderation boundary
 
-Status: the transport-independent case model and PostgreSQL case/outcome
-persistence are implemented. Discord enforcement commands and AutoMod runtime
-rules are still pending.
+Status: the transport-independent case model, PostgreSQL case/outcome
+persistence, and `/warn`, `/warnings`, `/modcase`, `/timeout`, `/kick`, and
+`/ban` commands are implemented. AutoMod configuration and runtime rules are
+still pending.
 
 ## Domain boundary
 
@@ -37,5 +38,7 @@ unresolved and must be reviewed rather than blindly replayed. Warning, kick,
 ban, and timeout results must never be reported as successful until Discord
 confirms the action and the result has been recorded.
 
-Moderation records and audit output remain factual and do not use persona
-rendering. No moderation commands or AutoMod message/join listeners exist yet.
+Moderation command output and audit records remain factual and do not use
+persona rendering. AutoMod configuration, flood/invite detection, join-burst
+handling, escalation policies, and message/member event listeners are not
+implemented yet.
