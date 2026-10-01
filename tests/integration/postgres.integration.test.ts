@@ -28,6 +28,8 @@ import {
 } from '../../src/achievements/unlock.js';
 import { ShopItemAlreadyOwnedError } from '../../src/shop/errors.js';
 import { ShopService } from '../../src/shop/shop-service.js';
+import { SHOP_CATEGORIES } from '../../src/shop/types.js';
+import { SHOP_RARITIES } from '../../src/shop/rarity.js';
 import { InventoryService } from '../../src/inventory/inventory-service.js';
 import {
   WardrobeItemNotOwnedError,
@@ -48,6 +50,8 @@ import { PerformanceService } from '../../src/performance/performance-service.js
 import { CollectionService } from '../../src/collections/collection-service.js';
 import { PerformanceCooldownError, PerformanceLockedError } from '../../src/performance/errors.js';
 import { RelationshipService } from '../../src/relationships/relationship-service.js';
+import { ProfileService } from '../../src/profile/profile-service.js';
+import { WARDROBE_SLOTS } from '../../src/wardrobe/types.js';
 import {
   MarriageParticipantUnavailableError,
   MarriageProposalActorError,
@@ -146,8 +150,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 7,
-        currentVersion: 13,
+        appliedCount: 8,
+        currentVersion: 14,
       });
       await expect(
         upgradePool.query(
@@ -175,22 +179,87 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 13 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 14 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
 
-  it('seeds a curated 62-piece catalog and counts active marketplace escrow in collections', async () => {
-    const catalog = await pool.query<{ readonly item_count: number }>(
-      'SELECT count(*)::integer AS item_count FROM shop_catalog',
+  it('validates the expanded catalog and counts active marketplace escrow in collections', async () => {
+    const catalog = await pool.query<{
+      readonly item_id: string;
+      readonly display_name: string;
+      readonly category: string;
+      readonly rarity: string;
+      readonly price: string;
+      readonly collection: string | null;
+      readonly cosmetic_metadata: unknown;
+    }>(
+      `SELECT item_id, display_name, category, rarity, price::text, collection, cosmetic_metadata
+       FROM shop_catalog ORDER BY item_id`,
     );
-    expect(catalog.rows[0]?.item_count).toBe(62);
+    expect(catalog.rows).toHaveLength(92);
+    expect(new Set(catalog.rows.map((item) => item.item_id)).size).toBe(92);
+    expect(new Set(catalog.rows.map((item) => item.display_name)).size).toBe(92);
+
+    const collectionRows = await pool.query<{ readonly collection_id: string }>(
+      `SELECT collection.collection_id
+       FROM shop_collections AS collection
+       INNER JOIN shop_item_collections AS membership
+         ON membership.collection_id = collection.collection_id
+       GROUP BY collection.collection_id`,
+    );
+    const activeCollectionIds = new Set(collectionRows.rows.map((row) => row.collection_id));
+    for (const collectionId of [
+      'first-position',
+      'blush-rehearsal',
+      'satin-morning',
+      'rose-academy',
+      'pearl-barre',
+      'moonlit-recital',
+      'sunday-studio',
+      'prima-evening',
+    ]) {
+      expect(activeCollectionIds.has(collectionId)).toBe(true);
+    }
+
+    const membershipRows = await pool.query<{
+      readonly item_id: string;
+      readonly collection_id: string;
+    }>('SELECT item_id, collection_id FROM shop_item_collections');
+    const memberships = new Set(
+      membershipRows.rows.map((row) => `${row.item_id}:${row.collection_id}`),
+    );
+    for (const item of catalog.rows) {
+      expect(SHOP_CATEGORIES).toContain(item.category);
+      expect(SHOP_RARITIES).toContain(item.rarity);
+      expect(BigInt(item.price)).toBeGreaterThan(0n);
+      if (item.collection !== null) {
+        const collectionId = item.collection.toLowerCase().replaceAll(' ', '-');
+        expect(memberships.has(`${item.item_id}:${collectionId}`)).toBe(true);
+      }
+
+      if (
+        item.cosmetic_metadata !== null &&
+        typeof item.cosmetic_metadata === 'object' &&
+        !Array.isArray(item.cosmetic_metadata)
+      ) {
+        const slots = (item.cosmetic_metadata as Record<string, unknown>).slots;
+        if (slots !== undefined) {
+          expect(Array.isArray(slots)).toBe(true);
+          for (const slot of slots as unknown[]) expect(WARDROBE_SLOTS).toContain(slot);
+        }
+      }
+    }
 
     const discordUserId = testSnowflake();
     const economy = new EconomyService(pool);
     const shop = new ShopService(pool, economy);
     const marketplace = new MarketplaceService(pool, economy);
     const collections = new CollectionService(pool);
+    await expect(shop.listItems()).resolves.toHaveLength(92);
+    const beautyItems = await shop.listItems('beauty');
+    expect(beautyItems).toHaveLength(2);
+    expect(beautyItems.every((item) => item.purchasable)).toBe(true);
     await economy.credit({
       interactionId: testSnowflake(),
       discordUserId,
@@ -204,7 +273,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       expect.objectContaining({
         collectionId: 'first-position',
         ownedItems: 1,
-        totalItems: 3,
+        totalItems: 8,
         complete: false,
       }),
     );
@@ -217,11 +286,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     );
     const escrowed = await collections.listProgress(discordUserId);
     expect(escrowed).toContainEqual(
-      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 3 }),
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 8 }),
     );
     await marketplace.cancel(testSnowflake(), discordUserId, listing.listing.listingId);
     await expect(collections.listProgress(discordUserId)).resolves.toContainEqual(
-      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 3 }),
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 8 }),
     );
   });
 
@@ -744,6 +813,93 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1),
     ).rejects.toBeInstanceOf(ShopItemAlreadyOwnedError);
     await expect(economy.getBalance(discordUserId)).resolves.toBe(20n);
+  });
+
+  it('takes an expanded catalog item through purchase, inventory, wardrobe, profile, and marketplace', async () => {
+    const discordUserId = testSnowflake();
+    const economy = new EconomyService(pool);
+    const shop = new ShopService(pool, economy);
+    const wardrobe = new WardrobeService(pool);
+    const ballet = new BalletService(pool, economy);
+    const collections = new CollectionService(pool);
+    const achievements = new AchievementService(pool);
+    const relationships = new RelationshipService(pool);
+    const profile = new ProfileService(
+      economy,
+      ballet,
+      wardrobe,
+      collections,
+      achievements,
+      relationships,
+    );
+    const marketplace = new MarketplaceService(pool, economy);
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 1_000n,
+      reason: 'DAILY_REWARD',
+    });
+
+    const purchaseInteractionId = testSnowflake();
+    const purchase = await shop.purchase(
+      purchaseInteractionId,
+      discordUserId,
+      'first-class-leotard',
+      1,
+    );
+    const replay = await shop.purchase(
+      purchaseInteractionId,
+      discordUserId,
+      'first-class-leotard',
+      1,
+    );
+    expect(purchase).toMatchObject({ totalPrice: 160n, inventoryQuantity: 1, walletBalance: 840n });
+    expect(replay).toMatchObject({ replayed: true, walletBalance: 840n, inventoryQuantity: 1 });
+    await expect(
+      pool.query<{ readonly total: number }>(
+        `SELECT count(*)::integer AS total FROM shop_purchases WHERE interaction_id = $1`,
+        [purchaseInteractionId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ total: 1 }] });
+    await expect(
+      pool.query<{ readonly total: number }>(
+        `SELECT count(*)::integer AS total
+         FROM wallet_ledger AS ledger
+         INNER JOIN wallet_transactions AS wallet_tx
+           ON wallet_tx.id = ledger.transaction_id
+         WHERE wallet_tx.idempotency_key = $1`,
+        [purchaseInteractionId],
+      ),
+    ).resolves.toMatchObject({ rows: [{ total: 1 }] });
+    await expect(wardrobe.equip(discordUserId, 'first-class-leotard')).resolves.toMatchObject({
+      itemId: 'first-class-leotard',
+      slots: ['leotard'],
+    });
+    await expect(profile.getProfile(discordUserId)).resolves.toMatchObject({
+      balletSlippers: 840n,
+      outfit: [expect.objectContaining({ itemId: 'first-class-leotard', slots: ['leotard'] })],
+      totalCollections: 11,
+    });
+
+    await shop.purchase(testSnowflake(), discordUserId, 'sunday-studio-tote', 1);
+    const { listing } = await marketplace.createListing(
+      testSnowflake(),
+      discordUserId,
+      'sunday-studio-tote',
+      1,
+      350n,
+    );
+    await expect(marketplace.browse(1)).resolves.toMatchObject({
+      listings: [
+        expect.objectContaining({
+          listingId: listing.listingId,
+          itemId: 'sunday-studio-tote',
+          displayName: 'Sunday Studio Tote',
+          category: 'bag',
+          rarity: 'uncommon',
+        }),
+      ],
+    });
   });
 
   it('persists inventory pages and only equips items the user owns', async () => {

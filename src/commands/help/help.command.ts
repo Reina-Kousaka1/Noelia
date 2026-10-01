@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
@@ -14,6 +15,7 @@ export function createHelpCommand(commands: readonly SlashCommand[]): SlashComma
   return {
     definition: helpDefinition,
     async execute({ interaction, services }) {
+      await deferCommand(interaction);
       const entries = [...commands, { definition: helpDefinition }]
         .map(({ definition }) => `/${definition.name} — ${definition.description}`)
         .join('\n');
@@ -23,7 +25,7 @@ export function createHelpCommand(commands: readonly SlashCommand[]): SlashComma
         interaction.member?.id,
       );
 
-      await interaction.createMessage({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'guide_view',

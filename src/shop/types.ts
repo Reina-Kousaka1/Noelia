@@ -8,6 +8,7 @@ export const SHOP_CATEGORIES = [
   'legwear',
   'tights',
   'ballet_flats',
+  'beauty',
   'pointe_shoes',
   'bag',
   'hair_accessory',

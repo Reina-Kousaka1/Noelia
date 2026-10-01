@@ -69,7 +69,7 @@ describe('relationship commands', () => {
     );
   });
 
-  it('keeps marriage status private', async () => {
+  it('keeps marriage status public', async () => {
     const { interaction, defer, editOriginalMessage } = makeInteraction();
     const relationships = {
       getMarriage: vi.fn().mockResolvedValue({

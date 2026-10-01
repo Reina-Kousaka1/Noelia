@@ -20,7 +20,7 @@ function createInteraction(options: Eris.InteractionDataOptions[] = []) {
 }
 
 describe('inventory command', () => {
-  it('lists a selected inventory page in an ephemeral response', async () => {
+  it('lists a selected inventory page in a public response', async () => {
     const { interaction, defer, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.INTEGER,

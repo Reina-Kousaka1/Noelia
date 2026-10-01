@@ -8,8 +8,12 @@ import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 describe('help command', () => {
   it('renders the registered command descriptions in a public themed response', async () => {
+    const defer = vi.fn().mockResolvedValue(undefined);
+    const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
     const interaction = {
-      createMessage: vi.fn().mockResolvedValue(undefined),
+      acknowledged: true,
+      defer,
+      editOriginalMessage,
     } as unknown as Eris.CommandInteraction;
     const balanceCommand: SlashCommand = {
       definition: {
@@ -27,7 +31,8 @@ describe('help command', () => {
       services: {} as never,
     });
 
-    expect(interaction.createMessage).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.helpTitle,
@@ -35,7 +40,7 @@ describe('help command', () => {
         }),
       ],
     });
-    const response = vi.mocked(interaction.createMessage).mock.calls[0]?.[0];
+    const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
     const embeds = typeof response === 'string' ? undefined : response?.embeds;
     const description = embeds?.[0]?.description;
     expect(description).toContain('/balance — See your Ballet Slippers balance.');
