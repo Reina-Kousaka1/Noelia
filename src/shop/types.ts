@@ -1,3 +1,5 @@
+import type { ShopRarity } from './rarity.js';
+
 export const SHOP_CATEGORIES = [
   'leotard',
   'skirt',
@@ -18,7 +20,7 @@ export const SHOP_CATEGORIES = [
 ] as const;
 
 export type ShopCategory = (typeof SHOP_CATEGORIES)[number];
-export type ShopRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+export type { ShopRarity } from './rarity.js';
 
 export interface ShopItem {
   readonly itemId: string;

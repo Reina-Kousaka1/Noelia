@@ -3,6 +3,7 @@ import * as Eris from 'eris';
 import type { SlashCommand } from '../command.js';
 import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { SHOP_RARITY_LABELS } from '../../shop/rarity.js';
 
 export const inventoryCommand: SlashCommand = {
   definition: {
@@ -34,7 +35,7 @@ export const inventoryCommand: SlashCommand = {
     const inventory = await services.inventory.listInventory(discordUserId, page);
     const lines = inventory.entries.map(
       (entry) =>
-        `• **${entry.displayName}** · ${entry.rarity} · ${entry.category.replaceAll('_', ' ')} · ×${entry.quantity}`,
+        `**${entry.displayName}** (\`${entry.itemId}\`) · ${SHOP_RARITY_LABELS[entry.rarity]} · ${entry.category.replaceAll('_', ' ')} · ×${entry.quantity}`,
     );
     const content =
       inventory.totalItems === 0

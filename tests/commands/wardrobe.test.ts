@@ -36,6 +36,12 @@ describe('wardrobe command', () => {
       'equip',
       'unequip',
     ]);
+    const equip = wardrobeCommand.definition.options?.find((option) => option.name === 'equip');
+    if (equip?.type === Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND) {
+      expect(equip.options?.[0]).not.toHaveProperty('choices');
+    } else {
+      throw new Error('The equip command must be a slash subcommand.');
+    }
   });
 
   it('shows the current outfit privately', async () => {

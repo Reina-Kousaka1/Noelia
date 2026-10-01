@@ -63,7 +63,7 @@ describe('inventory command', () => {
         expect.objectContaining({
           title: NOELIA_COPY.inventoryTitle,
           description:
-            'Your inventory · Page 2/2\n• **Satin Ribbon Bow** · common · hair accessory · ×2',
+            'Your inventory · Page 2/2\n**Satin Ribbon Bow** (`satin-ribbon-bow`) · Common · hair accessory · ×2',
         }),
       ],
     });

@@ -1,6 +1,5 @@
 import * as Eris from 'eris';
 
-import { SHOP_ITEM_CHOICES } from '../../shop/item-choices.js';
 import { WARDROBE_SLOTS } from '../../wardrobe/types.js';
 import type { WardrobeSlot } from '../../wardrobe/types.js';
 import type { SlashCommand } from '../command.js';
@@ -33,10 +32,9 @@ export const wardrobeCommand: SlashCommand = {
         options: [
           {
             name: 'item',
-            description: 'Choose an owned item.',
+            description: 'Enter a stable item ID shown by /inventory.',
             type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
             required: true,
-            choices: SHOP_ITEM_CHOICES,
           },
         ],
       },

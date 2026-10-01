@@ -2,6 +2,7 @@ import type { Pool, QueryResultRow } from 'pg';
 
 import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import { ExpectedDomainError } from '../utils/expected-domain-error.js';
+import { parseShopRarity } from '../shop/rarity.js';
 import type { InventoryEntry, InventoryPage, InventoryPort, InventorySource } from './types.js';
 
 const PAGE_SIZE = 10;
@@ -83,7 +84,7 @@ export class InventoryService implements InventoryPort {
       itemId: row.item_id,
       displayName: row.display_name,
       category: row.category,
-      rarity: row.rarity,
+      rarity: parseShopRarity(row.rarity),
       quantity: row.quantity,
       acquiredAt: row.acquired_at,
       source: row.source,

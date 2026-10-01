@@ -1,3 +1,5 @@
+import type { ShopRarity } from '../shop/rarity.js';
+
 export type InventorySource =
   | 'SHOP_PURCHASE'
   | 'BALLET_REWARD'
@@ -10,7 +12,7 @@ export interface InventoryEntry {
   readonly itemId: string;
   readonly displayName: string;
   readonly category: string;
-  readonly rarity: string;
+  readonly rarity: ShopRarity;
   readonly quantity: number;
   readonly acquiredAt: Date;
   readonly source: InventorySource;

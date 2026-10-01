@@ -1,8 +1,8 @@
 import * as Eris from 'eris';
 
 import { ShopItemUnavailableError } from '../../shop/errors.js';
-import { SHOP_ITEM_CHOICES } from '../../shop/item-choices.js';
 import { SHOP_CATEGORIES } from '../../shop/types.js';
+import { SHOP_RARITY_LABELS } from '../../shop/rarity.js';
 import type { ShopCategory } from '../../shop/types.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
@@ -35,7 +35,18 @@ export const shopCommand: SlashCommand = {
             required: false,
             choices: categoryChoices,
           },
+          {
+            name: 'page',
+            description: 'Page number (defaults to 1).',
+            type: Eris.Constants.ApplicationCommandOptionTypes.INTEGER,
+            required: false,
+          },
         ],
+      },
+      {
+        name: 'collections',
+        description: 'See how many pieces you own from each collection.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
       },
       {
         name: 'item',
@@ -44,10 +55,9 @@ export const shopCommand: SlashCommand = {
         options: [
           {
             name: 'item',
-            description: 'Choose an item.',
+            description: 'Enter the stable item ID shown by /shop browse.',
             type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
             required: true,
-            choices: SHOP_ITEM_CHOICES,
           },
         ],
       },
@@ -58,10 +68,9 @@ export const shopCommand: SlashCommand = {
         options: [
           {
             name: 'item',
-            description: 'Choose an item.',
+            description: 'Enter the stable item ID shown by /shop browse.',
             type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
             required: true,
-            choices: SHOP_ITEM_CHOICES,
           },
           {
             name: 'quantity',
@@ -93,20 +102,57 @@ export const shopCommand: SlashCommand = {
         ? option.value
         : undefined;
     };
+    const readIntegerOption = (name: string, fallback: number): number => {
+      const option = subcommandOptions?.find((candidate) => candidate.name === name);
+      return option !== undefined && 'value' in option && typeof option.value === 'number'
+        ? option.value
+        : fallback;
+    };
     await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
 
     if (subcommand.name === 'browse') {
       const category = readStringOption('category');
       const items = await services.shop.listItems(category as ShopCategory | undefined);
-      const lines = items.map(
+      const pageSize = 10;
+      const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+      const requestedPage = readIntegerOption('page', 1);
+      const page = Number.isSafeInteger(requestedPage)
+        ? Math.max(1, Math.min(totalPages, requestedPage))
+        : 1;
+      const pageItems = items.slice((page - 1) * pageSize, page * pageSize);
+      const lines = pageItems.map(
         (item) =>
-          `• **${item.displayName}** — ${item.category.replaceAll('_', ' ')} · ${item.rarity} · ${formatBalance(item.price)}${item.minimumBalletLevel === null ? '' : ` · Ballet level ${item.minimumBalletLevel}+`}`,
+          `**${item.displayName}** (\`${item.itemId}\`) — ${item.category.replaceAll('_', ' ')} · ${SHOP_RARITY_LABELS[item.rarity]} · ${formatBalance(item.price)}${item.minimumBalletLevel === null ? '' : ` · Ballet level ${item.minimumBalletLevel}+`}${item.collection === null ? '' : ` · ${item.collection}`}`,
       );
       await interaction.createFollowup({
         embeds: [
           createNoeliaEmbed({
             title: NOELIA_COPY.shopTitle,
-            description: lines.length === 0 ? NOELIA_COPY.shopEmpty : lines.join('\n'),
+            description:
+              lines.length === 0
+                ? NOELIA_COPY.shopEmpty
+                : `Page ${page}/${totalPages}\n${lines.join('\n')}`,
+          }),
+        ],
+      });
+      return;
+    }
+
+    if (subcommand.name === 'collections') {
+      const collections = services.collections;
+      if (collections === undefined) {
+        throw new Error('The collection service is not configured.');
+      }
+      const progress = await collections.listProgress(discordUserId);
+      const lines = progress.map(
+        (collection) =>
+          `**${collection.displayName}** · ${collection.ownedItems}/${collection.totalItems}${collection.complete ? ' · Complete' : ''}\n${collection.description}`,
+      );
+      await interaction.createFollowup({
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.shopCollectionsTitle,
+            description: lines.length === 0 ? NOELIA_COPY.shopCollectionsEmpty : lines.join('\n\n'),
           }),
         ],
       });
@@ -130,7 +176,7 @@ export const shopCommand: SlashCommand = {
         embeds: [
           createNoeliaEmbed({
             title: `${NOELIA_COPY.shopItemTitle}: ${item.displayName}`,
-            description: `${item.rarity} · ${item.description}\nPrice: ${formatBalance(item.price)}.${requirement}${purchaseState}`,
+            description: `${SHOP_RARITY_LABELS[item.rarity]} · ${item.description}\nPrice: ${formatBalance(item.price)}.${requirement}${purchaseState}`,
           }),
         ],
       });

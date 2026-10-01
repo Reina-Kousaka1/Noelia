@@ -15,7 +15,8 @@ import {
   ShopPurchaseQuantityError,
 } from './errors.js';
 import { SHOP_CATEGORIES } from './types.js';
-import type { ShopCategory, ShopItem, ShopPort, ShopPurchaseResult, ShopRarity } from './types.js';
+import { parseShopRarity } from './rarity.js';
+import type { ShopCategory, ShopItem, ShopPort, ShopPurchaseResult } from './types.js';
 
 const MAX_POSTGRES_BIGINT = 9_223_372_036_854_775_807n;
 const MAX_INVENTORY_STACK = 99_999;
@@ -341,7 +342,7 @@ export class ShopService implements ShopPort {
       displayName: row.display_name,
       description: row.description,
       category: row.category as ShopCategory,
-      rarity: row.rarity as ShopRarity,
+      rarity: parseShopRarity(row.rarity),
       price: BigInt(row.price),
       active: row.active,
       purchasable: row.purchasable,

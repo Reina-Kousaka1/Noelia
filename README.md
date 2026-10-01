@@ -10,7 +10,7 @@ fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/da
 replacing the guild's other commands.
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, levelled Ballet practice with six
-persistent capped stats, and a small curated shop with transactional purchases
+persistent capped stats, and a curated 62-item shop with transactional purchases
 and persistent inventory are active. Inventory pages and a persistent,
 ownership-checked wardrobe are also available, and `/profile` aggregates
 wallet, Ballet progress, and equipped look. `/market` uses the existing Ballet Slippers wallet and ledger; listings
@@ -18,7 +18,9 @@ hold items in PostgreSQL escrow and use idempotency and row locks to protect
 concurrent purchases. Only listing sellers can cancel their own listings.
 `/performance` uses a data-backed catalog, the existing Ballet progression and
 wallet, a fixed stat-weighted score, transactional rewards, and persistent
-history; it does not use random outcomes or introduce a second economy.
+history; it does not use random outcomes or introduce a second economy. The
+`/shop collections` command shows progress across 11 named collections; items held in
+active marketplace escrow continue to count toward collection progress.
 
 ## Technology
 
@@ -106,7 +108,8 @@ and audit messages remain direct and factual.
 The moderation domain currently contains only a transport-independent case
 draft and input policy; it does not perform moderation actions or persist cases.
 Marketplace invariants and transaction behavior are documented in
-`docs/architecture/marketplace.md`.
+`docs/architecture/marketplace.md`, `docs/architecture/performance.md`, and
+`docs/architecture/catalog.md`.
 
 ## PostgreSQL safety
 
@@ -118,9 +121,10 @@ catalog and progression history, V5 adds the curated shop catalog, persistent
 inventory, and immutable purchase history, V6 adds the persistent wardrobe
 equipment slots, V7 adds marketplace listings, escrow, idempotency records, and
 immutable sale history, V8 adds six Ballet stats, activity requirements, and
-six more data-defined activities, and V9 adds the deterministic performance
-catalog, requirements, cooldowns, and append-only completion history. The first shop seed is six Balletcore cosmetic items;
-purchases atomically check eligibility and balance, debit the wallet, add
+six more data-defined activities, V9 adds deterministic performances, and V10
+adds normalized collection membership and expands the curated catalog to 62
+original pieces. Rarity controls presentation only; collections grant no
+automatic currency or gameplay bonuses. Purchases atomically check eligibility and balance, debit the wallet, add
 inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, and unequip; only owned items may
 be equipped, and metadata can make a costume occupy multiple slots. Economy,
 practice rewards, and shop purchases use PostgreSQL transactions and row locks

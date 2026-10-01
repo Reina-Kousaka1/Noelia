@@ -34,6 +34,7 @@ import {
 } from '../../src/marketplace/errors.js';
 import { MarketplaceService } from '../../src/marketplace/marketplace-service.js';
 import { PerformanceService } from '../../src/performance/performance-service.js';
+import { CollectionService } from '../../src/collections/collection-service.js';
 import { PerformanceCooldownError, PerformanceLockedError } from '../../src/performance/errors.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
@@ -128,8 +129,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 3,
-        currentVersion: 9,
+        appliedCount: 4,
+        currentVersion: 10,
       });
       await expect(
         upgradePool.query(
@@ -157,9 +158,54 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 9 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 10 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
+  });
+
+  it('seeds a curated 62-piece catalog and counts active marketplace escrow in collections', async () => {
+    const catalog = await pool.query<{ readonly item_count: number }>(
+      'SELECT count(*)::integer AS item_count FROM shop_catalog',
+    );
+    expect(catalog.rows[0]?.item_count).toBe(62);
+
+    const discordUserId = testSnowflake();
+    const economy = new EconomyService(pool);
+    const shop = new ShopService(pool, economy);
+    const marketplace = new MarketplaceService(pool, economy);
+    const collections = new CollectionService(pool);
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 100n,
+      reason: 'DAILY_REWARD',
+    });
+    await shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1);
+
+    const initial = await collections.listProgress(discordUserId);
+    expect(initial).toContainEqual(
+      expect.objectContaining({
+        collectionId: 'first-position',
+        ownedItems: 1,
+        totalItems: 3,
+        complete: false,
+      }),
+    );
+    const listing = await marketplace.createListing(
+      testSnowflake(),
+      discordUserId,
+      'satin-ribbon-bow',
+      1,
+      80n,
+    );
+    const escrowed = await collections.listProgress(discordUserId);
+    expect(escrowed).toContainEqual(
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 3 }),
+    );
+    await marketplace.cancel(testSnowflake(), discordUserId, listing.listing.listingId);
+    await expect(collections.listProgress(discordUserId)).resolves.toContainEqual(
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 3 }),
+    );
   });
 
   it('rolls back PostgreSQL work on the same checked-out client', async () => {

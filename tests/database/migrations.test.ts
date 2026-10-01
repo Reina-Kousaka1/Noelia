@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(9);
+    expect(migrations).toHaveLength(10);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -75,6 +75,10 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[8]?.sql).toContain('CREATE TABLE ballet_performance_catalog');
     expect(migrations[8]?.sql).toContain('CREATE TABLE ballet_performance_completions');
     expect(migrations[8]?.sql).toContain('ballet_performance_completions_append_only');
+    expect(migrations[9]).toMatchObject({ version: 10, name: 'catalog_collections_v2' });
+    expect(migrations[9]?.sql).toContain('CREATE TABLE shop_collections');
+    expect(migrations[9]?.sql).toContain('CREATE TABLE shop_item_collections');
+    expect(migrations[9]?.sql).toContain('petal-practice-leotard');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -90,8 +94,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 9,
-      currentVersion: 9,
+      appliedCount: 10,
+      currentVersion: 10,
     });
 
     expect(statements).toContain('BEGIN');
@@ -111,6 +115,8 @@ describe('PostgreSQL migrations', () => {
     expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_performance_catalog'))).toBe(
       true,
     );
+    expect(statements.some((sql) => sql.includes('CREATE TABLE shop_collections'))).toBe(true);
+    expect(statements.some((sql) => sql.includes('CREATE TABLE shop_item_collections'))).toBe(true);
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
     expect(statements.some((sql) => /\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i.test(sql))).toBe(
       false,
@@ -150,6 +156,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [9, 'ballet_performances', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [10, 'catalog_collections_v2', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

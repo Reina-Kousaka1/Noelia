@@ -29,6 +29,7 @@ function createServices() {
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     profile: { getProfile: vi.fn() },
+    collections: { listProgress: vi.fn() },
   };
 }
 
@@ -48,9 +49,10 @@ const item: ShopItem = {
 };
 
 describe('shop command', () => {
-  it('defines browse, item, and buy subcommands', () => {
+  it('defines browse, collections, item, and buy subcommands', () => {
     expect(shopCommand.definition.options?.map((option) => option.name)).toEqual([
       'browse',
+      'collections',
       'item',
       'buy',
     ]);
@@ -85,10 +87,54 @@ describe('shop command', () => {
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.shopTitle,
-          description: `• **Satin Ribbon Bow** — hair accessory · common · ${formatBalance(80n)} · Ballet level 1+`,
+          description: `Page 1/1\n**Satin Ribbon Bow** (\`satin-ribbon-bow\`) — hair accessory · Common · ${formatBalance(80n)} · Ballet level 1+ · First Position`,
         }),
       ],
     });
+  });
+
+  it('paginates the larger catalog and exposes stable item IDs instead of a capped choice list', async () => {
+    const { interaction, createFollowup } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'browse',
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.INTEGER,
+            name: 'page',
+            value: 2,
+          },
+        ],
+      },
+    ]);
+    const services = createServices();
+    services.shop.listItems.mockResolvedValue(
+      Array.from({ length: 12 }, (_, index) => ({
+        ...item,
+        itemId: `catalog-piece-${index + 1}`,
+        displayName: `Catalog Piece ${index + 1}`,
+      })),
+    );
+
+    await shopCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(createFollowup).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          description: expect.stringContaining('Page 2/2'),
+        }),
+      ],
+    });
+    const response = vi.mocked(createFollowup).mock.calls[0]?.[0];
+    const description = response?.embeds?.[0]?.description;
+    expect(description).toContain('catalog-piece-11');
+    expect(description).not.toContain('catalog-piece-1)');
+    const buyOption = shopCommand.definition.options?.find((option) => option.name === 'buy');
+    if (buyOption?.type === Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND) {
+      expect(buyOption.options?.[0]).not.toHaveProperty('choices');
+    } else {
+      throw new Error('The buy command must be a slash subcommand.');
+    }
   });
 
   it('shows stable item details', async () => {
@@ -118,9 +164,42 @@ describe('shop command', () => {
       embeds: [
         expect.objectContaining({
           title: `${NOELIA_COPY.shopItemTitle}: Satin Ribbon Bow`,
-          description: `common · A soft blush satin bow for a neat studio bun.\nPrice: ${formatBalance(80n)}. Ballet level 1+ required.`,
+          description: `Common · A soft blush satin bow for a neat studio bun.\nPrice: ${formatBalance(80n)}. Ballet level 1+ required.`,
         }),
       ],
+    });
+  });
+
+  it('shows owned progress for each collection', async () => {
+    const { interaction, createFollowup } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'collections',
+      },
+    ]);
+    const services = createServices();
+    services.collections = {
+      listProgress: vi.fn().mockResolvedValue([
+        {
+          collectionId: 'first-position',
+          displayName: 'First Position',
+          description: 'Gentle first pieces.',
+          ownedItems: 2,
+          totalItems: 3,
+          complete: false,
+        },
+      ]),
+    };
+
+    await shopCommand.execute({
+      client: {} as Eris.Client,
+      interaction,
+      services,
+    });
+
+    expect(services.collections.listProgress).toHaveBeenCalledWith('222222222222222222');
+    expect(createFollowup).toHaveBeenCalledWith({
+      embeds: [expect.objectContaining({ description: expect.stringContaining('2/3') })],
     });
   });
 

@@ -32,6 +32,8 @@ export const NOELIA_COPY = {
   performanceHistoryTitle: 'Your performance notes',
   performanceEmpty: 'No performances are available yet.',
   performanceHistoryEmpty: 'Your stage history is waiting for its first performance.',
+  shopCollectionsTitle: 'Ballet collections',
+  shopCollectionsEmpty: 'The studio collections are not available just now.',
   currentLook: 'Current look',
 } as const;
 
