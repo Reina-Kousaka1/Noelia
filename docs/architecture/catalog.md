@@ -7,6 +7,12 @@ bringing the catalog to 92 items across eleven collections. Existing catalog,
 inventory, purchase history, and wallet rows are preserved; catalog changes are
 additive.
 
+Migration V17 backfills missing rows in the collection-membership join table
+from each catalog item's existing collection label. It uses `ON CONFLICT DO
+NOTHING`, so it preserves current links and any intentional cross-collection
+memberships while repairing older seed gaps; it does not delete or rewrite
+catalog, inventory, wallet, or marketplace data.
+
 The new pieces use the existing rarity values, Ballet-level requirements,
 prices, and cosmetic metadata; `beauty` is the one new shop category.
 Wearable metadata continues to be interpreted by the existing wardrobe

@@ -154,8 +154,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 10,
-        currentVersion: 16,
+        appliedCount: 11,
+        currentVersion: 17,
       });
       await expect(
         upgradePool.query(
@@ -183,7 +183,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 16 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 17 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -357,6 +357,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const activeCollectionIds = new Set(collectionRows.rows.map((row) => row.collection_id));
     for (const collectionId of [
       'first-position',
+      'studio-essentials',
+      'pointe-dreams',
       'blush-rehearsal',
       'satin-morning',
       'rose-academy',
@@ -364,6 +366,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       'moonlit-recital',
       'sunday-studio',
       'prima-evening',
+      'petal-study',
     ]) {
       expect(activeCollectionIds.has(collectionId)).toBe(true);
     }
@@ -375,6 +378,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const memberships = new Set(
       membershipRows.rows.map((row) => `${row.item_id}:${row.collection_id}`),
     );
+    expect(membershipRows.rows).toHaveLength(128);
     for (const item of catalog.rows) {
       expect(SHOP_CATEGORIES).toContain(item.category);
       expect(SHOP_RARITIES).toContain(item.rarity);

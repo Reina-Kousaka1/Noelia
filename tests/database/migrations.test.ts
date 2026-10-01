@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(16);
+    expect(migrations).toHaveLength(17);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -113,6 +113,11 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[15]?.sql).toContain('CREATE TABLE automod_guild_allowlist');
     expect(migrations[15]?.sql).toContain('request_payload jsonb NOT NULL');
     expect(migrations[15]?.sql).toContain('automod_config_requests_append_only');
+    expect(migrations[16]).toMatchObject({
+      version: 17,
+      name: 'catalog_collection_membership_backfill',
+    });
+    expect(migrations[16]?.sql).toContain('ON CONFLICT (item_id, collection_id) DO NOTHING');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -128,8 +133,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 16,
-      currentVersion: 16,
+      appliedCount: 17,
+      currentVersion: 17,
     });
 
     expect(statements).toContain('BEGIN');
@@ -173,6 +178,7 @@ describe('PostgreSQL migrations', () => {
     expect(statements.some((sql) => sql.includes('CREATE TABLE automod_guild_allowlist'))).toBe(
       true,
     );
+    expect(statements.some((sql) => sql.includes('INSERT INTO shop_item_collections'))).toBe(true);
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
     expect(statements.some((sql) => /\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i.test(sql))).toBe(
       false,
@@ -240,6 +246,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [16, 'automod_rule_configuration', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [17, 'catalog_collection_membership_backfill', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });
