@@ -24,6 +24,10 @@ export interface AppConfig {
     readonly maxConcurrent: number;
     readonly maxRequestsPerMinute: number;
   };
+  readonly automod: {
+    readonly messageScanningEnabled: boolean;
+    readonly joinMonitoringEnabled: boolean;
+  };
 }
 
 export class EnvironmentValidationError extends Error {
@@ -77,6 +81,20 @@ function readBoundedInteger(
   }
 
   return value;
+}
+
+function readBoolean(
+  environment: NodeJS.ProcessEnv,
+  name: string,
+  fallback: boolean,
+  problems: string[],
+): boolean {
+  const text = environment[name]?.trim().toLowerCase();
+  if (text === undefined || text.length === 0) return fallback;
+  if (text === 'true') return true;
+  if (text === 'false') return false;
+  problems.push(`${name} must be true or false`);
+  return fallback;
 }
 
 export function parseEnvironment(environment: NodeJS.ProcessEnv): AppConfig {
@@ -147,6 +165,18 @@ export function parseEnvironment(environment: NodeJS.ProcessEnv): AppConfig {
     60,
     problems,
   );
+  const automodMessageScanningEnabled = readBoolean(
+    environment,
+    'AUTOMOD_MESSAGE_SCANNING_ENABLED',
+    false,
+    problems,
+  );
+  const antiRaidJoinMonitoringEnabled = readBoolean(
+    environment,
+    'ANTI_RAID_JOIN_MONITORING_ENABLED',
+    false,
+    problems,
+  );
   const discordToken = readRequired(environment, 'DISCORD_TOKEN', problems);
   const guildId = readRequired(environment, 'DISCORD_GUILD_ID', problems);
   const postgresHost = readRequired(environment, 'POSTGRES_HOST', problems);
@@ -206,6 +236,10 @@ export function parseEnvironment(environment: NodeJS.ProcessEnv): AppConfig {
       timeoutMs: personaTimeoutMs,
       maxConcurrent: personaMaxConcurrent,
       maxRequestsPerMinute: personaMaxRequestsPerMinute,
+    },
+    automod: {
+      messageScanningEnabled: automodMessageScanningEnabled,
+      joinMonitoringEnabled: antiRaidJoinMonitoringEnabled,
     },
   };
 }

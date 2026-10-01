@@ -27,6 +27,10 @@ const config: AppConfig = {
     maxConcurrent: 2,
     maxRequestsPerMinute: 20,
   },
+  automod: {
+    messageScanningEnabled: false,
+    joinMonitoringEnabled: false,
+  },
 };
 
 function createFakeClient() {
@@ -81,6 +85,31 @@ describe('createDiscordRuntime', () => {
 
     await expect(runtime.start()).rejects.toThrow('connection failed');
     expect(client.disconnect).toHaveBeenCalledWith({ reconnect: false });
+  });
+
+  it('requests privileged AutoMod intents only when their runtime switches are enabled', async () => {
+    const client = createFakeClient();
+    const createClient = vi.fn(() => client);
+    const logger = new StructuredLogger();
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
+    const runtime = createDiscordRuntime(
+      {
+        ...config,
+        automod: { messageScanningEnabled: true, joinMonitoringEnabled: true },
+      },
+      logger,
+      createFakePool(),
+      createClient,
+    );
+
+    expect(createClient).toHaveBeenCalledWith('test-discord-token', {
+      intents: ['guilds', 'guildMessages', 'messageContent', 'guildMembers'],
+      restMode: true,
+      autoreconnect: true,
+    });
+    expect(client.listenerCount('messageCreate')).toBe(1);
+    expect(client.listenerCount('guildMemberAdd')).toBe(1);
+    await runtime.stop();
   });
 
   it('registers the Noélia guild catalog and clears stale global commands', async () => {
@@ -142,6 +171,10 @@ describe('createDiscordRuntime', () => {
       expect(client.createGuildCommand).toHaveBeenCalledWith(
         config.discord.guildId,
         expect.objectContaining({ name: 'divorce' }),
+      );
+      expect(client.createGuildCommand).toHaveBeenCalledWith(
+        config.discord.guildId,
+        expect.objectContaining({ name: 'automod' }),
       );
       for (const moderationCommand of ['warn', 'warnings', 'modcase', 'timeout', 'kick', 'ban']) {
         expect(client.createGuildCommand).toHaveBeenCalledWith(

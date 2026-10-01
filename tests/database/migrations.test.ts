@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(15);
+    expect(migrations).toHaveLength(16);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -105,6 +105,14 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[14]?.sql).toContain('moderation_cases_append_only');
     expect(migrations[14]?.sql).toContain('CREATE TABLE moderation_case_outcomes');
     expect(migrations[14]?.sql).toContain('moderation_case_outcomes_append_only');
+    expect(migrations[15]).toMatchObject({
+      version: 16,
+      name: 'automod_rule_configuration',
+    });
+    expect(migrations[15]?.sql).toContain('CREATE TABLE automod_guild_rule_config');
+    expect(migrations[15]?.sql).toContain('CREATE TABLE automod_guild_allowlist');
+    expect(migrations[15]?.sql).toContain('request_payload jsonb NOT NULL');
+    expect(migrations[15]?.sql).toContain('automod_config_requests_append_only');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -120,8 +128,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 15,
-      currentVersion: 15,
+      appliedCount: 16,
+      currentVersion: 16,
     });
 
     expect(statements).toContain('BEGIN');
@@ -157,6 +165,12 @@ describe('PostgreSQL migrations', () => {
     );
     expect(statements.some((sql) => sql.includes('CREATE TABLE moderation_cases'))).toBe(true);
     expect(statements.some((sql) => sql.includes('CREATE TABLE moderation_case_outcomes'))).toBe(
+      true,
+    );
+    expect(statements.some((sql) => sql.includes('CREATE TABLE automod_guild_rule_config'))).toBe(
+      true,
+    );
+    expect(statements.some((sql) => sql.includes('CREATE TABLE automod_guild_allowlist'))).toBe(
       true,
     );
     expect(statements.some((sql) => sql.includes('pg_advisory_unlock'))).toBe(true);
@@ -222,6 +236,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [15, 'moderation_case_persistence', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [16, 'automod_rule_configuration', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

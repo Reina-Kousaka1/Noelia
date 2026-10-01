@@ -37,6 +37,9 @@ import {
 } from '../commands/marriage/marriage.command.js';
 import { moderationCommands } from '../commands/moderation/moderation.command.js';
 import { ModerationService } from '../moderation/moderation-service.js';
+import { AutomodService } from '../automod/automod-service.js';
+import { AutomodEngine } from '../automod/engine.js';
+import { automodCommand } from '../commands/automod/automod.command.js';
 import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -54,8 +57,15 @@ export function createDiscordRuntime(
   pool: Pool,
   createClient: ErisClientFactory = (token, options) => new Eris.Client(token, options),
 ): DiscordRuntime {
+  const intents: Eris.IntentStrings[] = ['guilds'];
+  if (config.automod.messageScanningEnabled) {
+    intents.push('guildMessages', 'messageContent', 'guildMembers');
+  }
+  if (config.automod.joinMonitoringEnabled && !intents.includes('guildMembers')) {
+    intents.push('guildMembers');
+  }
   const client = createClient(config.discord.token, {
-    intents: ['guilds'],
+    intents,
     restMode: true,
     autoreconnect: true,
   });
@@ -75,6 +85,8 @@ export function createDiscordRuntime(
   const achievements = new AchievementService(pool);
   const relationships = new RelationshipService(pool);
   const moderation = new ModerationService(pool);
+  const automod = new AutomodService(pool);
+  const automodEngine = new AutomodEngine();
   const profile = new ProfileService(
     economy,
     ballet,
@@ -121,6 +133,7 @@ export function createDiscordRuntime(
     marryCommand,
     marriageCommand,
     divorceCommand,
+    automodCommand,
   ];
   const commands = [...coreCommands, ...moderationCommands];
   const registry = new CommandRegistry([...commands, createHelpCommand(commands)]);
@@ -140,9 +153,115 @@ export function createDiscordRuntime(
     persona,
     relationships,
     moderation,
+    automod,
+    automodRuntime: {
+      messageScanningEnabled: config.automod.messageScanningEnabled,
+      joinMonitoringEnabled: config.automod.joinMonitoringEnabled,
+    },
   });
   let stopping = false;
   let commandSync: Promise<void> | undefined;
+  const automodEventQueues = new Map<string, Promise<void>>();
+
+  const enqueueAutomodEvent = (guildId: string, work: () => Promise<void>): void => {
+    const previous = automodEventQueues.get(guildId) ?? Promise.resolve();
+    const queued = previous.then(work).catch((error: unknown) => {
+      logger.error('automod.event_processing_failed', error, { guildId });
+    });
+    automodEventQueues.set(guildId, queued);
+    void queued.then(() => {
+      if (automodEventQueues.get(guildId) === queued) automodEventQueues.delete(guildId);
+    });
+  };
+
+  const handleDetections = async (
+    detections: readonly import('../automod/types.js').AutomodDetection[],
+    sourceEventId: string,
+  ): Promise<void> => {
+    for (const detection of detections) {
+      logger.info('automod.rule_detected', {
+        guildId: detection.guildId,
+        userId: detection.userId,
+        rule: detection.rule,
+        observed: detection.observed,
+        threshold: detection.threshold,
+        escalation: detection.escalation,
+      });
+      if (detection.escalation !== 'CASE') continue;
+
+      const attempt = await moderation.createAttempt({
+        idempotencyKey: `automod:${detection.rule}:${sourceEventId}`,
+        guildId: detection.guildId,
+        actorUserId: client.user.id,
+        targetUserId: detection.userId,
+        action: 'note',
+        source: 'automod',
+        reason: `AutoMod detected ${detection.rule} (${detection.observed}/${detection.threshold}).`,
+        occurredAt: detection.occurredAt,
+      });
+      if (attempt.created) {
+        await moderation.recordOutcome(attempt.case.caseId, 'SUCCEEDED');
+      }
+    }
+  };
+
+  if (config.automod.messageScanningEnabled) {
+    client.on('messageCreate', (message: Eris.Message) => {
+      const guildId = message.guildID;
+      const member = message.member;
+      if (guildId === undefined || message.author.bot || member === null) return;
+      enqueueAutomodEvent(guildId, async () => {
+        const guildConfig = await automod.getConfig(guildId);
+        const memberPermissions = member.permissions;
+        const isModerator =
+          memberPermissions.has('manageMessages') ||
+          memberPermissions.has('moderateMembers') ||
+          memberPermissions.has('manageGuild') ||
+          memberPermissions.has('kickMembers') ||
+          memberPermissions.has('banMembers') ||
+          memberPermissions.has('administrator');
+        const detections = automodEngine.evaluateMessage(guildConfig, {
+          guildId,
+          userId: message.author.id,
+          content: message.content,
+          mentionCount:
+            message.mentions.length +
+            message.roleMentions.length +
+            (message.mentionEveryone ? 1 : 0),
+          occurredAt: new Date(message.timestamp),
+          isBot: message.author.bot,
+          isModerator,
+        });
+        await handleDetections(detections, message.id);
+      });
+    });
+  }
+
+  if (config.automod.joinMonitoringEnabled) {
+    client.on('guildMemberAdd', (guild: Eris.Guild, member: Eris.Member) => {
+      const joinedAt = member.joinedAt;
+      if (member.bot || joinedAt === null) return;
+      enqueueAutomodEvent(guild.id, async () => {
+        const guildConfig = await automod.getConfig(guild.id);
+        const memberPermissions = member.permissions;
+        const isModerator =
+          memberPermissions.has('manageMessages') ||
+          memberPermissions.has('moderateMembers') ||
+          memberPermissions.has('manageGuild') ||
+          memberPermissions.has('kickMembers') ||
+          memberPermissions.has('banMembers') ||
+          memberPermissions.has('administrator');
+        const detections = automodEngine.evaluateJoin(guildConfig, {
+          guildId: guild.id,
+          userId: member.id,
+          occurredAt: new Date(joinedAt),
+          isBot: member.bot,
+          isModerator,
+        });
+        await handleDetections(detections, `${member.id}:${joinedAt}`);
+      });
+    });
+  }
 
   client.on('ready', () => {
     presence.start();

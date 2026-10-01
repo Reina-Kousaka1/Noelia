@@ -35,6 +35,10 @@ describe('parseEnvironment', () => {
         maxConcurrent: 2,
         maxRequestsPerMinute: 20,
       },
+      automod: {
+        messageScanningEnabled: false,
+        joinMonitoringEnabled: false,
+      },
     });
   });
 
@@ -47,6 +51,29 @@ describe('parseEnvironment', () => {
       maxConcurrent: 2,
       maxRequestsPerMinute: 20,
     });
+  });
+
+  it('leaves privileged AutoMod intents disabled unless explicitly enabled', () => {
+    expect(parseEnvironment(validEnvironment).automod).toEqual({
+      messageScanningEnabled: false,
+      joinMonitoringEnabled: false,
+    });
+    expect(
+      parseEnvironment({
+        ...validEnvironment,
+        AUTOMOD_MESSAGE_SCANNING_ENABLED: 'true',
+        ANTI_RAID_JOIN_MONITORING_ENABLED: 'true',
+      }).automod,
+    ).toEqual({ messageScanningEnabled: true, joinMonitoringEnabled: true });
+  });
+
+  it('rejects invalid AutoMod intent toggles', () => {
+    expect(() =>
+      parseEnvironment({
+        ...validEnvironment,
+        AUTOMOD_MESSAGE_SCANNING_ENABLED: 'yes',
+      }),
+    ).toThrow('AUTOMOD_MESSAGE_SCANNING_ENABLED must be true or false');
   });
 
   it('requires a safe provider endpoint and credentials only when generation is enabled', () => {

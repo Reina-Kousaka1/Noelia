@@ -1,9 +1,10 @@
 # Moderation boundary
 
 Status: the transport-independent case model, PostgreSQL case/outcome
-persistence, and `/warn`, `/warnings`, `/modcase`, `/timeout`, `/kick`, and
-`/ban` commands are implemented. AutoMod configuration and runtime rules are
-still pending.
+persistence, `/warn`, `/warnings`, `/modcase`, `/timeout`, `/kick`, and `/ban`
+commands are implemented. AutoMod has opt-in per-guild configuration, bounded
+in-memory detection, and moderator-review case notes; it never automatically
+deletes messages, times out members, or bans members.
 
 ## Domain boundary
 
@@ -27,6 +28,24 @@ and no destructive migration behavior. PostgreSQL remains the sole source of
 truth. Integration tests are guarded by the isolated `noelia_test` database
 configuration.
 
+Migration V16 adds per-guild rule configuration, allowlists, and an immutable
+interaction-idempotency log. `/automod status`, `/automod rule`, `/automod allow`,
+and `/automod unallow` are restricted to users with Manage Server permission
+(or the guild owner); their responses are private. Rules default to disabled.
+Supported review signals are message flood, repeated messages, mention spam,
+Discord invite links, and join bursts. `CASE` escalation records a factual
+moderation note; `OBSERVE` only emits structured operational metadata.
+
+Runtime listeners are disabled by default. `AUTOMOD_MESSAGE_SCANNING_ENABLED`
+opts into the Guild Messages, Message Content, and Guild Members gateway intents;
+`ANTI_RAID_JOIN_MONITORING_ENABLED` opts into Guild Members. The corresponding
+privileged intents must also be enabled in the Discord Developer Portal. These
+environment settings do not enable the intents in Discord on their own. Raw
+message text is not stored or logged; only a process-keyed HMAC fingerprint and
+bounded event counters are retained in memory for repeated-message detection.
+Allowlisted users, bots, and members with moderation permissions bypass message
+scanning. Join bursts produce review signals only.
+
 ## Enforcement boundary
 
 The persistence layer does not authorize users or execute Discord actions.
@@ -39,6 +58,6 @@ ban, and timeout results must never be reported as successful until Discord
 confirms the action and the result has been recorded.
 
 Moderation command output and audit records remain factual and do not use
-persona rendering. AutoMod configuration, flood/invite detection, join-burst
-handling, escalation policies, and message/member event listeners are not
-implemented yet.
+persona rendering. Runtime detection is a conservative foundation, not a
+replacement for Discord AutoMod or human review. Configuration changes are
+transactional and use the Discord interaction ID as an idempotency key.

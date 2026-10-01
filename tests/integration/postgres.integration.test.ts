@@ -53,6 +53,8 @@ import { RelationshipService } from '../../src/relationships/relationship-servic
 import { ProfileService } from '../../src/profile/profile-service.js';
 import { ModerationService } from '../../src/moderation/moderation-service.js';
 import { ModerationIdempotencyConflictError } from '../../src/moderation/moderation-errors.js';
+import { AutomodService } from '../../src/automod/automod-service.js';
+import { AutomodIdempotencyConflictError } from '../../src/automod/errors.js';
 import { WARDROBE_SLOTS } from '../../src/wardrobe/types.js';
 import {
   MarriageParticipantUnavailableError,
@@ -152,8 +154,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 9,
-        currentVersion: 15,
+        appliedCount: 10,
+        currentVersion: 16,
       });
       await expect(
         upgradePool.query(
@@ -181,9 +183,91 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 15 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 16 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
+  });
+
+  it('persists AutoMod rules and allowlist changes idempotently', async () => {
+    const automod = new AutomodService(pool);
+    const reloadedAutomod = new AutomodService(pool);
+    const guildId = testSnowflake();
+    const actorUserId = testSnowflake();
+    const allowedUserId = testSnowflake();
+    const ruleInteractionId = testSnowflake();
+    const ruleConfig = {
+      enabled: true,
+      threshold: 7,
+      windowSeconds: 12,
+      escalation: 'CASE' as const,
+    };
+
+    const ruleChange = await automod.setRule(
+      ruleInteractionId,
+      guildId,
+      actorUserId,
+      'message_flood',
+      ruleConfig,
+    );
+    const ruleReplay = await automod.setRule(
+      ruleInteractionId,
+      guildId,
+      actorUserId,
+      'message_flood',
+      ruleConfig,
+    );
+    expect(ruleChange).toMatchObject({
+      replayed: false,
+      config: { rules: { message_flood: ruleConfig } },
+    });
+    expect(ruleReplay).toMatchObject({ replayed: true });
+    await expect(
+      pool.query<{ readonly request_payload: unknown }>(
+        'SELECT request_payload FROM automod_config_requests WHERE interaction_id = $1',
+        [ruleInteractionId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [{ request_payload: ['message_flood', ruleConfig] }],
+    });
+    await expect(
+      automod.setRule(ruleInteractionId, guildId, actorUserId, 'message_flood', {
+        ...ruleConfig,
+        threshold: 8,
+      }),
+    ).rejects.toBeInstanceOf(AutomodIdempotencyConflictError);
+
+    const allowInteractionId = testSnowflake();
+    const allowChange = await automod.setAllowlisted(
+      allowInteractionId,
+      guildId,
+      actorUserId,
+      allowedUserId,
+      true,
+    );
+    const allowReplay = await automod.setAllowlisted(
+      allowInteractionId,
+      guildId,
+      actorUserId,
+      allowedUserId,
+      true,
+    );
+    expect(allowChange.config.allowlistedUserIds).toContain(allowedUserId);
+    expect(allowReplay.replayed).toBe(true);
+
+    const persisted = await reloadedAutomod.getConfig(guildId);
+    expect(persisted.rules.message_flood).toEqual(ruleConfig);
+    expect(persisted.allowlistedUserIds).toEqual([allowedUserId]);
+
+    await automod.setAllowlisted(testSnowflake(), guildId, actorUserId, allowedUserId, false);
+    await expect(new AutomodService(pool).getConfig(guildId)).resolves.toMatchObject({
+      allowlistedUserIds: [],
+    });
+    await expect(
+      pool.query(
+        'UPDATE automod_config_requests SET operation = operation WHERE interaction_id = $1',
+        [ruleInteractionId],
+      ),
+    ).rejects.toThrow('AutoMod configuration request history is immutable');
   });
 
   it('stores moderation attempts and immutable idempotent outcomes', async () => {
