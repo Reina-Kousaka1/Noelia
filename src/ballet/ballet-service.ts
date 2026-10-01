@@ -9,6 +9,7 @@ import type { WalletCreditTransactionPort } from '../economy/ports.js';
 import type { BalletActivityCode } from './activity-codes.js';
 import {
   BalletActivityLockedError,
+  BalletActivityRequirementError,
   BalletCooldownError,
   BalletXpLimitError,
   UnknownBalletActivityError,
@@ -19,8 +20,11 @@ import type {
   BalletPracticeResult,
   BalletProgressPort,
   BalletProgressStatus,
+  BalletStatKey,
+  BalletStats,
 } from './types.js';
 import { BALLET_ACTIVITY_CODES } from './activity-codes.js';
+import { BALLET_STAT_KEYS } from './types.js';
 
 const MAX_POSTGRES_BIGINT = 9_223_372_036_854_775_807n;
 
@@ -36,16 +40,24 @@ interface UserRow extends QueryResultRow {
 interface ActivityRow extends QueryResultRow {
   readonly activity_code: string;
   readonly display_name: string;
+  readonly description: string;
+  readonly category: string;
   readonly minimum_level: number;
   readonly xp_reward: string;
   readonly slippers_reward: string;
   readonly cooldown_ms: string;
+  readonly stat_key: string;
+  readonly stat_gain: number;
+  readonly required_equipped_item_id: string | null;
+  readonly required_activity_code: string | null;
 }
 
 interface ActivityListRow extends ActivityRow {
   readonly current_level: number;
   readonly current_time: Date;
   readonly next_available_at: Date | null;
+  readonly equipment_requirement_met: boolean;
+  readonly activity_requirement_met: boolean;
 }
 
 interface LatestCompletionRow extends QueryResultRow {
@@ -64,6 +76,9 @@ interface ExistingCompletionRow extends QueryResultRow {
   readonly completed_at: Date;
   readonly next_available_at: Date;
   readonly wallet_balance_after: string;
+  readonly stat_key: string | null;
+  readonly stat_gain: number | null;
+  readonly stat_value_after: number | null;
 }
 
 interface CurrentTimeRow extends QueryResultRow {
@@ -74,6 +89,24 @@ interface InsertedCompletionRow extends QueryResultRow {
   readonly completed_at: Date;
   readonly next_available_at: Date;
 }
+
+interface StatValueRow extends QueryResultRow {
+  readonly stat_value: number;
+}
+
+interface StatListRow extends QueryResultRow {
+  readonly stat_key: string;
+  readonly stat_value: number;
+}
+
+const EMPTY_STATS: BalletStats = {
+  technique: 0,
+  flexibility: 0,
+  musicality: 0,
+  performance: 0,
+  pointe: 0,
+  stamina: 0,
+};
 
 export class BalletService implements BalletProgressPort {
   public constructor(
@@ -92,11 +125,13 @@ export class BalletService implements BalletProgressPort {
     const row = result.rows[0];
     const totalXp = row === undefined ? 0n : BigInt(row.total_xp);
     const level = row === undefined ? 1 : Math.min(row.level, MAX_BALLET_LEVEL);
+    const stats = await this.getStats(discordUserId);
 
     return {
       totalXp,
       level,
       xpToNextLevel: getXpToNextLevel(totalXp),
+      stats,
     };
   }
 
@@ -105,13 +140,29 @@ export class BalletService implements BalletProgressPort {
     const result = await this.pool.query<ActivityListRow>(
       `SELECT activity.activity_code,
               activity.display_name,
+              activity.description,
+              activity.category,
               activity.minimum_level,
               activity.xp_reward,
               activity.slippers_reward,
               activity.cooldown_ms,
+              activity.stat_key,
+              activity.stat_gain,
+              activity.required_equipped_item_id,
+              activity.required_activity_code,
               COALESCE(progress.level, 1) AS current_level,
               clock_timestamp() AS current_time,
-              latest.next_available_at
+              latest.next_available_at,
+              (activity.required_equipped_item_id IS NULL OR EXISTS (
+                SELECT 1 FROM wardrobe_equipment AS equipment
+                WHERE equipment.discord_user_id = $1
+                  AND equipment.item_id = activity.required_equipped_item_id
+              )) AS equipment_requirement_met,
+              (activity.required_activity_code IS NULL OR EXISTS (
+                SELECT 1 FROM ballet_activity_completions AS requirement
+                WHERE requirement.discord_user_id = $1
+                  AND requirement.activity_code = activity.required_activity_code
+              )) AS activity_requirement_met
        FROM ballet_activity_catalog AS activity
        LEFT JOIN ballet_progress AS progress
          ON progress.discord_user_id = $1
@@ -130,8 +181,10 @@ export class BalletService implements BalletProgressPort {
 
     return result.rows.map((row) => {
       const nextAvailableAt = row.next_available_at;
+      const levelLocked = row.current_level < row.minimum_level;
+      const requirementMet = row.equipment_requirement_met && row.activity_requirement_met;
       const availability =
-        row.current_level < row.minimum_level
+        levelLocked || !requirementMet
           ? 'LOCKED'
           : nextAvailableAt !== null && row.current_time.getTime() < nextAvailableAt.getTime()
             ? 'COOLDOWN'
@@ -140,9 +193,20 @@ export class BalletService implements BalletProgressPort {
       return {
         code: this.parseActivityCode(row.activity_code),
         displayName: row.display_name,
+        description: row.description,
+        category: row.category,
         minimumLevel: row.minimum_level,
         xpReward: BigInt(row.xp_reward),
         slippersReward: BigInt(row.slippers_reward),
+        statKey: this.parseStatKey(row.stat_key),
+        statGain: row.stat_gain,
+        requiredEquippedItemId: row.required_equipped_item_id,
+        requiredActivityCode:
+          row.required_activity_code === null
+            ? null
+            : this.parseActivityCode(row.required_activity_code),
+        requirementMet,
+        lockReason: levelLocked ? 'LEVEL' : requirementMet ? null : 'REQUIREMENT',
         availability,
         nextAvailableAt,
       };
@@ -168,6 +232,7 @@ export class BalletService implements BalletProgressPort {
          ON CONFLICT (discord_user_id) DO NOTHING`,
         [discordUserId],
       );
+      await this.ensureStatRows(client, discordUserId);
       const progressResult = await client.query<ProgressRow>(
         `SELECT total_xp, level
          FROM ballet_progress
@@ -209,6 +274,31 @@ export class BalletService implements BalletProgressPort {
         throw new BalletActivityLockedError(minimumLevel);
       }
 
+      if (activity.required_equipped_item_id !== null) {
+        const equipment = await client.query(
+          `SELECT 1
+           FROM wardrobe_equipment
+           WHERE discord_user_id = $1 AND item_id = $2
+           LIMIT 1`,
+          [discordUserId, activity.required_equipped_item_id],
+        );
+        if (equipment.rows.length === 0) {
+          throw new BalletActivityRequirementError('EQUIPMENT');
+        }
+      }
+      if (activity.required_activity_code !== null) {
+        const prerequisite = await client.query(
+          `SELECT 1
+           FROM ballet_activity_completions
+           WHERE discord_user_id = $1 AND activity_code = $2
+           LIMIT 1`,
+          [discordUserId, activity.required_activity_code],
+        );
+        if (prerequisite.rows.length === 0) {
+          throw new BalletActivityRequirementError('PREVIOUS_ACTIVITY');
+        }
+      }
+
       const latestCompletion = await this.findLatestCompletion(client, discordUserId, activityCode);
       const currentTimeResult = await client.query<CurrentTimeRow>(
         'SELECT clock_timestamp() AS current_time',
@@ -242,6 +332,25 @@ export class BalletService implements BalletProgressPort {
       }
 
       const nextAvailableAt = new Date(currentTime.getTime() + cooldownMs);
+      const statKey = this.parseStatKey(activity.stat_key);
+      const currentStatResult = await client.query<StatValueRow>(
+        `SELECT stat_value FROM ballet_stats
+         WHERE discord_user_id = $1 AND stat_key = $2
+         FOR UPDATE`,
+        [discordUserId, statKey],
+      );
+      const currentStat = currentStatResult.rows[0]?.stat_value;
+      if (currentStat === undefined) {
+        throw new Error('Ballet stat row could not be locked after initialization.');
+      }
+      const statValueAfter = Math.min(100, currentStat + activity.stat_gain);
+      const statGain = statValueAfter - currentStat;
+      await client.query(
+        `UPDATE ballet_stats
+         SET stat_value = $3, updated_at = now()
+         WHERE discord_user_id = $1 AND stat_key = $2`,
+        [discordUserId, statKey, statValueAfter],
+      );
       const walletMutation = await this.wallet.creditWithinTransaction(client, {
         interactionId,
         discordUserId,
@@ -258,8 +367,9 @@ export class BalletService implements BalletProgressPort {
         `INSERT INTO ballet_activity_completions (
            interaction_id, discord_user_id, activity_code, request_fingerprint,
            xp_awarded, slippers_awarded, total_xp_after, level_after,
-           wallet_transaction_id, completed_at, next_available_at
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+           wallet_transaction_id, stat_key, stat_gain, stat_value_after,
+           completed_at, next_available_at
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
          RETURNING completed_at, next_available_at`,
         [
           interactionId,
@@ -271,6 +381,9 @@ export class BalletService implements BalletProgressPort {
           totalXpAfter.toString(),
           newLevel,
           walletMutation.transactionId,
+          statKey,
+          statGain,
+          statValueAfter,
           currentTime,
           nextAvailableAt,
         ],
@@ -286,6 +399,7 @@ export class BalletService implements BalletProgressPort {
         displayName: activity.display_name,
         xpAwarded,
         slippersAwarded,
+        stat: { key: statKey, gain: statGain, value: statValueAfter },
         totalXp: totalXpAfter,
         level: newLevel,
         nextLevelXp: getXpToNextLevel(totalXpAfter),
@@ -321,14 +435,40 @@ export class BalletService implements BalletProgressPort {
     activityCode: string,
   ): Promise<ActivityRow | undefined> {
     const result = await client.query<ActivityRow>(
-      `SELECT activity_code, display_name, minimum_level,
-              xp_reward, slippers_reward, cooldown_ms
+      `SELECT activity_code, display_name, description, category, minimum_level,
+              xp_reward, slippers_reward, cooldown_ms, stat_key, stat_gain,
+              required_equipped_item_id, required_activity_code
        FROM ballet_activity_catalog
        WHERE activity_code = $1 AND active = true`,
       [activityCode],
     );
 
     return result.rows[0];
+  }
+
+  private async ensureStatRows(client: PoolClient, discordUserId: string): Promise<void> {
+    for (const statKey of BALLET_STAT_KEYS) {
+      await client.query(
+        `INSERT INTO ballet_stats (discord_user_id, stat_key)
+         VALUES ($1, $2)
+         ON CONFLICT (discord_user_id, stat_key) DO NOTHING`,
+        [discordUserId, statKey],
+      );
+    }
+  }
+
+  private async getStats(discordUserId: string): Promise<BalletStats> {
+    const result = await this.pool.query<StatListRow>(
+      `SELECT stat_key, stat_value
+       FROM ballet_stats
+       WHERE discord_user_id = $1`,
+      [discordUserId],
+    );
+    const stats = { ...EMPTY_STATS };
+    for (const row of result.rows) {
+      stats[this.parseStatKey(row.stat_key)] = row.stat_value;
+    }
+    return stats;
   }
 
   private async findCompletion(
@@ -346,7 +486,10 @@ export class BalletService implements BalletProgressPort {
               completion.level_after,
               completion.completed_at,
               completion.next_available_at,
-              ledger.balance_after AS wallet_balance_after
+              ledger.balance_after AS wallet_balance_after,
+              completion.stat_key,
+              completion.stat_gain,
+              completion.stat_value_after
        FROM ballet_activity_completions AS completion
        INNER JOIN ballet_activity_catalog AS activity
          ON activity.activity_code = completion.activity_code
@@ -385,6 +528,13 @@ export class BalletService implements BalletProgressPort {
     throw new Error(`Ballet activity catalog has an unsupported code: ${value}`);
   }
 
+  private parseStatKey(value: string): BalletStatKey {
+    if ((BALLET_STAT_KEYS as readonly string[]).includes(value)) {
+      return value as BalletStatKey;
+    }
+    throw new Error(`Ballet stat catalog has an unsupported key: ${value}`);
+  }
+
   private toPracticeResult(
     completion: ExistingCompletionRow,
     replayed: boolean,
@@ -396,6 +546,16 @@ export class BalletService implements BalletProgressPort {
       displayName: completion.display_name,
       xpAwarded: BigInt(completion.xp_awarded),
       slippersAwarded: BigInt(completion.slippers_awarded),
+      stat:
+        completion.stat_key === null ||
+        completion.stat_gain === null ||
+        completion.stat_value_after === null
+          ? null
+          : {
+              key: this.parseStatKey(completion.stat_key),
+              gain: completion.stat_gain,
+              value: completion.stat_value_after,
+            },
       totalXp,
       level: completion.level_after,
       nextLevelXp: getXpToNextLevel(totalXp),

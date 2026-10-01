@@ -72,6 +72,18 @@ export const balletCommand: SlashCommand = {
         embeds: [
           createNoeliaEmbed({
             title: NOELIA_COPY.balletStatusTitle,
+            fields: [
+              {
+                name: 'Technique · Flexibility · Musicality',
+                value: `${progress.stats.technique} · ${progress.stats.flexibility} · ${progress.stats.musicality}`,
+                inline: true,
+              },
+              {
+                name: 'Performance · Pointe · Stamina',
+                value: `${progress.stats.performance} · ${progress.stats.pointe} · ${progress.stats.stamina}`,
+                inline: true,
+              },
+            ],
             description: `Ballet Level ${progress.level} · ${formatInteger(progress.totalXp)} XP\n${nextLevelText}`,
           }),
         ],
@@ -84,7 +96,11 @@ export const balletCommand: SlashCommand = {
       const lines = activities.map((activity) => {
         const state =
           activity.availability === 'LOCKED'
-            ? `Unlocks at level ${activity.minimumLevel}`
+            ? activity.lockReason === 'LEVEL'
+              ? `Unlocks at level ${activity.minimumLevel}`
+              : activity.requiredEquippedItemId !== null
+                ? `Equip ${activity.requiredEquippedItemId}`
+                : `Complete ${activity.requiredActivityCode ?? 'its requirement'} first`
             : activity.availability === 'COOLDOWN' && activity.nextAvailableAt !== null
               ? `Ready <t:${Math.floor(activity.nextAvailableAt.getTime() / 1_000)}:R>`
               : 'Ready now';
@@ -94,6 +110,11 @@ export const balletCommand: SlashCommand = {
         embeds: [
           createNoeliaEmbed({
             title: NOELIA_COPY.balletActivitiesTitle,
+            fields: activities.map((activity) => ({
+              name: `${activity.displayName} · ${activity.statKey} +${activity.statGain}`,
+              value: `${activity.description}${activity.requiredEquippedItemId === null ? '' : ` · Equip ${activity.requiredEquippedItemId}`}${activity.requiredActivityCode === null ? '' : ` · Complete ${activity.requiredActivityCode}`}`,
+              inline: false,
+            })),
             description:
               lines.length === 0
                 ? 'No Ballet activities are available right now.'
@@ -133,6 +154,16 @@ export const balletCommand: SlashCommand = {
         embeds: [
           createNoeliaEmbed({
             title: heading,
+            fields:
+              result.stat === null
+                ? []
+                : [
+                    {
+                      name: `${result.stat.key} · +${result.stat.gain}`,
+                      value: `${result.stat.value}/100`,
+                      inline: true,
+                    },
+                  ],
             description: `${result.displayName} · +${formatInteger(result.xpAwarded)} Ballet XP · +${formatBalance(result.slippersAwarded)}\nLevel ${result.level} · ${formatInteger(result.totalXp)} XP · ${nextLevelText}`,
             tone: result.replayed ? 'signature' : 'success',
           }),

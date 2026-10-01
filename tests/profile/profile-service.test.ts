@@ -11,6 +11,14 @@ describe('ProfileService', () => {
         totalXp: 240n,
         level: 3,
         xpToNextLevel: 60n,
+        stats: {
+          technique: 10,
+          flexibility: 20,
+          musicality: 30,
+          performance: 40,
+          pointe: 5,
+          stamina: 6,
+        },
       }),
     };
     const equippedAt = new Date('2026-10-01T12:00:00.000Z');
@@ -28,7 +36,19 @@ describe('ProfileService', () => {
 
     await expect(service.getProfile(discordUserId)).resolves.toEqual({
       balletSlippers: 1_240n,
-      ballet: { totalXp: 240n, level: 3, xpToNextLevel: 60n },
+      ballet: {
+        totalXp: 240n,
+        level: 3,
+        xpToNextLevel: 60n,
+        stats: {
+          technique: 10,
+          flexibility: 20,
+          musicality: 30,
+          performance: 40,
+          pointe: 5,
+          stamina: 6,
+        },
+      },
       outfit: [
         {
           itemId: 'satin-ribbon-bow',

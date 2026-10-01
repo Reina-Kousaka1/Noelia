@@ -53,6 +53,14 @@ describe('ballet command', () => {
       totalXp: 98n,
       level: 1,
       xpToNextLevel: 2n,
+      stats: {
+        technique: 2,
+        flexibility: 0,
+        musicality: 0,
+        performance: 0,
+        pointe: 0,
+        stamina: 0,
+      },
     });
 
     await balletCommand.execute({
@@ -82,9 +90,17 @@ describe('ballet command', () => {
       {
         code: 'stretching',
         displayName: 'Stretching',
+        description: 'A gentle mobility session.',
+        category: 'CONDITIONING',
         minimumLevel: 1,
         xpReward: 8n,
         slippersReward: 10n,
+        statKey: 'flexibility',
+        statGain: 2,
+        requirementMet: true,
+        requiredEquippedItemId: null,
+        requiredActivityCode: null,
+        lockReason: null,
         availability: 'AVAILABLE',
         nextAvailableAt: null,
       },
@@ -126,6 +142,7 @@ describe('ballet command', () => {
       displayName: 'Stretching',
       xpAwarded: 15n,
       slippersAwarded: 20n,
+      stat: { key: 'flexibility', gain: 2, value: 12 },
       totalXp: 105n,
       level: 2,
       nextLevelXp: 95n,
@@ -149,6 +166,7 @@ describe('ballet command', () => {
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.balletPracticeComplete,
+          fields: [{ name: 'flexibility · +2', value: '12/100', inline: true }],
           description: `Stretching · +15 Ballet XP · +${formatBalance(20n)}\nLevel 2 · 105 XP · 95 XP to the next level.`,
         }),
       ],

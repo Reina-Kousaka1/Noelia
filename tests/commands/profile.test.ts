@@ -23,7 +23,19 @@ describe('profile command', () => {
       profile: {
         getProfile: vi.fn().mockResolvedValue({
           balletSlippers: 1_240n,
-          ballet: { totalXp: 240n, level: 3, xpToNextLevel: 60n },
+          ballet: {
+            totalXp: 240n,
+            level: 3,
+            xpToNextLevel: 60n,
+            stats: {
+              technique: 10,
+              flexibility: 20,
+              musicality: 30,
+              performance: 40,
+              pointe: 5,
+              stamina: 6,
+            },
+          },
           outfit: [
             {
               itemId: 'satin-ribbon-bow',
@@ -72,7 +84,19 @@ describe('profile command', () => {
       profile: {
         getProfile: vi.fn().mockResolvedValue({
           balletSlippers: 0n,
-          ballet: { totalXp: 9_900n, level: 100, xpToNextLevel: null },
+          ballet: {
+            totalXp: 9_900n,
+            level: 100,
+            xpToNextLevel: null,
+            stats: {
+              technique: 100,
+              flexibility: 100,
+              musicality: 100,
+              performance: 100,
+              pointe: 100,
+              stamina: 100,
+            },
+          },
           outfit: [],
         }),
       },

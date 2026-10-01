@@ -4,7 +4,11 @@ import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BalletService } from '../../src/ballet/ballet-service.js';
-import { BalletActivityLockedError, BalletCooldownError } from '../../src/ballet/errors.js';
+import {
+  BalletActivityLockedError,
+  BalletActivityRequirementError,
+  BalletCooldownError,
+} from '../../src/ballet/errors.js';
 import { PostgresDiscordUserRepository } from '../../src/database/discord-user.repository.js';
 import { loadMigrations, runMigrations } from '../../src/database/migrations/runner.js';
 import { withClientTransaction, withTransaction } from '../../src/database/transaction.js';
@@ -95,10 +99,49 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         });
       }
 
+      const legacyUserId = testSnowflake();
+      const legacyInteractionId = testSnowflake();
+      const requestFingerprint = 'a'.repeat(64);
+      await upgradePool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [
+        legacyUserId,
+      ]);
+      await upgradePool.query(
+        `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+         VALUES ($1, 42, 1)`,
+        [legacyUserId],
+      );
+      const walletTransaction = await upgradePool.query<{ readonly id: string }>(
+        `INSERT INTO wallet_transactions (idempotency_key, operation_type, request_fingerprint)
+         VALUES ($1, 'BALLET_ACTIVITY', $2)
+         RETURNING id`,
+        [legacyInteractionId, requestFingerprint],
+      );
+      await upgradePool.query(
+        `INSERT INTO ballet_activity_completions (
+           interaction_id, discord_user_id, activity_code, request_fingerprint,
+           xp_awarded, slippers_awarded, total_xp_after, level_after,
+           wallet_transaction_id, completed_at, next_available_at
+         ) VALUES ($1, $2, 'stretching', $3, 8, 10, 8, 1, $4, now(), now() + interval '30 minutes')`,
+        [legacyInteractionId, legacyUserId, requestFingerprint, walletTransaction.rows[0]?.id],
+      );
+
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 1,
-        currentVersion: 7,
+        appliedCount: 2,
+        currentVersion: 8,
       });
+      await expect(
+        upgradePool.query(
+          `SELECT stat_value FROM ballet_stats
+           WHERE discord_user_id = $1 AND stat_key = 'flexibility'`,
+          [legacyUserId],
+        ),
+      ).resolves.toMatchObject({ rows: [{ stat_value: 2 }] });
+      await expect(
+        upgradePool.query(
+          `SELECT stat_key FROM ballet_activity_completions WHERE interaction_id = $1`,
+          [legacyInteractionId],
+        ),
+      ).resolves.toMatchObject({ rows: [{ stat_key: null }] });
     } finally {
       await upgradePool.end();
       await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
@@ -112,7 +155,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 7 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 8 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -232,7 +275,9 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(firstPractice.xpAwarded).toBe(8n);
     expect(firstPractice.slippersAwarded).toBe(10n);
     expect(firstPractice.totalXp).toBe(8n);
+    expect(firstPractice.stat).toEqual({ key: 'flexibility', gain: 2, value: 2 });
     expect(replay.replayed).toBe(true);
+    expect(replay.stat).toEqual(firstPractice.stat);
     await expect(
       ballet.practice(testSnowflake(), discordUserId, 'stretching'),
     ).rejects.toBeInstanceOf(BalletCooldownError);
@@ -242,6 +287,92 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(ballet.getProgress(discordUserId)).resolves.toMatchObject({
       totalXp: 8n,
       level: 1,
+      stats: { flexibility: 2 },
+    });
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(10n);
+    await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
+  });
+
+  it('enforces pointe equipment and activity unlocks while persisting capped stats', async () => {
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const shop = new ShopService(pool, economy);
+    const wardrobe = new WardrobeService(pool);
+    const discordUserId = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [discordUserId]);
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 600, 7)`,
+      [discordUserId],
+    );
+
+    const activitiesBeforeRequirements = await ballet.listActivities(discordUserId);
+    expect(activitiesBeforeRequirements).toContainEqual(
+      expect.objectContaining({
+        code: 'pointe-practice',
+        availability: 'LOCKED',
+        lockReason: 'REQUIREMENT',
+        requiredEquippedItemId: 'pearl-pointe-shoes',
+      }),
+    );
+    expect(activitiesBeforeRequirements).toContainEqual(
+      expect.objectContaining({
+        code: 'choreography',
+        availability: 'LOCKED',
+        lockReason: 'REQUIREMENT',
+        requiredActivityCode: 'center-practice',
+      }),
+    );
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'pointe-practice'),
+    ).rejects.toBeInstanceOf(BalletActivityRequirementError);
+
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 500n,
+      reason: 'DAILY_REWARD',
+    });
+    await shop.purchase(testSnowflake(), discordUserId, 'pearl-pointe-shoes', 1);
+    await wardrobe.equip(discordUserId, 'pearl-pointe-shoes');
+    const pointe = await ballet.practice(testSnowflake(), discordUserId, 'pointe-practice');
+    expect(pointe.stat).toEqual({ key: 'pointe', gain: 3, value: 3 });
+
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'choreography'),
+    ).rejects.toBeInstanceOf(BalletActivityRequirementError);
+    await ballet.practice(testSnowflake(), discordUserId, 'center-practice');
+    const choreography = await ballet.practice(testSnowflake(), discordUserId, 'choreography');
+    expect(choreography.stat).toEqual({ key: 'musicality', gain: 3, value: 3 });
+
+    await pool.query(
+      `UPDATE ballet_stats SET stat_value = 99
+       WHERE discord_user_id = $1 AND stat_key = 'flexibility'`,
+      [discordUserId],
+    );
+    const stretching = await ballet.practice(testSnowflake(), discordUserId, 'stretching');
+    expect(stretching.stat).toEqual({ key: 'flexibility', gain: 1, value: 100 });
+    await expect(ballet.getProgress(discordUserId)).resolves.toMatchObject({
+      stats: { pointe: 3, musicality: 5, flexibility: 100 },
+    });
+  });
+
+  it('serializes duplicate concurrent Ballet reward interactions', async () => {
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const discordUserId = testSnowflake();
+    const interactionId = testSnowflake();
+
+    const results = await Promise.all([
+      ballet.practice(interactionId, discordUserId, 'stretching'),
+      ballet.practice(interactionId, discordUserId, 'stretching'),
+    ]);
+
+    expect(results.filter((result) => !result.replayed)).toHaveLength(1);
+    expect(results.filter((result) => result.replayed)).toHaveLength(1);
+    await expect(ballet.getProgress(discordUserId)).resolves.toMatchObject({
+      totalXp: 8n,
+      stats: { flexibility: 2 },
     });
     await expect(economy.getBalance(discordUserId)).resolves.toBe(10n);
     await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);

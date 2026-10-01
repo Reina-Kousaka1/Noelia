@@ -20,6 +20,18 @@ export class BalletActivityLockedError extends ExpectedDomainError {
   }
 }
 
+export class BalletActivityRequirementError extends ExpectedDomainError {
+  public constructor(public readonly requirement: 'EQUIPMENT' | 'PREVIOUS_ACTIVITY') {
+    super(
+      `The ballet activity requirement is not met: ${requirement}.`,
+      requirement === 'EQUIPMENT'
+        ? 'Equip the required ballet item before practicing this activity.'
+        : 'Complete the required ballet activity first.',
+    );
+    this.name = 'BalletActivityRequirementError';
+  }
+}
+
 export class BalletCooldownError extends ExpectedDomainError {
   public constructor(public readonly nextAvailableAt: Date) {
     const timestamp = Math.floor(nextAvailableAt.getTime() / 1_000);
