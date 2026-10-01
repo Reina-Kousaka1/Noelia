@@ -15,6 +15,7 @@ function createInteraction(name: string, acknowledged = false): Eris.CommandInte
     acknowledged,
     createMessage: vi.fn().mockResolvedValue(undefined),
     createFollowup: vi.fn().mockResolvedValue(undefined),
+    deleteOriginalMessage: vi.fn().mockResolvedValue(undefined),
   } as unknown as Eris.CommandInteraction;
 }
 
@@ -139,6 +140,32 @@ describe('InteractionRouter', () => {
       interactionId: 'interaction-id',
     });
     expect(logError).not.toHaveBeenCalled();
+  });
+
+  it('removes a public deferred placeholder before returning an expected error privately', async () => {
+    const command = createCommand(
+      vi.fn().mockRejectedValue(new InsufficientBalletSlippersError(5n, 10n)),
+    );
+    const interaction = createInteraction('ping', true);
+    const router = new InteractionRouter(new CommandRegistry([command]), new StructuredLogger(), {
+      economy: { getBalance: vi.fn().mockResolvedValue(0n) },
+      daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
+    });
+
+    await router.dispatch(interaction, {} as Eris.Client);
+
+    expect(interaction.deleteOriginalMessage).toHaveBeenCalledOnce();
+    expect(interaction.createFollowup).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('You need 10'),
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      }),
+    );
   });
 
   it('routes a marriage button and edits the proposal after the transaction succeeds', async () => {

@@ -8,16 +8,18 @@ import { formatBalance } from '../../src/commands/balance/format-balance.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: '111111111111111111',
     member: { id: '222222222222222222' },
     data: { options },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
 
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 function createServices() {
@@ -58,8 +60,8 @@ describe('shop command', () => {
     ]);
   });
 
-  it('browses a category in a private response', async () => {
-    const { interaction, defer, createFollowup } = createInteraction([
+  it('browses a category in a public response', async () => {
+    const { interaction, defer, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'browse',
@@ -82,8 +84,8 @@ describe('shop command', () => {
     });
 
     expect(services.shop.listItems).toHaveBeenCalledWith('hair_accessory');
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.shopTitle,
@@ -94,7 +96,7 @@ describe('shop command', () => {
   });
 
   it('paginates the larger catalog and exposes stable item IDs instead of a capped choice list', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'browse',
@@ -118,14 +120,14 @@ describe('shop command', () => {
 
     await shopCommand.execute({ client: {} as Eris.Client, interaction, services });
 
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           description: expect.stringContaining('Page 2/2'),
         }),
       ],
     });
-    const response = vi.mocked(createFollowup).mock.calls[0]?.[0];
+    const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
     const description = response?.embeds?.[0]?.description;
     expect(description).toContain('catalog-piece-11');
     expect(description).not.toContain('catalog-piece-1)');
@@ -138,7 +140,7 @@ describe('shop command', () => {
   });
 
   it('shows stable item details', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'item',
@@ -160,7 +162,7 @@ describe('shop command', () => {
       services,
     });
 
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: `${NOELIA_COPY.shopItemTitle}: Satin Ribbon Bow`,
@@ -171,7 +173,7 @@ describe('shop command', () => {
   });
 
   it('shows owned progress for each collection', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'collections',
@@ -198,13 +200,13 @@ describe('shop command', () => {
     });
 
     expect(services.collections.listProgress).toHaveBeenCalledWith('222222222222222222');
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [expect.objectContaining({ description: expect.stringContaining('2/3') })],
     });
   });
 
   it('uses the Discord interaction ID and quantity when buying an item', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'buy',
@@ -245,7 +247,7 @@ describe('shop command', () => {
       'satin-ribbon-bow',
       1,
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.shopPurchaseComplete,

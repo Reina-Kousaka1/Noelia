@@ -12,20 +12,22 @@ function createInteraction(
   options: readonly { name: string; value: unknown }[],
 ) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: interactionId,
     member: { id: userId },
     data: { options: [{ name: subcommand, options }] },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 describe('market command', () => {
-  it('browses active listings in a private response', async () => {
-    const { interaction, defer, createFollowup } = createInteraction('browse', [
+  it('browses active listings in a public response', async () => {
+    const { interaction, defer, editOriginalMessage } = createInteraction('browse', [
       { name: 'page', value: 2 },
     ]);
     const marketplace = {
@@ -62,8 +64,8 @@ describe('market command', () => {
     });
 
     expect(marketplace.browse).toHaveBeenCalledWith(2);
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           description: expect.stringContaining('#42 **Satin Ribbon Bow**'),
@@ -73,7 +75,7 @@ describe('market command', () => {
   });
 
   it('creates a listing using the interaction ID and integer Ballet Slippers price', async () => {
-    const { interaction, createFollowup } = createInteraction('sell', [
+    const { interaction, editOriginalMessage } = createInteraction('sell', [
       { name: 'item', value: 'satin-ribbon-bow' },
       { name: 'price', value: '125' },
       { name: 'quantity', value: 1 },
@@ -102,7 +104,7 @@ describe('market command', () => {
       1,
       125n,
     );
-    expect(createFollowup).toHaveBeenCalledOnce();
+    expect(editOriginalMessage).toHaveBeenCalledOnce();
   });
 
   it('rejects non-integer prices before invoking the marketplace service', async () => {

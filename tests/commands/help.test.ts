@@ -7,7 +7,7 @@ import { pingCommand } from '../../src/commands/ping/ping.command.js';
 import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 describe('help command', () => {
-  it('renders the registered command descriptions in a private themed response', async () => {
+  it('renders the registered command descriptions in a public themed response', async () => {
     const interaction = {
       createMessage: vi.fn().mockResolvedValue(undefined),
     } as unknown as Eris.CommandInteraction;
@@ -28,7 +28,6 @@ describe('help command', () => {
     });
 
     expect(interaction.createMessage).toHaveBeenCalledWith({
-      flags: Eris.Constants.MessageFlags.EPHEMERAL,
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.helpTitle,

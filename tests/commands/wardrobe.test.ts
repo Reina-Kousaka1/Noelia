@@ -6,16 +6,18 @@ import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: '111111111111111111',
     member: { id: '222222222222222222' },
     data: { options },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
 
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 function createServices() {
@@ -70,8 +72,8 @@ describe('wardrobe command', () => {
     }
   });
 
-  it('shows the current outfit privately', async () => {
-    const { interaction, createFollowup } = createInteraction([
+  it('shows the current outfit publicly', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'view',
@@ -89,7 +91,7 @@ describe('wardrobe command', () => {
 
     await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
 
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.wardrobeTitle,
@@ -100,7 +102,7 @@ describe('wardrobe command', () => {
   });
 
   it('equips an owned item and clearly names replaced items', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'equip',
@@ -127,7 +129,7 @@ describe('wardrobe command', () => {
       '222222222222222222',
       'ivory-wrap-cardigan',
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.wardrobeTitle,
@@ -139,7 +141,7 @@ describe('wardrobe command', () => {
   });
 
   it('unequips the whole outfit item from its multiple slots', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'unequip',
@@ -163,7 +165,7 @@ describe('wardrobe command', () => {
     await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
 
     expect(services.wardrobe.unequip).toHaveBeenCalledWith('222222222222222222', 'wrap');
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.wardrobeTitle,
@@ -174,7 +176,7 @@ describe('wardrobe command', () => {
   });
 
   it('clears the current outfit with the interaction ID as its idempotency key', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'clear',
@@ -189,7 +191,7 @@ describe('wardrobe command', () => {
       '111111111111111111',
       '222222222222222222',
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.wardrobeCleared,
@@ -200,7 +202,7 @@ describe('wardrobe command', () => {
   });
 
   it('routes nested preset create interactions into the preset domain', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP,
         name: 'presets',
@@ -234,7 +236,7 @@ describe('wardrobe command', () => {
       '222222222222222222',
       'Training',
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.wardrobePresetSaved,

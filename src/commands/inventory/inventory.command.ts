@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
@@ -33,7 +34,7 @@ export const inventoryCommand: SlashCommand = {
       pageOption !== undefined && 'value' in pageOption && typeof pageOption.value === 'number'
         ? pageOption.value
         : 1;
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
     const inventory = await services.inventory.listInventory(discordUserId, page);
     const lines = inventory.entries.map(
       (entry) =>
@@ -44,7 +45,7 @@ export const inventoryCommand: SlashCommand = {
         ? NOELIA_COPY.inventoryEmpty
         : `Your inventory · Page ${inventory.page}/${inventory.totalPages}\n${lines.join('\n')}`;
 
-    await interaction.createFollowup({
+    await completeCommand(interaction, {
       embeds: [
         await personaEmbed(
           'inventory_view',

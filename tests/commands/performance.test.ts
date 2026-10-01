@@ -11,20 +11,22 @@ function createInteraction(
   options: readonly { name: string; value: unknown }[] = [],
 ) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: interactionId,
     member: { id: userId },
     data: { options: [{ name: subcommand, options }] },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 describe('performance command', () => {
-  it('browses the database-backed performance catalog privately', async () => {
-    const { interaction, defer, createFollowup } = createInteraction('browse');
+  it('browses the database-backed performance catalog publicly', async () => {
+    const { interaction, defer, editOriginalMessage } = createInteraction('browse');
     const performances = {
       listPerformances: vi.fn().mockResolvedValue([
         {
@@ -53,14 +55,14 @@ describe('performance command', () => {
     });
 
     expect(performances.listPerformances).toHaveBeenCalledWith(userId);
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [expect.objectContaining({ description: expect.stringContaining('Spring Recital') })],
     });
   });
 
   it('uses the Discord interaction ID for an attempt and renders deterministic results', async () => {
-    const { interaction, createFollowup } = createInteraction('attempt', [
+    const { interaction, editOriginalMessage } = createInteraction('attempt', [
       { name: 'performance', value: 'spring-recital' },
     ]);
     const performances = {
@@ -89,11 +91,11 @@ describe('performance command', () => {
     });
 
     expect(performances.perform).toHaveBeenCalledWith(interactionId, userId, 'spring-recital');
-    expect(createFollowup).toHaveBeenCalledOnce();
+    expect(editOriginalMessage).toHaveBeenCalledOnce();
   });
 
   it('renders a paged performance history', async () => {
-    const { interaction, createFollowup } = createInteraction('history', [
+    const { interaction, editOriginalMessage } = createInteraction('history', [
       { name: 'page', value: 2 },
     ]);
     const performances = {
@@ -115,6 +117,6 @@ describe('performance command', () => {
     });
 
     expect(performances.listHistory).toHaveBeenCalledWith(userId, 2);
-    expect(createFollowup).toHaveBeenCalledOnce();
+    expect(editOriginalMessage).toHaveBeenCalledOnce();
   });
 });

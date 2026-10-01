@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import { formatBalance } from '../balance/format-balance.js';
 import type { SlashCommand } from '../command.js';
@@ -20,7 +21,7 @@ export const profileCommand: SlashCommand = {
     }
 
     const personaEmbed = createPersonaEmbedRenderer(services.persona, 'profile', discordUserId);
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
     const profile = await services.profile.getProfile(discordUserId);
     const nextLevel =
       profile.ballet.xpToNextLevel === null
@@ -83,7 +84,7 @@ export const profileCommand: SlashCommand = {
     const marriageLine = NOELIA_COPY.profileMarriage(profile.marriage?.partnerUserId ?? null);
     const description = [embed.description, marriageLine].filter(Boolean).join('\n');
 
-    await interaction.createFollowup({ embeds: [{ ...embed, description }] });
+    await completeCommand(interaction, { embeds: [{ ...embed, description }] });
   },
 };
 

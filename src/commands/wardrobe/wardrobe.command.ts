@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import { WARDROBE_SLOTS } from '../../wardrobe/types.js';
 import type { WardrobeSlot } from '../../wardrobe/types.js';
@@ -169,7 +170,7 @@ export const wardrobeCommand: SlashCommand = {
         ? option.value
         : undefined;
     };
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
 
     if (action.name === 'view') {
       const outfit = await services.wardrobe.getOutfit(discordUserId);
@@ -177,7 +178,7 @@ export const wardrobeCommand: SlashCommand = {
         (entry) =>
           `• **${entry.displayName}** — ${entry.slots.map((slot) => slot.replaceAll('_', ' ')).join(', ')}`,
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'outfit_view',
@@ -207,7 +208,7 @@ export const wardrobeCommand: SlashCommand = {
         result.displacedItems.length === 0
           ? ''
           : ` Replaced: ${result.displacedItems.map((item) => item.displayName).join(', ')}.`;
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'item_equipped',
@@ -234,7 +235,7 @@ export const wardrobeCommand: SlashCommand = {
       }
 
       const item = await services.wardrobe.unequip(discordUserId, slot as WardrobeSlot);
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             item === undefined ? 'slot_already_empty' : 'item_unequipped',
@@ -260,7 +261,7 @@ export const wardrobeCommand: SlashCommand = {
       const presets = services.wardrobePresets;
       if (presets === undefined) throw new Error('The wardrobe preset service is not configured.');
       const result = await presets.clear(interaction.id, discordUserId);
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             result.replayed ? 'outfit_clear_replayed' : 'outfit_cleared',
@@ -290,7 +291,7 @@ export const wardrobeCommand: SlashCommand = {
         const lines = saved.map((preset) =>
           NOELIA_COPY.wardrobePresetListEntry(preset.presetId, preset.name, preset.itemCount),
         );
-        await interaction.createFollowup({
+        await completeCommand(interaction, {
           embeds: [
             await personaEmbed(
               'presets_list',
@@ -310,7 +311,7 @@ export const wardrobeCommand: SlashCommand = {
         const name = readString('name');
         if (name === undefined) throw new Error('The wardrobe preset name is missing.');
         const result = await presets.createPreset(interaction.id, discordUserId, name);
-        await interaction.createFollowup({
+        await completeCommand(interaction, {
           embeds: [
             await personaEmbed(
               result.replayed ? 'preset_create_replayed' : 'preset_created',
@@ -339,7 +340,7 @@ export const wardrobeCommand: SlashCommand = {
 
       if (action.name === 'save') {
         const result = await presets.savePreset(interaction.id, discordUserId, presetId);
-        await interaction.createFollowup({
+        await completeCommand(interaction, {
           embeds: [
             await personaEmbed(
               result.replayed ? 'preset_save_replayed' : 'preset_saved',
@@ -366,7 +367,7 @@ export const wardrobeCommand: SlashCommand = {
       if (action.name === 'apply') {
         const result = await presets.applyPreset(interaction.id, discordUserId, presetId);
         const items = result.outfit.map((item) => item.displayName).join(', ');
-        await interaction.createFollowup({
+        await completeCommand(interaction, {
           embeds: [
             await personaEmbed(
               result.replayed ? 'preset_apply_replayed' : 'preset_applied',
@@ -394,7 +395,7 @@ export const wardrobeCommand: SlashCommand = {
         const name = readString('name');
         if (name === undefined) throw new Error('The new wardrobe preset name is missing.');
         const result = await presets.renamePreset(interaction.id, discordUserId, presetId, name);
-        await interaction.createFollowup({
+        await completeCommand(interaction, {
           embeds: [
             await personaEmbed(
               result.replayed ? 'preset_rename_replayed' : 'preset_renamed',
@@ -415,7 +416,7 @@ export const wardrobeCommand: SlashCommand = {
 
       if (action.name === 'delete') {
         const result = await presets.deletePreset(interaction.id, discordUserId, presetId);
-        await interaction.createFollowup({
+        await completeCommand(interaction, {
           embeds: [
             await personaEmbed(
               'preset_deleted',

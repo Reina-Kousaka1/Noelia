@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
@@ -124,7 +125,7 @@ export const marketCommand: SlashCommand = {
         : fallback;
     };
 
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
 
     if (subcommand.name === 'browse' || subcommand.name === 'mine') {
       const page = readInteger('page', 1);
@@ -136,7 +137,7 @@ export const marketCommand: SlashCommand = {
         (listing) =>
           `#${listing.listingId} **${listing.displayName}** · ${listing.quantity} · ${formatBalance(listing.unitPrice)} each · ${listing.status}${subcommand.name === 'browse' ? ` · <@${listing.sellerUserId}>` : ''}`,
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             subcommand.name === 'mine' ? 'my_listings' : 'browse',
@@ -175,7 +176,7 @@ export const marketCommand: SlashCommand = {
         quantity,
         BigInt(priceText),
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             listing.replayed ? 'listing_replayed' : 'listing_created',
@@ -201,7 +202,7 @@ export const marketCommand: SlashCommand = {
         throw new Error('The market buy listing number is missing.');
       }
       const purchase = await market.buy(interaction.id, discordUserId, listingId);
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             purchase.replayed ? 'purchase_replayed' : 'purchase_complete',
@@ -230,7 +231,7 @@ export const marketCommand: SlashCommand = {
         throw new Error('The market cancel listing number is missing.');
       }
       const cancelled = await market.cancel(interaction.id, discordUserId, listingId);
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             cancelled.replayed ? 'cancel_replayed' : 'listing_cancelled',

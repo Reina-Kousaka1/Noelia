@@ -5,14 +5,16 @@ import { balanceCommand } from '../../src/commands/balance/balance.command.js';
 import { formatBalance } from '../../src/commands/balance/format-balance.js';
 
 describe('balance command', () => {
-  it('uses the caller wallet and responds privately with a formatted balance', async () => {
+  it('uses the caller wallet and responds publicly with a formatted balance', async () => {
     const defer = vi.fn().mockResolvedValue(undefined);
-    const createFollowup = vi.fn().mockResolvedValue(undefined);
+    const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
     const getBalance = vi.fn().mockResolvedValue(1_240n);
     const interaction = {
       member: { id: '123456789012345678' },
+      acknowledged: true,
+
       defer,
-      createFollowup,
+      editOriginalMessage,
     } as unknown as Eris.CommandInteraction;
 
     await balanceCommand.execute({
@@ -30,8 +32,8 @@ describe('balance command', () => {
     });
 
     expect(getBalance).toHaveBeenCalledWith('123456789012345678');
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: 'Your Ballet Slippers',

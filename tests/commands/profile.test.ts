@@ -6,11 +6,13 @@ import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function createContext(profile: unknown) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     member: { id: '222222222222222222' },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
   const services = {
     economy: { getBalance: vi.fn() },
@@ -21,12 +23,12 @@ function createContext(profile: unknown) {
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     profile: { getProfile: vi.fn().mockResolvedValue(profile) },
   };
-  return { interaction, services, defer, createFollowup };
+  return { interaction, services, defer, editOriginalMessage };
 }
 
 describe('profile command', () => {
-  it('renders Ballet stats, collections, featured badge, and outfit privately', async () => {
-    const { interaction, services, defer, createFollowup } = createContext({
+  it('renders Ballet stats, collections, featured badge, and outfit publicly', async () => {
+    const { interaction, services, defer, editOriginalMessage } = createContext({
       balletSlippers: 1_240n,
       marriage: {
         relationshipId: '31',
@@ -68,8 +70,8 @@ describe('profile command', () => {
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
 
     expect(services.profile.getProfile).toHaveBeenCalledWith('222222222222222222');
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    const response = createFollowup.mock.calls[0]?.[0];
+    expect(defer).toHaveBeenCalledWith();
+    const response = editOriginalMessage.mock.calls[0]?.[0];
     const description = response?.embeds?.[0]?.description;
     expect(description).toContain('Ballet Level 3');
     expect(description).toContain('Technique 10 · Flexibility 20 · Musicality 30');
@@ -81,7 +83,7 @@ describe('profile command', () => {
   });
 
   it('shows empty outfit and no extra progress at maximum Ballet level', async () => {
-    const { interaction, services, createFollowup } = createContext({
+    const { interaction, services, editOriginalMessage } = createContext({
       balletSlippers: 0n,
       marriage: null,
       ballet: {
@@ -105,7 +107,7 @@ describe('profile command', () => {
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
 
-    const response = createFollowup.mock.calls[0]?.[0];
+    const response = editOriginalMessage.mock.calls[0]?.[0];
     const description = response?.embeds?.[0]?.description;
     expect(description).toContain('Maximum Ballet level reached.');
     expect(description).toContain(NOELIA_COPY.wardrobeEmpty);

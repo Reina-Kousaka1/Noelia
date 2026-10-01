@@ -7,15 +7,17 @@ import type { AchievementSummary } from '../../src/achievements/types.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: '111111111111111111',
     member: { id: '222222222222222222' },
     data: { options },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 function createServices() {
@@ -38,8 +40,8 @@ describe('achievements command', () => {
     ]);
   });
 
-  it('lists locked and unlocked milestones privately', async () => {
-    const { interaction, defer, createFollowup } = createInteraction([
+  it('lists locked and unlocked milestones publicly', async () => {
+    const { interaction, defer, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'list',
@@ -72,8 +74,8 @@ describe('achievements command', () => {
       services: services as never,
     });
 
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.achievementsTitle,
@@ -84,7 +86,7 @@ describe('achievements command', () => {
   });
 
   it('uses celebratory prose while keeping milestone facts in the deterministic response', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'list',
@@ -128,7 +130,7 @@ describe('achievements command', () => {
       '222222222222222222',
       undefined,
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: 'Bravo, every milestone has its own little glow.',
@@ -139,7 +141,7 @@ describe('achievements command', () => {
   });
 
   it('features an unlocked achievement using the interaction ID for replay safety', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'feature',
@@ -174,7 +176,7 @@ describe('achievements command', () => {
       '222222222222222222',
       'first-steps',
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.achievementFeatureTitle,

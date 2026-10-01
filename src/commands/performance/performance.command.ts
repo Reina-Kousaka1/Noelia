@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import { formatBalance } from '../balance/format-balance.js';
 import type { SlashCommand } from '../command.js';
@@ -73,7 +74,7 @@ export const performanceCommand: SlashCommand = {
       throw new Error('The performance command requires a subcommand.');
     }
 
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
 
     if (subcommand.name === 'browse') {
       const rows = await performances.listPerformances(discordUserId);
@@ -98,7 +99,7 @@ export const performanceCommand: SlashCommand = {
         const requirementText = [requirements, ...extras].filter(Boolean).join('; ');
         return `**${performance.displayName}** — ${status}\n${performance.description}\nLevel ${performance.minimumLevel} · ${formatInteger(performance.xpReward)} XP · ${formatBalance(performance.slippersReward)}${requirementText.length === 0 ? '' : `\n${requirementText}`}`;
       });
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'browse',
@@ -133,7 +134,7 @@ export const performanceCommand: SlashCommand = {
       }
 
       const result = await performances.perform(interaction.id, discordUserId, performanceId);
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             result.replayed ? 'attempt_replayed' : 'attempt_complete',
@@ -170,7 +171,7 @@ export const performanceCommand: SlashCommand = {
         (entry) =>
           `**${entry.displayName} · ${entry.tier} (${entry.score}/100)** — <t:${Math.floor(entry.completedAt.getTime() / 1_000)}:d>\n${formatInteger(entry.xpAwarded)} XP · ${formatBalance(entry.slippersAwarded)}`,
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'history_view',

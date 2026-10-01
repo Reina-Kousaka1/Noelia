@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import { ShopItemUnavailableError } from '../../shop/errors.js';
 import { SHOP_CATEGORIES } from '../../shop/types.js';
@@ -110,7 +111,7 @@ export const shopCommand: SlashCommand = {
         ? option.value
         : fallback;
     };
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
 
     if (subcommand.name === 'browse') {
       const category = readStringOption('category');
@@ -126,7 +127,7 @@ export const shopCommand: SlashCommand = {
         (item) =>
           `**${item.displayName}** (\`${item.itemId}\`) — ${item.category.replaceAll('_', ' ')} · ${SHOP_RARITY_LABELS[item.rarity]} · ${formatBalance(item.price)}${item.minimumBalletLevel === null ? '' : ` · Ballet level ${item.minimumBalletLevel}+`}${item.collection === null ? '' : ` · ${item.collection}`}`,
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'browse',
@@ -159,7 +160,7 @@ export const shopCommand: SlashCommand = {
         (collection) =>
           `**${collection.displayName}** · ${collection.ownedItems}/${collection.totalItems}${collection.complete ? ' · Complete' : ''}\n${collection.description}`,
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'collections_view',
@@ -191,7 +192,7 @@ export const shopCommand: SlashCommand = {
           ? ''
           : ` Ballet level ${item.minimumBalletLevel}+ required.`;
       const purchaseState = item.purchasable ? '' : ' This item is not currently purchasable.';
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'item_details',
@@ -235,7 +236,7 @@ export const shopCommand: SlashCommand = {
       const heading = purchase.replayed
         ? NOELIA_COPY.shopPurchaseReplayed
         : NOELIA_COPY.shopPurchaseComplete;
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             purchase.replayed ? 'purchase_replayed' : 'purchase_complete',

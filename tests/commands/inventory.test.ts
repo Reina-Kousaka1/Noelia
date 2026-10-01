@@ -6,20 +6,22 @@ import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[] = []) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     member: { id: '222222222222222222' },
     data: { options },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
 
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 describe('inventory command', () => {
   it('lists a selected inventory page in an ephemeral response', async () => {
-    const { interaction, defer, createFollowup } = createInteraction([
+    const { interaction, defer, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.INTEGER,
         name: 'page',
@@ -57,8 +59,8 @@ describe('inventory command', () => {
     await inventoryCommand.execute({ client: {} as Eris.Client, interaction, services });
 
     expect(services.inventory.listInventory).toHaveBeenCalledWith('222222222222222222', 2);
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.inventoryTitle,
@@ -70,7 +72,7 @@ describe('inventory command', () => {
   });
 
   it('uses page one by default when the inventory is empty', async () => {
-    const { interaction, createFollowup } = createInteraction();
+    const { interaction, editOriginalMessage } = createInteraction();
     const services = {
       economy: { getBalance: vi.fn() },
       daily: { claimDaily: vi.fn() },
@@ -92,7 +94,7 @@ describe('inventory command', () => {
     await inventoryCommand.execute({ client: {} as Eris.Client, interaction, services });
 
     expect(services.inventory.listInventory).toHaveBeenCalledWith('222222222222222222', 1);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.inventoryTitle,

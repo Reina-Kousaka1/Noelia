@@ -8,16 +8,18 @@ import type { PersonaTextPort } from '../../src/persona/generator.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: '111111111111111111',
     member: { id: '222222222222222222' },
     data: { options },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
 
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 function createServices() {
@@ -46,8 +48,8 @@ describe('ballet command', () => {
     ]);
   });
 
-  it('shows XP and level progress privately', async () => {
-    const { interaction, defer, createFollowup } = createInteraction([
+  it('shows XP and level progress publicly', async () => {
+    const { interaction, defer, editOriginalMessage } = createInteraction([
       { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'status' },
     ]);
     const services = createServices();
@@ -72,8 +74,8 @@ describe('ballet command', () => {
     });
 
     expect(services.ballet.getProgress).toHaveBeenCalledWith('222222222222222222');
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.balletStatusTitle,
@@ -84,7 +86,7 @@ describe('ballet command', () => {
   });
 
   it('lists activities with their reward and unlock state', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'activities' },
     ]);
     const services = createServices();
@@ -114,7 +116,7 @@ describe('ballet command', () => {
       services,
     });
 
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.balletActivitiesTitle,
@@ -125,7 +127,7 @@ describe('ballet command', () => {
   });
 
   it('uses the interaction ID for a practice and renders the reward result', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'practice',
@@ -164,7 +166,7 @@ describe('ballet command', () => {
       '222222222222222222',
       'stretching',
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.balletPracticeComplete,
@@ -176,7 +178,7 @@ describe('ballet command', () => {
   });
 
   it('keeps deterministic reward facts visible when the persona title is generated', async () => {
-    const { interaction, createFollowup } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'practice',
@@ -226,7 +228,7 @@ describe('ballet command', () => {
       '222222222222222222',
       undefined,
     );
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: 'Encore, the studio is glowing.',

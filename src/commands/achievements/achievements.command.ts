@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
@@ -55,7 +56,7 @@ export const achievementsCommand: SlashCommand = {
     if (subcommand.type !== Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND) {
       throw new Error('The achievements command requires a subcommand.');
     }
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
 
     if (subcommand.name === 'list') {
       const achievements = await achievementService.list(discordUserId);
@@ -68,7 +69,7 @@ export const achievementsCommand: SlashCommand = {
           achievement.featured,
         ),
       );
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'list_view',
@@ -101,7 +102,7 @@ export const achievementsCommand: SlashCommand = {
       const result = await achievementService.feature(interaction.id, discordUserId, achievementId);
       const featured = result.achievement;
       if (featured === null) throw new Error('The featured achievement result is missing.');
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             result.replayed ? 'feature_replayed' : 'feature_set',
@@ -122,7 +123,7 @@ export const achievementsCommand: SlashCommand = {
 
     if (subcommand.name === 'clear_featured') {
       await achievementService.clearFeatured(interaction.id, discordUserId);
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'feature_cleared',

@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import { BALLET_ACTIVITY_CODES } from '../../ballet/activity-codes.js';
 import type { SlashCommand } from '../command.js';
@@ -62,7 +63,7 @@ export const balletCommand: SlashCommand = {
     }
 
     const subcommandName = subcommand.name;
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
 
     if (subcommandName === 'status') {
       const progress = await services.ballet.getProgress(discordUserId);
@@ -70,7 +71,7 @@ export const balletCommand: SlashCommand = {
         progress.xpToNextLevel === null
           ? 'Maximum level reached.'
           : `${formatInteger(progress.xpToNextLevel)} XP to the next level.`;
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'status_view',
@@ -119,7 +120,7 @@ export const balletCommand: SlashCommand = {
               : 'Ready now';
         return `• **${activity.displayName}** — ${formatInteger(activity.xpReward)} XP, ${formatBalance(activity.slippersReward)} · ${state}`;
       });
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'activities_view',
@@ -173,7 +174,7 @@ export const balletCommand: SlashCommand = {
         ? NOELIA_COPY.balletPracticeReplayed
         : NOELIA_COPY.balletPracticeComplete;
 
-      await interaction.createFollowup({
+      await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             result.replayed ? 'practice_replayed' : 'practice_complete',

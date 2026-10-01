@@ -8,6 +8,7 @@ import { ExpectedDomainError } from '../utils/expected-domain-error.js';
 import { NOELIA_COPY } from '../persona/copy.js';
 import { parseRelationshipButtonId } from '../relationships/components.js';
 import type { RelationshipProposalStatus } from '../relationships/types.js';
+import { respondPrivately, respondPrivatelyToComponent } from './response-policy.js';
 
 export class InteractionRouter {
   public constructor(
@@ -24,7 +25,7 @@ export class InteractionRouter {
         commandName: interaction.data.name,
         interactionId: interaction.id,
       });
-      await this.respond(interaction, 'That command is not available.', true);
+      await this.respond(interaction, 'That command is not available.');
       return;
     }
 
@@ -40,7 +41,7 @@ export class InteractionRouter {
           interactionId: interaction.id,
         });
         try {
-          await this.respond(interaction, error.userMessage, true);
+          await this.respond(interaction, error.userMessage);
         } catch (responseError) {
           this.logger.error('discord.command_error_response_failed', responseError, {
             commandName: command.definition.name,
@@ -59,7 +60,6 @@ export class InteractionRouter {
         await this.respond(
           interaction,
           'Noélia could not complete that command. Please try again in a moment.',
-          true,
         );
       } catch (responseError) {
         this.logger.error('discord.command_error_response_failed', responseError, {
@@ -142,12 +142,7 @@ export class InteractionRouter {
     interaction: Eris.ComponentInteraction,
     content: string,
   ): Promise<void> {
-    const response = { content, flags: Eris.Constants.MessageFlags.EPHEMERAL };
-    if (interaction.acknowledged) {
-      await interaction.createFollowup(response);
-      return;
-    }
-    await interaction.createMessage(response);
+    await respondPrivatelyToComponent(interaction, content);
   }
 
   private relationshipResultCopy(status: RelationshipProposalStatus): string {
@@ -157,20 +152,7 @@ export class InteractionRouter {
     return NOELIA_COPY.marriagePending;
   }
 
-  private async respond(
-    interaction: Eris.CommandInteraction,
-    content: string,
-    ephemeral: boolean,
-  ): Promise<void> {
-    const response = ephemeral
-      ? { content, flags: Eris.Constants.MessageFlags.EPHEMERAL }
-      : { content };
-
-    if (interaction.acknowledged) {
-      await interaction.createFollowup(response);
-      return;
-    }
-
-    await interaction.createMessage(response);
+  private async respond(interaction: Eris.CommandInteraction, content: string): Promise<void> {
+    await respondPrivately(interaction, content);
   }
 }

@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from './format-balance.js';
@@ -20,10 +21,10 @@ export const balanceCommand: SlashCommand = {
 
     const personaEmbed = createPersonaEmbedRenderer(services.persona, 'balance', discordUserId);
 
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
     const balance = await services.economy.getBalance(discordUserId);
 
-    await interaction.createFollowup({
+    await completeCommand(interaction, {
       embeds: [
         await personaEmbed(
           'balance_view',

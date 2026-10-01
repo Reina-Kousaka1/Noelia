@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
@@ -20,12 +21,12 @@ export const dailyCommand: SlashCommand = {
 
     const personaEmbed = createPersonaEmbedRenderer(services.persona, 'daily', discordUserId);
 
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
     const claim = await services.daily.claimDaily(interaction.id, discordUserId);
     const status = claim.replayed ? NOELIA_COPY.dailyReplayed : NOELIA_COPY.dailyClaimed;
     const nextClaimTimestamp = Math.floor(claim.nextClaimAt.getTime() / 1_000);
 
-    await interaction.createFollowup({
+    await completeCommand(interaction, {
       embeds: [
         await personaEmbed(
           claim.replayed ? 'claim_replayed' : 'claim_complete',

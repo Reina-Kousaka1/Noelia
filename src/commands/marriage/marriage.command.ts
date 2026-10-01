@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { completeCommand, deferCommand } from '../../interactions/response-policy.js';
 
 import type { SlashCommand } from '../command.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
@@ -40,14 +41,14 @@ export const marryCommand: SlashCommand = {
     if (targetUserId === undefined) throw new Error('The proposal target is missing.');
     if (relationships === undefined) throw new Error('The relationship service is not configured.');
 
-    await interaction.defer();
+    await deferCommand(interaction);
     const result = await relationships.propose(
       interaction.id,
       guildId,
       proposerUserId,
       targetUserId,
     );
-    await interaction.createFollowup({
+    await completeCommand(interaction, {
       content: NOELIA_COPY.marriageProposal(proposerUserId, targetUserId),
       components: createRelationshipProposalButtons(result.proposal.proposalId),
       allowedMentions: {
@@ -73,7 +74,7 @@ export const marriageCommand: SlashCommand = {
       throw new Error('The marriage command requires a guild context.');
     if (relationships === undefined) throw new Error('The relationship service is not configured.');
 
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
     const marriage = await relationships.getMarriage(discordUserId);
     const description =
       marriage === null
@@ -82,7 +83,7 @@ export const marriageCommand: SlashCommand = {
             marriage.partnerUserId,
             new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(marriage.marriedAt),
           );
-    await interaction.createFollowup({
+    await completeCommand(interaction, {
       embeds: [createNoeliaEmbed({ title: NOELIA_COPY.marriageTitle, description })],
     });
   },
@@ -101,9 +102,9 @@ export const divorceCommand: SlashCommand = {
       throw new Error('The divorce command requires a guild context.');
     if (relationships === undefined) throw new Error('The relationship service is not configured.');
 
-    await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
+    await deferCommand(interaction);
     const result = await relationships.divorce(interaction.id, discordUserId);
-    await interaction.createFollowup({
+    await completeCommand(interaction, {
       embeds: [
         createNoeliaEmbed({
           title: NOELIA_COPY.marriageTitle,

@@ -7,10 +7,10 @@ import { NOELIA_COPY } from '../../src/persona/copy.js';
 import { formatBalance } from '../../src/commands/balance/format-balance.js';
 
 describe('daily command', () => {
-  it('uses the interaction ID for the claim and replies privately with its reward', async () => {
+  it('uses the interaction ID for the claim and replies publicly with its reward', async () => {
     const nextClaimAt = new Date('2026-10-02T12:00:00.000Z');
     const defer = vi.fn().mockResolvedValue(undefined);
-    const createFollowup = vi.fn().mockResolvedValue(undefined);
+    const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
     const claimDaily = vi.fn().mockResolvedValue({
       rewardAmount: GAMEPLAY_CONFIG.dailyRewardAmount,
       balance: 375n,
@@ -21,8 +21,10 @@ describe('daily command', () => {
     const interaction = {
       id: '111111111111111111',
       member: { id: '222222222222222222' },
+      acknowledged: true,
+
       defer,
-      createFollowup,
+      editOriginalMessage,
     } as unknown as Eris.CommandInteraction;
 
     await dailyCommand.execute({
@@ -40,8 +42,8 @@ describe('daily command', () => {
     });
 
     expect(claimDaily).toHaveBeenCalledWith(interaction.id, interaction.member?.id);
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.dailyTitle,

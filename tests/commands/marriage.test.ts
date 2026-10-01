@@ -10,21 +10,23 @@ import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function makeInteraction(options: Eris.InteractionDataOptions[] = []) {
   const defer = vi.fn().mockResolvedValue(undefined);
-  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: '111111111111111111',
     guildID: '333333333333333333',
     member: { id: '222222222222222222' },
     data: { options },
+    acknowledged: true,
+
     defer,
-    createFollowup,
+    editOriginalMessage,
   } as unknown as Eris.CommandInteraction;
-  return { interaction, defer, createFollowup };
+  return { interaction, defer, editOriginalMessage };
 }
 
 describe('relationship commands', () => {
   it('posts a public proposal with target-only accept and decline controls', async () => {
-    const { interaction, defer, createFollowup } = makeInteraction([
+    const { interaction, defer, editOriginalMessage } = makeInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.USER,
         name: 'user',
@@ -51,7 +53,7 @@ describe('relationship commands', () => {
       '222222222222222222',
       '444444444444444444',
     );
-    expect(createFollowup).toHaveBeenCalledWith(
+    expect(editOriginalMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         content: NOELIA_COPY.marriageProposal('222222222222222222', '444444444444444444'),
         components: [
@@ -68,7 +70,7 @@ describe('relationship commands', () => {
   });
 
   it('keeps marriage status private', async () => {
-    const { interaction, defer, createFollowup } = makeInteraction();
+    const { interaction, defer, editOriginalMessage } = makeInteraction();
     const relationships = {
       getMarriage: vi.fn().mockResolvedValue({
         relationshipId: '57',
@@ -84,8 +86,8 @@ describe('relationship commands', () => {
       services: { relationships } as never,
     });
 
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.marriageTitle,
@@ -96,7 +98,7 @@ describe('relationship commands', () => {
   });
 
   it('uses the interaction ID for an idempotent divorce', async () => {
-    const { interaction, defer, createFollowup } = makeInteraction();
+    const { interaction, defer, editOriginalMessage } = makeInteraction();
     const relationships = {
       divorce: vi.fn().mockResolvedValue({ relationshipId: '57', replayed: false }),
     };
@@ -107,9 +109,9 @@ describe('relationship commands', () => {
       services: { relationships } as never,
     });
 
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
+    expect(defer).toHaveBeenCalledWith();
     expect(relationships.divorce).toHaveBeenCalledWith('111111111111111111', '222222222222222222');
-    expect(createFollowup).toHaveBeenCalledWith({
+    expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
           title: NOELIA_COPY.marriageTitle,

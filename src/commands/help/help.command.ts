@@ -24,7 +24,6 @@ export function createHelpCommand(commands: readonly SlashCommand[]): SlashComma
       );
 
       await interaction.createMessage({
-        flags: Eris.Constants.MessageFlags.EPHEMERAL,
         embeds: [
           await personaEmbed(
             'guide_view',
