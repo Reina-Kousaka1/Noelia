@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a reproducible problem in Noélia.
+title: '[Bug]: '
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not include tokens, passwords, webhook URLs, database credentials,
+        or personal data. See SECURITY.md to report a vulnerability privately.
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Affected command or domain
+      multiple: false
+      options:
+        - Ballet
+        - Performances
+        - Economy / Ballet Slippers
+        - Shop / Catalog
+        - Inventory / Wardrobe
+        - Marketplace
+        - Profile / Achievements
+        - Relationships
+        - Moderation / Safety
+        - Discord interactions
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: List the steps needed to reproduce the problem.
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment and version
+      description: Include Noélia version, Node.js version, and relevant platform details.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: Remove secrets and personal data before sharing. Never paste tokens, credentials, webhook URLs, or .env contents.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or additional context
+      description: Optional. Check images for private information before attaching.
+    validations:
+      required: false

@@ -1,5 +1,9 @@
 # Noélia
 
+[![CI](https://github.com/Reina-Kousaka1/Noelia/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Reina-Kousaka1/Noelia/actions/workflows/ci.yml)
+[![Node.js 24](https://img.shields.io/badge/Node.js-24-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-blue.svg)](LICENSE)
+
 Noélia is a clean-slate Discord bot project built around a polished ballet and
 balletcore identity. It is developed in TypeScript with Eris and is not a port
 of the archived Lindsey bot.
@@ -167,3 +171,10 @@ Integration tests are skipped unless `NOELIA_TEST_DATABASE_URL` is supplied.
 When enabled, a hard guard requires `NODE_ENV=test`, a loopback host, and the
 database name `noelia_test`; production/remote database URLs are rejected before
 opening a connection. The project never copies data from the archived bot.
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup, checks, and migration
+guidance. Please report security issues through the private vulnerability
+reporting option on GitHub if it is enabled for this repository; do not post
+credentials or vulnerability details in a public issue. See [SECURITY.md](SECURITY.md).

@@ -1,0 +1,52 @@
+name: Feature request
+description: Suggest a focused improvement for Noélia.
+title: '[Feature]: '
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Problem or use case
+      description: What need or friction would this address?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_behavior
+    attributes:
+      label: Proposed behavior
+      description: Describe how you expect the feature to work.
+    validations:
+      required: true
+  - type: dropdown
+    id: domain
+    attributes:
+      label: Affected domain
+      multiple: false
+      options:
+        - Ballet
+        - Performances
+        - Economy / Ballet Slippers
+        - Shop / Catalog
+        - Inventory / Wardrobe
+        - Marketplace
+        - Profile / Achievements
+        - Relationships
+        - Moderation / Safety
+        - Discord interactions
+        - Infrastructure / Developer experience
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches might solve the same problem?
+    validations:
+      required: false
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add examples or context that may help evaluate the request.
+    validations:
+      required: false
