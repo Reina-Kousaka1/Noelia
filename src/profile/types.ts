@@ -1,10 +1,14 @@
 import type { BalletProgressStatus } from '../ballet/types.js';
+import type { FeaturedAchievement } from '../achievements/types.js';
 import type { WardrobeOutfitItem } from '../wardrobe/types.js';
 
 export interface ProfileSummary {
   readonly balletSlippers: bigint;
   readonly ballet: BalletProgressStatus;
   readonly outfit: readonly WardrobeOutfitItem[];
+  readonly completedCollections: number;
+  readonly totalCollections: number;
+  readonly featuredAchievement: FeaturedAchievement | null;
 }
 
 export interface ProfilePort {

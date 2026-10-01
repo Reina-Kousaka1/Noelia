@@ -4,113 +4,104 @@ import { describe, expect, it, vi } from 'vitest';
 import { profileCommand } from '../../src/commands/profile/profile.command.js';
 import { NOELIA_COPY } from '../../src/persona/copy.js';
 
+function createContext(profile: unknown) {
+  const defer = vi.fn().mockResolvedValue(undefined);
+  const createFollowup = vi.fn().mockResolvedValue(undefined);
+  const interaction = {
+    member: { id: '222222222222222222' },
+    defer,
+    createFollowup,
+  } as unknown as Eris.CommandInteraction;
+  const services = {
+    economy: { getBalance: vi.fn() },
+    daily: { claimDaily: vi.fn() },
+    ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+    shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+    inventory: { listInventory: vi.fn() },
+    wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+    profile: { getProfile: vi.fn().mockResolvedValue(profile) },
+  };
+  return { interaction, services, defer, createFollowup };
+}
+
 describe('profile command', () => {
-  it('renders profile data from the aggregator in an ephemeral response', async () => {
-    const defer = vi.fn().mockResolvedValue(undefined);
-    const createFollowup = vi.fn().mockResolvedValue(undefined);
-    const interaction = {
-      member: { id: '222222222222222222' },
-      defer,
-      createFollowup,
-    } as unknown as Eris.CommandInteraction;
-    const services = {
-      economy: { getBalance: vi.fn() },
-      daily: { claimDaily: vi.fn() },
-      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
-      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
-      inventory: { listInventory: vi.fn() },
-      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
-      profile: {
-        getProfile: vi.fn().mockResolvedValue({
-          balletSlippers: 1_240n,
-          ballet: {
-            totalXp: 240n,
-            level: 3,
-            xpToNextLevel: 60n,
-            stats: {
-              technique: 10,
-              flexibility: 20,
-              musicality: 30,
-              performance: 40,
-              pointe: 5,
-              stamina: 6,
-            },
-          },
-          outfit: [
-            {
-              itemId: 'satin-ribbon-bow',
-              displayName: 'Satin Ribbon Bow',
-              slots: ['hair_accessory'],
-              equippedAt: new Date('2026-10-01T12:00:00.000Z'),
-            },
-          ],
-        }),
+  it('renders Ballet stats, collections, featured badge, and outfit privately', async () => {
+    const { interaction, services, defer, createFollowup } = createContext({
+      balletSlippers: 1_240n,
+      ballet: {
+        totalXp: 240n,
+        level: 3,
+        xpToNextLevel: 60n,
+        stats: {
+          technique: 10,
+          flexibility: 20,
+          musicality: 30,
+          performance: 40,
+          pointe: 5,
+          stamina: 6,
+        },
       },
-    };
-
-    await profileCommand.execute({
-      client: {} as Eris.Client,
-      interaction,
-      services,
-    });
-
-    expect(services.profile.getProfile).toHaveBeenCalledWith('222222222222222222');
-    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({
-      embeds: [
-        expect.objectContaining({
-          title: NOELIA_COPY.profileTitle,
-          description:
-            'Ballet Level 3 · 240 XP · 60 XP to the next level.\nBallet Slippers: 1,240 🩰\nCurrent look\n• **Satin Ribbon Bow** — hair accessory',
-        }),
+      outfit: [
+        {
+          itemId: 'satin-ribbon-bow',
+          displayName: 'Satin Ribbon Bow',
+          slots: ['hair_accessory'],
+          equippedAt: new Date('2026-10-01T12:00:00.000Z'),
+        },
       ],
-    });
-  });
-
-  it('shows empty outfit and a reached level without suggesting more progress', async () => {
-    const createFollowup = vi.fn().mockResolvedValue(undefined);
-    const interaction = {
-      member: { id: '222222222222222222' },
-      defer: vi.fn().mockResolvedValue(undefined),
-      createFollowup,
-    } as unknown as Eris.CommandInteraction;
-    const services = {
-      economy: { getBalance: vi.fn() },
-      daily: { claimDaily: vi.fn() },
-      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
-      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
-      inventory: { listInventory: vi.fn() },
-      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
-      profile: {
-        getProfile: vi.fn().mockResolvedValue({
-          balletSlippers: 0n,
-          ballet: {
-            totalXp: 9_900n,
-            level: 100,
-            xpToNextLevel: null,
-            stats: {
-              technique: 100,
-              flexibility: 100,
-              musicality: 100,
-              performance: 100,
-              pointe: 100,
-              stamina: 100,
-            },
-          },
-          outfit: [],
-        }),
+      completedCollections: 2,
+      totalCollections: 11,
+      featuredAchievement: {
+        achievementId: 'first-steps',
+        displayName: 'First Steps',
+        description: 'Complete your first Ballet activity.',
+        badgeMark: '🩰',
       },
-    };
+    });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
 
-    expect(createFollowup).toHaveBeenCalledWith({
-      embeds: [
-        expect.objectContaining({
-          title: NOELIA_COPY.profileTitle,
-          description: `Ballet Level 100 · 9,900 XP · Maximum Ballet level reached.\nBallet Slippers: 0 🩰\n${NOELIA_COPY.currentLook}\n${NOELIA_COPY.wardrobeEmpty}`,
-        }),
-      ],
+    expect(services.profile.getProfile).toHaveBeenCalledWith('222222222222222222');
+    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
+    const response = createFollowup.mock.calls[0]?.[0];
+    const description = response?.embeds?.[0]?.description;
+    expect(description).toContain('Ballet Level 3');
+    expect(description).toContain('Technique 10 · Flexibility 20 · Musicality 30');
+    expect(description).toContain('Performance 40 · Pointe 5 · Stamina 6');
+    expect(description).toContain('Satin Ribbon Bow');
+    expect(description).toContain(NOELIA_COPY.profileCollectionProgress(2, 11));
+    expect(description).toContain(NOELIA_COPY.profileFeaturedAchievement('🩰', 'First Steps'));
+  });
+
+  it('shows empty outfit and no extra progress at maximum Ballet level', async () => {
+    const { interaction, services, createFollowup } = createContext({
+      balletSlippers: 0n,
+      ballet: {
+        totalXp: 9_900n,
+        level: 100,
+        xpToNextLevel: null,
+        stats: {
+          technique: 100,
+          flexibility: 100,
+          musicality: 100,
+          performance: 100,
+          pointe: 100,
+          stamina: 100,
+        },
+      },
+      outfit: [],
+      completedCollections: 0,
+      totalCollections: 11,
+      featuredAchievement: null,
     });
+
+    await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    const response = createFollowup.mock.calls[0]?.[0];
+    const description = response?.embeds?.[0]?.description;
+    expect(description).toContain('Maximum Ballet level reached.');
+    expect(description).toContain(NOELIA_COPY.wardrobeEmpty);
+    expect(description).toContain(NOELIA_COPY.profileCollectionProgress(0, 11));
+    expect(description).toContain(NOELIA_COPY.profileNoFeaturedAchievement);
   });
 });

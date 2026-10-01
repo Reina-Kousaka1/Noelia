@@ -17,7 +17,8 @@ interaction idempotency. Daily rewards, levelled Ballet practice with six
 persistent capped stats, and a curated 62-item shop with transactional purchases
 and persistent inventory are active. Inventory pages and a persistent,
 ownership-checked wardrobe with saved outfit presets are also available, and `/profile` aggregates
-wallet, Ballet progress, and equipped look. `/market` uses the existing Ballet Slippers wallet and ledger; listings
+wallet, Ballet progress and stats, equipped look, collection progress, and an
+optional featured achievement. `/market` uses the existing Ballet Slippers wallet and ledger; listings
 hold items in PostgreSQL escrow and use idempotency and row locks to protect
 concurrent purchases. Only listing sellers can cancel their own listings.
 `/performance` uses a data-backed catalog, the existing Ballet progression and
@@ -113,8 +114,8 @@ The moderation domain currently contains only a transport-independent case
 draft and input policy; it does not perform moderation actions or persist cases.
 Marketplace invariants and transaction behavior are documented in
 `docs/architecture/marketplace.md`, `docs/architecture/performance.md`, and
-`docs/architecture/catalog.md`, `docs/architecture/wardrobe.md`, and
-`docs/architecture/achievements.md`.
+`docs/architecture/catalog.md`, `docs/architecture/wardrobe.md`,
+`docs/architecture/achievements.md`, and `docs/architecture/profile.md`.
 
 ## PostgreSQL safety
 

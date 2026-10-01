@@ -72,6 +72,13 @@ export const NOELIA_COPY = {
     `${badgeMark} **${displayName}** · ${unlocked ? 'Unlocked' : 'Not yet unlocked'}${featured ? ' · Featured' : ''}\nID: ${achievementId}`,
   achievementFeaturedSummary: (badgeMark: string, displayName: string) =>
     `${badgeMark} **${displayName}** is now featured on your profile.`,
+  profileStatsTitle: 'Ballet stats',
+  profileStatLine: (stats: readonly string[]) => stats.join(' · '),
+  profileCollectionProgress: (completed: number, total: number) =>
+    `Collections completed: ${completed}/${total}`,
+  profileFeaturedAchievement: (badgeMark: string, displayName: string) =>
+    `Featured badge: ${badgeMark} **${displayName}**`,
+  profileNoFeaturedAchievement: 'No featured badge selected.',
   currentLook: 'Current look',
 } as const;
 

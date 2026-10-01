@@ -32,7 +32,20 @@ describe('ProfileService', () => {
         },
       ]),
     };
-    const service = new ProfileService(wallet, ballet, wardrobe);
+    const collections = {
+      listProgress: vi.fn().mockResolvedValue([
+        { collectionId: 'first-position', complete: true },
+        { collectionId: 'studio-essentials', complete: false },
+      ]),
+    };
+    const featuredAchievement = {
+      achievementId: 'first-steps' as const,
+      displayName: 'First Steps',
+      description: 'Complete your first Ballet activity.',
+      badgeMark: '🩰',
+    };
+    const achievements = { getFeatured: vi.fn().mockResolvedValue(featuredAchievement) };
+    const service = new ProfileService(wallet, ballet, wardrobe, collections, achievements);
 
     await expect(service.getProfile(discordUserId)).resolves.toEqual({
       balletSlippers: 1_240n,
@@ -57,17 +70,24 @@ describe('ProfileService', () => {
           equippedAt,
         },
       ],
+      completedCollections: 1,
+      totalCollections: 2,
+      featuredAchievement,
     });
     expect(wallet.getBalance).toHaveBeenCalledWith(discordUserId);
     expect(ballet.getProgress).toHaveBeenCalledWith(discordUserId);
     expect(wardrobe.getOutfit).toHaveBeenCalledWith(discordUserId);
+    expect(collections.listProgress).toHaveBeenCalledWith(discordUserId);
+    expect(achievements.getFeatured).toHaveBeenCalledWith(discordUserId);
   });
 
   it('validates the Discord identity before calling domain readers', async () => {
     const wallet = { getBalance: vi.fn() };
     const ballet = { getProgress: vi.fn() };
     const wardrobe = { getOutfit: vi.fn() };
-    const service = new ProfileService(wallet, ballet, wardrobe);
+    const collections = { listProgress: vi.fn() };
+    const achievements = { getFeatured: vi.fn() };
+    const service = new ProfileService(wallet, ballet, wardrobe, collections, achievements);
 
     await expect(service.getProfile('not-a-snowflake')).rejects.toThrow(
       'Discord user ID must be a 17- to 20-digit numeric ID.',
@@ -75,5 +95,7 @@ describe('ProfileService', () => {
     expect(wallet.getBalance).not.toHaveBeenCalled();
     expect(ballet.getProgress).not.toHaveBeenCalled();
     expect(wardrobe.getOutfit).not.toHaveBeenCalled();
+    expect(collections.listProgress).not.toHaveBeenCalled();
+    expect(achievements.getFeatured).not.toHaveBeenCalled();
   });
 });

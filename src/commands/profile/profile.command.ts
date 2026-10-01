@@ -4,6 +4,7 @@ import { formatBalance } from '../balance/format-balance.js';
 import type { SlashCommand } from '../command.js';
 import { createNoeliaEmbed } from '../../ui/embed.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
+import { BALLET_STAT_KEYS } from '../../ballet/types.js';
 
 export const profileCommand: SlashCommand = {
   definition: {
@@ -33,12 +34,34 @@ export const profileCommand: SlashCommand = {
                 `• **${item.displayName}** — ${item.slots.map((slot) => slot.replaceAll('_', ' ')).join(', ')}`,
             )
             .join('\n');
+    const stats = [
+      NOELIA_COPY.profileStatsTitle,
+      ...[
+        NOELIA_COPY.profileStatLine(
+          BALLET_STAT_KEYS.slice(0, 3).map(
+            (stat) => `${formatStatName(stat)} ${profile.ballet.stats[stat]}`,
+          ),
+        ),
+        NOELIA_COPY.profileStatLine(
+          BALLET_STAT_KEYS.slice(3).map(
+            (stat) => `${formatStatName(stat)} ${profile.ballet.stats[stat]}`,
+          ),
+        ),
+      ],
+    ].join('\n');
+    const featuredAchievement =
+      profile.featuredAchievement === null
+        ? NOELIA_COPY.profileNoFeaturedAchievement
+        : NOELIA_COPY.profileFeaturedAchievement(
+            profile.featuredAchievement.badgeMark,
+            profile.featuredAchievement.displayName,
+          );
 
     await interaction.createFollowup({
       embeds: [
         createNoeliaEmbed({
           title: NOELIA_COPY.profileTitle,
-          description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${NOELIA_COPY.currentLook}\n${outfit}`,
+          description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
         }),
       ],
     });
@@ -47,4 +70,8 @@ export const profileCommand: SlashCommand = {
 
 function formatInteger(value: bigint): string {
   return new Intl.NumberFormat('en-US').format(value);
+}
+
+function formatStatName(value: string): string {
+  return `${value[0]?.toUpperCase() ?? ''}${value.slice(1)}`;
 }

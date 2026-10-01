@@ -57,12 +57,12 @@ export function createDiscordRuntime(
   const shop = new ShopService(pool, economy);
   const inventory = new InventoryService(pool);
   const wardrobe = new WardrobeService(pool);
-  const profile = new ProfileService(economy, ballet, wardrobe);
   const marketplace = new MarketplaceService(pool, economy);
   const performances = new PerformanceService(pool, economy);
   const collections = new CollectionService(pool);
   const wardrobePresets = new WardrobePresetService(pool);
   const achievements = new AchievementService(pool);
+  const profile = new ProfileService(economy, ballet, wardrobe, collections, achievements);
   const coreCommands = [
     pingCommand,
     balanceCommand,
