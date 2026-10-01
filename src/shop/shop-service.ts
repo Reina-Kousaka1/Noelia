@@ -4,6 +4,7 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import { withTransaction } from '../database/transaction.js';
+import { evaluateCollectionAchievements, unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import type { WalletSpendTransactionPort } from '../economy/ports.js';
 import {
@@ -255,6 +256,15 @@ export class ShopService implements ShopPort {
       if (purchaseWrite.rows[0] === undefined) {
         throw new Error('The shop purchase history entry could not be recorded.');
       }
+
+      await unlockAchievement(
+        client,
+        discordUserId,
+        'first-boutique-piece',
+        'SHOP_PURCHASE',
+        interactionId,
+      );
+      await evaluateCollectionAchievements(client, discordUserId, interactionId);
 
       return {
         item: this.toShopItem(itemRow),

@@ -4,6 +4,7 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import { withTransaction } from '../database/transaction.js';
+import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import type { WalletCreditTransactionPort } from '../economy/ports.js';
 import type { BalletActivityCode } from './activity-codes.js';
@@ -392,6 +393,23 @@ export class BalletService implements BalletProgressPort {
 
       if (completion === undefined) {
         throw new Error('Ballet activity completion was not recorded.');
+      }
+
+      await unlockAchievement(
+        client,
+        discordUserId,
+        'first-steps',
+        'BALLET_ACTIVITY',
+        interactionId,
+      );
+      if (newLevel >= 10) {
+        await unlockAchievement(
+          client,
+          discordUserId,
+          'ballet-level-ten',
+          'BALLET_LEVEL',
+          interactionId,
+        );
       }
 
       return {

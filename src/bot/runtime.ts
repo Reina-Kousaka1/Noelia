@@ -25,6 +25,8 @@ import { PerformanceService } from '../performance/performance-service.js';
 import { performanceCommand } from '../commands/performance/performance.command.js';
 import { CollectionService } from '../collections/collection-service.js';
 import { WardrobePresetService } from '../wardrobe/preset-service.js';
+import { AchievementService } from '../achievements/achievement-service.js';
+import { achievementsCommand } from '../commands/achievements/achievements.command.js';
 import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -60,6 +62,7 @@ export function createDiscordRuntime(
   const performances = new PerformanceService(pool, economy);
   const collections = new CollectionService(pool);
   const wardrobePresets = new WardrobePresetService(pool);
+  const achievements = new AchievementService(pool);
   const coreCommands = [
     pingCommand,
     balanceCommand,
@@ -71,6 +74,7 @@ export function createDiscordRuntime(
     profileCommand,
     marketCommand,
     performanceCommand,
+    achievementsCommand,
   ];
   const registry = new CommandRegistry([...coreCommands, createHelpCommand(coreCommands)]);
   const router = new InteractionRouter(registry, logger, {
@@ -85,6 +89,7 @@ export function createDiscordRuntime(
     performances,
     collections,
     wardrobePresets,
+    achievements,
   });
   let stopping = false;
   let commandSync: Promise<void> | undefined;

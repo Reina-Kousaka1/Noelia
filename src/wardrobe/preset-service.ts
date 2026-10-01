@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import { withTransaction } from '../database/transaction.js';
+import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import {
@@ -212,6 +213,15 @@ export class WardrobePresetService implements WardrobePresetPort {
             `INSERT INTO wardrobe_equipment (discord_user_id, slot, item_id)
              VALUES ($1, $2, $3)`,
             [discordUserId, row.slot, row.item_id],
+          );
+        }
+        if (stored.rows.length > 0) {
+          await unlockAchievement(
+            client,
+            discordUserId,
+            'first-studio-look',
+            'WARDROBE_EQUIPPED',
+            interactionId,
           );
         }
         await client.query(

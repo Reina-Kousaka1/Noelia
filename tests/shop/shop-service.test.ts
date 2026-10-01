@@ -84,6 +84,9 @@ function createShopService(options?: {
     if (sql.startsWith('INSERT INTO discord_users')) {
       return { rows: [] };
     }
+    if (sql.startsWith('INSERT INTO user_achievements') || sql.startsWith('WITH owned_items AS')) {
+      return { rows: [] };
+    }
     if (sql.startsWith('SELECT discord_user_id FROM discord_users')) {
       return { rows: [{ discord_user_id: discordUserId }] };
     }

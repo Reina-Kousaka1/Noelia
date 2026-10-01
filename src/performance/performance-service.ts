@@ -5,6 +5,7 @@ import type { Pool, PoolClient, QueryResultRow } from 'pg';
 import { BALLET_STAT_KEYS, type BalletStatKey, type BalletStats } from '../ballet/types.js';
 import { getBalletLevel } from '../ballet/progression.js';
 import { withTransaction } from '../database/transaction.js';
+import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import { BalletXpLimitError } from '../ballet/errors.js';
 import type { WalletCreditTransactionPort } from '../economy/ports.js';
@@ -364,6 +365,23 @@ export class PerformanceService implements PerformancePort {
       );
       const completion = inserted.rows[0];
       if (completion === undefined) throw new Error('Ballet performance was not recorded.');
+
+      await unlockAchievement(
+        client,
+        discordUserId,
+        'first-performance',
+        'PERFORMANCE',
+        interactionId,
+      );
+      if (tier === 'GOLD' || tier === 'PRIMA') {
+        await unlockAchievement(
+          client,
+          discordUserId,
+          'spotlight-moment',
+          'PERFORMANCE',
+          interactionId,
+        );
+      }
 
       return {
         performanceId,

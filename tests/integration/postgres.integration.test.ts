@@ -20,6 +20,12 @@ import {
   InsufficientBalletSlippersError,
 } from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
+import { AchievementNotUnlockedError } from '../../src/achievements/errors.js';
+import { AchievementService } from '../../src/achievements/achievement-service.js';
+import {
+  evaluateCollectionAchievements,
+  unlockAchievement,
+} from '../../src/achievements/unlock.js';
 import { ShopItemAlreadyOwnedError } from '../../src/shop/errors.js';
 import { ShopService } from '../../src/shop/shop-service.js';
 import { InventoryService } from '../../src/inventory/inventory-service.js';
@@ -134,8 +140,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 5,
-        currentVersion: 11,
+        appliedCount: 6,
+        currentVersion: 12,
       });
       await expect(
         upgradePool.query(
@@ -163,7 +169,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 11 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 12 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -211,6 +217,166 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(collections.listProgress(discordUserId)).resolves.toContainEqual(
       expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 3 }),
     );
+  });
+
+  it('unlocks activity, shop, and wardrobe achievements transactionally and features badges safely', async () => {
+    const economy = new EconomyService(pool);
+    const shop = new ShopService(pool, economy);
+    const wardrobe = new WardrobeService(pool);
+    const ballet = new BalletService(pool, economy);
+    const achievements = new AchievementService(pool);
+    const discordUserId = testSnowflake();
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 500n,
+      reason: 'DAILY_REWARD',
+    });
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 100, 2)`,
+      [discordUserId],
+    );
+    await shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1);
+    await wardrobe.equip(discordUserId, 'satin-ribbon-bow');
+    await ballet.practice(testSnowflake(), discordUserId, 'stretching');
+
+    const unlocked = await pool.query<{ readonly achievement_id: string }>(
+      `SELECT achievement_id FROM user_achievements
+       WHERE discord_user_id = $1 ORDER BY achievement_id`,
+      [discordUserId],
+    );
+    expect(unlocked.rows.map((row) => row.achievement_id)).toEqual([
+      'first-boutique-piece',
+      'first-steps',
+      'first-studio-look',
+    ]);
+    await expect(achievements.list(discordUserId)).resolves.toContainEqual(
+      expect.objectContaining({
+        achievementId: 'first-steps',
+        unlockedAt: expect.any(Date),
+        featured: false,
+      }),
+    );
+
+    const featureInteraction = testSnowflake();
+    await expect(
+      achievements.feature(featureInteraction, discordUserId, 'first-steps'),
+    ).resolves.toMatchObject({
+      replayed: false,
+      achievement: { achievementId: 'first-steps', displayName: 'First Steps' },
+    });
+    await expect(
+      achievements.feature(featureInteraction, discordUserId, 'first-steps'),
+    ).resolves.toMatchObject({ replayed: true });
+    await expect(achievements.getFeatured(discordUserId)).resolves.toMatchObject({
+      achievementId: 'first-steps',
+    });
+    await expect(
+      achievements.feature(testSnowflake(), discordUserId, 'first-performance'),
+    ).rejects.toBeInstanceOf(AchievementNotUnlockedError);
+    const clearInteraction = testSnowflake();
+    await expect(
+      achievements.clearFeatured(clearInteraction, discordUserId),
+    ).resolves.toMatchObject({
+      achievement: null,
+      replayed: false,
+    });
+    await expect(
+      achievements.clearFeatured(clearInteraction, discordUserId),
+    ).resolves.toMatchObject({
+      achievement: null,
+      replayed: true,
+    });
+    await expect(achievements.getFeatured(discordUserId)).resolves.toBeNull();
+  });
+
+  it('awards market milestones once and recognizes completed collections in escrow-aware state', async () => {
+    const economy = new EconomyService(pool);
+    const market = new MarketplaceService(pool, economy);
+    const seller = testSnowflake();
+    const buyer = testSnowflake();
+    await giveStarterBow(pool, seller);
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId: buyer,
+      amount: 200n,
+      reason: 'DAILY_REWARD',
+    });
+    const { listing } = await market.createListing(
+      testSnowflake(),
+      seller,
+      'satin-ribbon-bow',
+      1,
+      100n,
+    );
+    const purchaseId = testSnowflake();
+    await market.buy(purchaseId, buyer, listing.listingId);
+    await market.buy(purchaseId, buyer, listing.listingId);
+    const marketAchievements = await pool.query<{
+      readonly discord_user_id: string;
+      readonly achievement_id: string;
+    }>(
+      `SELECT discord_user_id, achievement_id FROM user_achievements
+       WHERE discord_user_id = ANY($1::text[])`,
+      [[seller, buyer]],
+    );
+    expect(marketAchievements.rows).toHaveLength(3);
+    expect(marketAchievements.rows).toEqual(
+      expect.arrayContaining([
+        { discord_user_id: buyer, achievement_id: 'first-market-purchase' },
+        { discord_user_id: seller, achievement_id: 'first-boutique-piece' },
+        { discord_user_id: seller, achievement_id: 'first-market-sale' },
+      ]),
+    );
+
+    const curator = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [curator]);
+    await pool.query(
+      `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source)
+       SELECT $1, item_id, 1, 'ADMIN_GRANT' FROM shop_catalog`,
+      [curator],
+    );
+    await Promise.all([
+      withTransaction(pool, (client) =>
+        evaluateCollectionAchievements(client, curator, 'collection-test-a'),
+      ),
+      withTransaction(pool, (client) =>
+        evaluateCollectionAchievements(client, curator, 'collection-test-b'),
+      ),
+    ]);
+    await expect(
+      pool.query<{ readonly achievement_id: string; readonly total: number }>(
+        `SELECT achievement_id, count(*)::integer AS total
+         FROM user_achievements
+         WHERE discord_user_id = $1
+         GROUP BY achievement_id ORDER BY achievement_id`,
+        [curator],
+      ),
+    ).resolves.toMatchObject({
+      rows: [
+        { achievement_id: 'first-collection', total: 1 },
+        { achievement_id: 'three-collections', total: 1 },
+      ],
+    });
+
+    const concurrentUser = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [concurrentUser]);
+    await Promise.all([
+      withTransaction(pool, (client) =>
+        unlockAchievement(client, concurrentUser, 'first-steps', 'BALLET_ACTIVITY', 'practice-a'),
+      ),
+      withTransaction(pool, (client) =>
+        unlockAchievement(client, concurrentUser, 'first-steps', 'BALLET_ACTIVITY', 'practice-b'),
+      ),
+    ]);
+    await expect(
+      pool.query(
+        `SELECT achievement_id FROM user_achievements
+         WHERE discord_user_id = $1 AND achievement_id = 'first-steps'`,
+        [concurrentUser],
+      ),
+    ).resolves.toMatchObject({ rowCount: 1 });
   });
 
   it('rolls back PostgreSQL work on the same checked-out client', async () => {
@@ -499,6 +665,12 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(results.filter((result) => !result.replayed)).toHaveLength(1);
     expect(results.filter((result) => result.replayed)).toHaveLength(1);
     expect(results[0]).toMatchObject({ score: 72, tier: 'SILVER', slippersAwarded: 100n });
+    await expect(new AchievementService(pool).list(discordUserId)).resolves.toContainEqual(
+      expect.objectContaining({
+        achievementId: 'first-performance',
+        unlockedAt: expect.any(Date),
+      }),
+    );
     const history = await performances.listHistory(discordUserId, 1);
     expect(history).toMatchObject({ totalEntries: 1, entries: [{ score: 72, tier: 'SILVER' }] });
     await expect(economy.getBalance(discordUserId)).resolves.toBe(balanceBefore + 100n);

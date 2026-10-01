@@ -6,7 +6,7 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
-`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, and `/market` commands.
+`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, `/market`, and `/achievements` commands.
 On startup it reconciles the configured guild's application commands against the registry:
 missing commands are created, changed definitions are updated, and stale commands are
 removed. After the guild catalog is ready, it removes old global application commands
@@ -113,7 +113,8 @@ The moderation domain currently contains only a transport-independent case
 draft and input policy; it does not perform moderation actions or persist cases.
 Marketplace invariants and transaction behavior are documented in
 `docs/architecture/marketplace.md`, `docs/architecture/performance.md`, and
-`docs/architecture/catalog.md`, and `docs/architecture/wardrobe.md`.
+`docs/architecture/catalog.md`, `docs/architecture/wardrobe.md`, and
+`docs/architecture/achievements.md`.
 
 ## PostgreSQL safety
 
@@ -127,7 +128,8 @@ equipment slots, V7 adds marketplace listings, escrow, idempotency records, and
 immutable sale history, V8 adds six Ballet stats, activity requirements, and
 six more data-defined activities, V9 adds deterministic performances, V10
 adds normalized collection membership and expands the curated catalog to 62
-original pieces, and V11 adds persistent, idempotent outfit presets. Rarity
+original pieces, V11 adds persistent, idempotent outfit presets, and V12 adds
+transactional achievements and optional featured profile badges. Rarity
 controls presentation only; collections grant no
 automatic currency or gameplay bonuses. Purchases atomically check eligibility and balance, debit the wallet, add
 inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, unequip, clear, and persistent outfit presets. Only owned items may

@@ -9,6 +9,7 @@ import type { MarketplacePort } from '../marketplace/types.js';
 import type { PerformancePort } from '../performance/types.js';
 import type { CollectionPort } from '../collections/types.js';
 import type { WardrobePresetPort } from '../wardrobe/types.js';
+import type { AchievementPort } from '../achievements/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -36,6 +37,7 @@ export interface CommandServices {
   readonly performances?: PerformancePort;
   readonly collections?: CollectionPort;
   readonly wardrobePresets?: WardrobePresetPort;
+  readonly achievements?: AchievementPort;
 }
 
 export interface SlashCommand {

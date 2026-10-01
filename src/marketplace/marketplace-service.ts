@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
+import { evaluateCollectionAchievements, unlockAchievement } from '../achievements/unlock.js';
 import { withTransaction } from '../database/transaction.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import type { WalletTransferTransactionPort } from '../economy/ports.js';
@@ -234,6 +235,7 @@ export class MarketplaceService implements MarketplacePort {
          ) VALUES ($1, $2, $3, $4, $5, $6)`,
         [listingId, sellerUserId, itemId, quantity, inventory.source, inventory.acquired_at],
       );
+      await evaluateCollectionAchievements(client, sellerUserId, interactionId);
       await this.completeRequest(client, interactionId, listingId);
 
       return { listing: await this.readListing(client, listingId), replayed: false };
@@ -372,6 +374,21 @@ export class MarketplaceService implements MarketplacePort {
           transfer.toBalance.toString(),
         ],
       );
+      await unlockAchievement(
+        client,
+        listing.seller_user_id,
+        'first-market-sale',
+        'MARKETPLACE_SALE',
+        interactionId,
+      );
+      await unlockAchievement(
+        client,
+        buyerUserId,
+        'first-market-purchase',
+        'MARKETPLACE_PURCHASE',
+        interactionId,
+      );
+      await evaluateCollectionAchievements(client, buyerUserId, interactionId);
       await this.completeRequest(client, interactionId, listingId);
 
       return {

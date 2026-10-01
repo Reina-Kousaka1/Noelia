@@ -1,6 +1,7 @@
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
 import { withTransaction } from '../database/transaction.js';
+import { unlockAchievement } from '../achievements/unlock.js';
 import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import {
   WardrobeItemNotOwnedError,
@@ -139,6 +140,14 @@ export class WardrobeService implements WardrobePort {
           [discordUserId, slot, itemId],
         );
       }
+
+      await unlockAchievement(
+        client,
+        discordUserId,
+        'first-studio-look',
+        'WARDROBE_EQUIPPED',
+        itemId,
+      );
 
       return {
         itemId,

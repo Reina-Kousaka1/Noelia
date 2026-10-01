@@ -57,6 +57,21 @@ export const NOELIA_COPY = {
     `#${presetId} **${name}**\n${itemNames}${replayed ? '\nThat look was already applied.' : ''}`,
   wardrobePresetRenameSummary: (presetId: string, name: string) => `#${presetId} **${name}**`,
   wardrobePresetDeleteSummary: (presetId: string, name: string) => `#${presetId} **${name}**`,
+  achievementsTitle: 'Your studio milestones',
+  achievementsIntro: 'Little moments you have earned along your Ballet journey.',
+  achievementsEmpty: 'Your first studio milestone is waiting just ahead.',
+  achievementFeatureTitle: 'Your featured milestone',
+  achievementFeatureCleared: 'Your featured milestone was cleared.',
+  achievementListEntry: (
+    badgeMark: string,
+    displayName: string,
+    achievementId: string,
+    unlocked: boolean,
+    featured: boolean,
+  ) =>
+    `${badgeMark} **${displayName}** · ${unlocked ? 'Unlocked' : 'Not yet unlocked'}${featured ? ' · Featured' : ''}\nID: ${achievementId}`,
+  achievementFeaturedSummary: (badgeMark: string, displayName: string) =>
+    `${badgeMark} **${displayName}** is now featured on your profile.`,
   currentLook: 'Current look',
 } as const;
 
