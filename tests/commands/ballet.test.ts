@@ -26,6 +26,7 @@ function createServices() {
       listActivities: vi.fn(),
       practice: vi.fn(),
     },
+    shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
   };
 }
 

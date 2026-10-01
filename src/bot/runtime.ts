@@ -5,9 +5,11 @@ import type { AppConfig } from '../config/environment.js';
 import { EconomyService } from '../economy/economy-service.js';
 import { DailyService } from '../economy/daily-service.js';
 import { BalletService } from '../ballet/ballet-service.js';
+import { ShopService } from '../shop/shop-service.js';
 import { balanceCommand } from '../commands/balance/balance.command.js';
 import { balletCommand } from '../commands/ballet/ballet.command.js';
 import { dailyCommand } from '../commands/daily/daily.command.js';
+import { shopCommand } from '../commands/shop/shop.command.js';
 import { pingCommand } from '../commands/ping/ping.command.js';
 import { CommandRegistry, synchronizeGuildCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
@@ -33,11 +35,19 @@ export function createDiscordRuntime(
   const economy = new EconomyService(pool);
   const daily = new DailyService(pool, economy);
   const ballet = new BalletService(pool, economy);
-  const registry = new CommandRegistry([pingCommand, balanceCommand, dailyCommand, balletCommand]);
+  const shop = new ShopService(pool, economy);
+  const registry = new CommandRegistry([
+    pingCommand,
+    balanceCommand,
+    dailyCommand,
+    balletCommand,
+    shopCommand,
+  ]);
   const router = new InteractionRouter(registry, logger, {
     economy,
     daily,
     ballet,
+    shop,
   });
   let stopping = false;
 

@@ -30,6 +30,7 @@ describe('daily command', () => {
         economy: { getBalance: vi.fn() },
         daily: { claimDaily },
         ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+        shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
       },
     });
 

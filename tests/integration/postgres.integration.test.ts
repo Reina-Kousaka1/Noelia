@@ -12,6 +12,8 @@ import { DailyCooldownError } from '../../src/economy/daily-errors.js';
 import { DailyService } from '../../src/economy/daily-service.js';
 import { InsufficientBalletSlippersError } from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
+import { ShopItemAlreadyOwnedError } from '../../src/shop/errors.js';
+import { ShopService } from '../../src/shop/shop-service.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
 
@@ -39,7 +41,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 4 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 5 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -172,5 +174,54 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
     await expect(economy.getBalance(discordUserId)).resolves.toBe(10n);
     await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
+  });
+
+  it('purchases a seeded shop item atomically and safely replays the interaction', async () => {
+    const economy = new EconomyService(pool);
+    const shop = new ShopService(pool, economy);
+    const discordUserId = testSnowflake();
+    const creditInteractionId = testSnowflake();
+    const purchaseInteractionId = testSnowflake();
+
+    await economy.credit({
+      interactionId: creditInteractionId,
+      discordUserId,
+      amount: 100n,
+      reason: 'DAILY_REWARD',
+    });
+
+    const purchase = await shop.purchase(
+      purchaseInteractionId,
+      discordUserId,
+      'satin-ribbon-bow',
+      1,
+    );
+    const replay = await shop.purchase(purchaseInteractionId, discordUserId, 'satin-ribbon-bow', 1);
+
+    expect(purchase).toMatchObject({
+      item: { itemId: 'satin-ribbon-bow' },
+      totalPrice: 80n,
+      inventoryQuantity: 1,
+      walletBalance: 20n,
+      replayed: false,
+    });
+    expect(replay).toMatchObject({
+      totalPrice: 80n,
+      inventoryQuantity: 1,
+      walletBalance: 20n,
+      replayed: true,
+    });
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(20n);
+    await expect(
+      pool.query<{ quantity: number }>(
+        `SELECT quantity FROM user_inventory
+         WHERE discord_user_id = $1 AND item_id = $2`,
+        [discordUserId, 'satin-ribbon-bow'],
+      ),
+    ).resolves.toMatchObject({ rows: [{ quantity: 1 }] });
+    await expect(
+      shop.purchase(testSnowflake(), discordUserId, 'satin-ribbon-bow', 1),
+    ).rejects.toBeInstanceOf(ShopItemAlreadyOwnedError);
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(20n);
   });
 });

@@ -5,11 +5,13 @@ balletcore identity. It is developed in TypeScript with Eris and is not a port
 of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
-fresh schema, and registers development-guild `/ping`, `/balance`, and `/daily`
-commands without replacing the guild's other commands. Ballet Slippers use
-integer wallet balances with an auditable ledger and interaction idempotency.
-Daily rewards and a first Ballet progression core are active; shop, inventory,
-and wardrobe are not implemented yet.
+fresh schema, and registers development-guild `/ping`, `/balance`, `/daily`,
+`/ballet`, and `/shop` commands without replacing the guild's other commands.
+Ballet Slippers use integer wallet balances with an auditable ledger and
+interaction idempotency. Daily rewards, a first Ballet progression core, and a
+small curated shop with transactional purchases and persistent inventory are
+active. Dedicated inventory browsing and wardrobe/equipment are not yet
+implemented.
 
 ## Technology
 
@@ -69,15 +71,19 @@ migration history is part of this repository.
 
 The migration runner tracks immutable, checksummed SQL migrations in
 `noelia_schema_migrations`; V1 creates the Discord-user identity table, V2 adds
-the Ballet Slippers wallet, idempotency records, and append-only ledger, V3
-adds append-only Daily claim history, and V4 adds the first seeded Ballet
-activity catalog and progression history. Economy and practice rewards use
-PostgreSQL transactions and row locks to prevent negative balances or duplicate
-rewards during concurrent actions. Daily reward amount is centrally configured
-in `src/config/gameplay.ts` (currently 100 🩰) with a rolling 24-hour cooldown.
-Daily state and its wallet/ledger reward share one transaction. Discord
-interaction IDs are wallet idempotency keys. Queries with values use
-PostgreSQL parameters rather than string interpolation.
+the Ballet Slippers wallet, idempotency records, and append-only ledger, V3 adds
+append-only Daily claim history, V4 adds the first seeded Ballet activity
+catalog and progression history, and V5 adds the curated shop catalog,
+persistent inventory, and immutable purchase history. The first shop seed is
+six Balletcore cosmetic items; purchases atomically check eligibility and
+balance, debit the wallet, add inventory, and record the purchase. Economy,
+practice rewards, and shop purchases use PostgreSQL transactions and row locks
+to prevent negative balances or duplicate rewards during concurrent actions.
+Daily reward amount is centrally configured in `src/config/gameplay.ts`
+(currently 100 🩰) with a rolling 24-hour cooldown. Daily state and its
+wallet/ledger reward share one transaction. Discord interaction IDs are
+idempotency keys. Queries with values use PostgreSQL parameters rather than
+string interpolation.
 
 Integration tests are skipped unless `NOELIA_TEST_DATABASE_URL` is supplied.
 When enabled, a hard guard requires `NODE_ENV=test`, a loopback host, and the

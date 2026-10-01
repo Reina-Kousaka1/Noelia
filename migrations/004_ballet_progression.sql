@@ -26,6 +26,9 @@ CREATE TABLE ballet_progress (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE UNIQUE INDEX wallet_transactions_idempotency_id_unique_idx
+  ON wallet_transactions (idempotency_key, id);
+
 CREATE TABLE ballet_activity_completions (
   interaction_id text PRIMARY KEY
     CHECK (interaction_id ~ '^[0-9]{17,20}$'),

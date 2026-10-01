@@ -1,6 +1,7 @@
 import type Eris from 'eris';
 import type { BalletProgressPort } from '../ballet/types.js';
 import type { DailyClaimResult } from '../economy/types.js';
+import type { ShopPort } from '../shop/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -20,6 +21,7 @@ export interface CommandServices {
   readonly economy: EconomyQueryPort;
   readonly daily: DailyClaimPort;
   readonly ballet: BalletProgressPort;
+  readonly shop: ShopPort;
 }
 
 export interface SlashCommand {
