@@ -1491,7 +1491,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(
       market.buy(insufficientInteraction, otherUser, listing.listingId),
     ).rejects.toBeInstanceOf(InsufficientBalletSlippersError);
-    await expect(market.browse(1)).resolves.toMatchObject({
+    await expect(market.listMine(seller, 1)).resolves.toMatchObject({
       listings: [expect.objectContaining({ listingId: listing.listingId, status: 'ACTIVE' })],
     });
     await expect(
