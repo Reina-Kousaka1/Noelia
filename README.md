@@ -24,10 +24,15 @@ Install Node.js 24 and npm, then install the locked dependencies:
 npm ci
 ```
 
-Copy `.env.example` to `.env` and replace its placeholders locally when the
-runtime/configuration commits are in place. Never commit `.env` or paste its
-contents into logs or chat. The bootstrap does not load or validate environment
-variables yet.
+Copy `.env.example` to `.env` and replace its placeholders locally. Startup
+configuration validation is implemented; the Discord runtime will consume it
+in a later commit. Never commit `.env` or paste its contents into logs or chat.
+
+Required settings are `DISCORD_TOKEN`, `DISCORD_GUILD_ID`, `POSTGRES_HOST`,
+`POSTGRES_PORT`, `POSTGRES_DATABASE`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
+`NODE_ENV` defaults to `development` and accepts `development`, `test`, or
+`production`. Validation errors identify variable names only and never echo
+provided values.
 
 Run the project checks:
 
