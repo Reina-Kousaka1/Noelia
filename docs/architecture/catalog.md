@@ -23,9 +23,10 @@ distinct owned item IDs.
 
 `CollectionService` aggregates inventory and active marketplace escrow in one
 read, so listing a piece does not make collection progress flicker or count it
-twice. A completed collection currently grants no automatic title, item, or
-currency. Achievement V1 can consume collection-completion state later without
-making the collection query a second inventory or reward system.
+twice. Completing a collection does not grant an item or currency. Transactional
+achievement hooks award the `first-collection` badge on the first completion
+and `three-collections` after three completions. These are cosmetic milestones
+only; they do not affect gameplay or the economy.
 
 The item options for `/shop item` and `/shop buy` accept the stable IDs shown by
 `/shop browse`; the previous six-choice list could not represent an expanded

@@ -7,8 +7,11 @@ relationship through its aggregator port.
 
 `/marry user` creates a public pending proposal with Accept, Decline, and
 Cancel proposal buttons. Only the target can accept or decline; only the
-sender can cancel. `/marriage` reads the current partner privately, and
-`/divorce` ends the active relationship while retaining its history.
+sender can cancel. `/marriage` publicly reads the current partner, and
+`/divorce` publicly ends the active relationship while retaining its history.
+Normal relationship responses are public and persistent; invalid or
+unauthorized component actions receive private errors without deleting the
+proposal message.
 
 The service locks the involved `discord_users` rows in numeric ID order before
 mutating proposal or relationship state. A primary key on pending participants

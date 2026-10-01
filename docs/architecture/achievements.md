@@ -14,9 +14,9 @@ unlock attempts safe.
 
 `AchievementService` lists catalog and unlock state and lets a user feature an
 already-unlocked achievement or clear the selection. Feature changes use the
-Discord interaction ID for idempotency. The profile will read the selected
-badge as an aggregate; achievement state remains owned by this domain.
+Discord interaction ID for idempotency. `/profile` reads the selected badge as
+an aggregate; achievement state remains owned by this domain.
 
 `/achievements list`, `/achievements feature`, and
-`/achievements clear_featured` use private responses and show stable IDs for
-the feature selection.
+`/achievements clear_featured` use public, persistent responses and show stable
+IDs for the feature selection.

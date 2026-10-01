@@ -49,13 +49,14 @@ scanning. Join bursts produce review signals only.
 ## Enforcement boundary
 
 The persistence layer does not authorize users or execute Discord actions.
-When commands are added, authorization, guild scope, bot permissions, role
-hierarchy, and target membership must be checked centrally before the action.
-The case attempt is written first; the Discord call follows; then its result is
-recorded. If the process crashes between those steps, the case stays
-unresolved and must be reviewed rather than blindly replayed. Warning, kick,
-ban, and timeout results must never be reported as successful until Discord
-confirms the action and the result has been recorded.
+The command layer checks guild scope, actor and bot permissions, role hierarchy,
+and target membership through shared authorization rules before acting.
+Warnings create a recorded case without an external Discord action. For
+timeout, kick, and ban, the case attempt is written first; the Discord call
+follows; then its result is recorded. If the process crashes between those
+steps, the case stays unresolved and must be reviewed rather than blindly
+replayed. Those actions are never reported as successful until Discord
+confirms the action and its result has been recorded.
 
 Moderation command output and audit records remain factual and do not use
 persona rendering. Runtime detection is a conservative foundation, not a
