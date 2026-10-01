@@ -98,6 +98,11 @@ use a consistent blush-pink embed. Presence rotates every 15 minutes through
 short studio-themed status lines. Infrastructure errors and future moderation
 and audit messages remain direct and factual.
 
+The moderation domain currently contains only a transport-independent case
+draft and input policy; it does not perform moderation actions or persist cases.
+Marketplace trading is not implemented; its transaction and escrow invariants
+are recorded in `docs/architecture/marketplace.md`.
+
 ## PostgreSQL safety
 
 The migration runner tracks immutable, checksummed SQL migrations in
