@@ -707,6 +707,31 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
   });
 
+  it('serializes concurrent replays of the same daily interaction', async () => {
+    const economy = new EconomyService(pool);
+    const daily = new DailyService(pool, economy);
+    const discordUserId = testSnowflake();
+    const interactionId = testSnowflake();
+
+    const results = await Promise.all([
+      daily.claimDaily(interactionId, discordUserId),
+      daily.claimDaily(interactionId, discordUserId),
+    ]);
+
+    expect(results.filter((result) => !result.replayed)).toHaveLength(1);
+    expect(results.filter((result) => result.replayed)).toHaveLength(1);
+    expect(results[0]?.balance).toBe(100n);
+    expect(results[1]?.balance).toBe(100n);
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(100n);
+    await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
+
+    const claimCount = await pool.query<{ readonly count: string }>(
+      'SELECT count(*) AS count FROM daily_claims WHERE discord_user_id = $1',
+      [discordUserId],
+    );
+    expect(claimCount.rows[0]?.count).toBe('1');
+  });
+
   it('persists Ballet XP and rewards, replays safely, and enforces unlocks and cooldowns', async () => {
     const economy = new EconomyService(pool);
     const ballet = new BalletService(pool, economy);
