@@ -3,6 +3,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { shopCommand } from '../../src/commands/shop/shop.command.js';
 import type { ShopItem } from '../../src/shop/types.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
+import { formatBalance } from '../../src/commands/balance/format-balance.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
@@ -80,7 +82,12 @@ describe('shop command', () => {
     expect(services.shop.listItems).toHaveBeenCalledWith('hair_accessory');
     expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
     expect(createFollowup).toHaveBeenCalledWith({
-      content: '• **Satin Ribbon Bow** — hair accessory · common · 80 🩰 · Ballet level 1+',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.shopTitle,
+          description: `• **Satin Ribbon Bow** — hair accessory · common · ${formatBalance(80n)} · Ballet level 1+`,
+        }),
+      ],
     });
   });
 
@@ -108,8 +115,12 @@ describe('shop command', () => {
     });
 
     expect(createFollowup).toHaveBeenCalledWith({
-      content:
-        '**Satin Ribbon Bow** · common\nA soft blush satin bow for a neat studio bun.\nPrice: 80 🩰. Ballet level 1+ required.',
+      embeds: [
+        expect.objectContaining({
+          title: `${NOELIA_COPY.shopItemTitle}: Satin Ribbon Bow`,
+          description: `common · A soft blush satin bow for a neat studio bun.\nPrice: ${formatBalance(80n)}. Ballet level 1+ required.`,
+        }),
+      ],
     });
   });
 
@@ -156,7 +167,12 @@ describe('shop command', () => {
       1,
     );
     expect(createFollowup).toHaveBeenCalledWith({
-      content: 'Purchase complete: 1 × Satin Ribbon Bow for 80 🩰. Wallet: 220 🩰. You own 1.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.shopPurchaseComplete,
+          description: `1 × Satin Ribbon Bow · ${formatBalance(80n)}\nWallet: ${formatBalance(220n)} · Owned: 1`,
+        }),
+      ],
     });
   });
 });

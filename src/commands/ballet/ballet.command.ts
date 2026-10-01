@@ -3,6 +3,8 @@ import * as Eris from 'eris';
 import { BALLET_ACTIVITY_CODES } from '../../ballet/activity-codes.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 const activityChoices = BALLET_ACTIVITY_CODES.map((code) => ({
   name: code
@@ -67,7 +69,12 @@ export const balletCommand: SlashCommand = {
           ? 'Maximum level reached.'
           : `${formatInteger(progress.xpToNextLevel)} XP to the next level.`;
       await interaction.createFollowup({
-        content: `Ballet Level ${progress.level} · ${formatInteger(progress.totalXp)} XP · ${nextLevelText}`,
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.balletStatusTitle,
+            description: `Ballet Level ${progress.level} · ${formatInteger(progress.totalXp)} XP\n${nextLevelText}`,
+          }),
+        ],
       });
       return;
     }
@@ -84,8 +91,15 @@ export const balletCommand: SlashCommand = {
         return `• **${activity.displayName}** — ${formatInteger(activity.xpReward)} XP, ${formatBalance(activity.slippersReward)} · ${state}`;
       });
       await interaction.createFollowup({
-        content:
-          lines.length === 0 ? 'No Ballet activities are available right now.' : lines.join('\n'),
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.balletActivitiesTitle,
+            description:
+              lines.length === 0
+                ? 'No Ballet activities are available right now.'
+                : lines.join('\n'),
+          }),
+        ],
       });
       return;
     }
@@ -111,10 +125,18 @@ export const balletCommand: SlashCommand = {
         result.nextLevelXp === null
           ? 'Maximum Ballet level reached.'
           : `${formatInteger(result.nextLevelXp)} XP to the next level.`;
-      const heading = result.replayed ? 'Practice already recorded' : 'Practice complete';
+      const heading = result.replayed
+        ? NOELIA_COPY.balletPracticeReplayed
+        : NOELIA_COPY.balletPracticeComplete;
 
       await interaction.createFollowup({
-        content: `${heading}: ${result.displayName} earned ${formatInteger(result.xpAwarded)} Ballet XP and ${formatBalance(result.slippersAwarded)}. Level ${result.level} · ${formatInteger(result.totalXp)} XP · ${nextLevelText}`,
+        embeds: [
+          createNoeliaEmbed({
+            title: heading,
+            description: `${result.displayName} · +${formatInteger(result.xpAwarded)} Ballet XP · +${formatBalance(result.slippersAwarded)}\nLevel ${result.level} · ${formatInteger(result.totalXp)} XP · ${nextLevelText}`,
+            tone: result.replayed ? 'signature' : 'success',
+          }),
+        ],
       });
       return;
     }

@@ -2,6 +2,8 @@ import * as Eris from 'eris';
 
 import { formatBalance } from '../balance/format-balance.js';
 import type { SlashCommand } from '../command.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 export const profileCommand: SlashCommand = {
   definition: {
@@ -24,7 +26,7 @@ export const profileCommand: SlashCommand = {
         : `${formatInteger(profile.ballet.xpToNextLevel)} XP to the next level.`;
     const outfit =
       profile.outfit.length === 0
-        ? 'No outfit equipped yet.'
+        ? NOELIA_COPY.wardrobeEmpty
         : profile.outfit
             .map(
               (item) =>
@@ -33,7 +35,12 @@ export const profileCommand: SlashCommand = {
             .join('\n');
 
     await interaction.createFollowup({
-      content: `Noélia · Your studio profile\nBallet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\nCurrent look\n${outfit}`,
+      embeds: [
+        createNoeliaEmbed({
+          title: NOELIA_COPY.profileTitle,
+          description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${NOELIA_COPY.currentLook}\n${outfit}`,
+        }),
+      ],
     });
   },
 };

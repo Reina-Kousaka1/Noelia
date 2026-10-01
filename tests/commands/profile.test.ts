@@ -2,6 +2,7 @@ import * as Eris from 'eris';
 import { describe, expect, it, vi } from 'vitest';
 
 import { profileCommand } from '../../src/commands/profile/profile.command.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 describe('profile command', () => {
   it('renders profile data from the aggregator in an ephemeral response', async () => {
@@ -44,8 +45,13 @@ describe('profile command', () => {
     expect(services.profile.getProfile).toHaveBeenCalledWith('222222222222222222');
     expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
     expect(createFollowup).toHaveBeenCalledWith({
-      content:
-        'Noélia · Your studio profile\nBallet Level 3 · 240 XP · 60 XP to the next level.\nBallet Slippers: 1,240 🩰\nCurrent look\n• **Satin Ribbon Bow** — hair accessory',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.profileTitle,
+          description:
+            'Ballet Level 3 · 240 XP · 60 XP to the next level.\nBallet Slippers: 1,240 🩰\nCurrent look\n• **Satin Ribbon Bow** — hair accessory',
+        }),
+      ],
     });
   });
 
@@ -75,8 +81,12 @@ describe('profile command', () => {
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
 
     expect(createFollowup).toHaveBeenCalledWith({
-      content:
-        'Noélia · Your studio profile\nBallet Level 100 · 9,900 XP · Maximum Ballet level reached.\nBallet Slippers: 0 🩰\nCurrent look\nNo outfit equipped yet.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.profileTitle,
+          description: `Ballet Level 100 · 9,900 XP · Maximum Ballet level reached.\nBallet Slippers: 0 🩰\n${NOELIA_COPY.currentLook}\n${NOELIA_COPY.wardrobeEmpty}`,
+        }),
+      ],
     });
   });
 });

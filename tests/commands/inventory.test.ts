@@ -2,6 +2,7 @@ import * as Eris from 'eris';
 import { describe, expect, it, vi } from 'vitest';
 
 import { inventoryCommand } from '../../src/commands/inventory/inventory.command.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[] = []) {
   const defer = vi.fn().mockResolvedValue(undefined);
@@ -58,7 +59,13 @@ describe('inventory command', () => {
     expect(services.inventory.listInventory).toHaveBeenCalledWith('222222222222222222', 2);
     expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
     expect(createFollowup).toHaveBeenCalledWith({
-      content: 'Your inventory · Page 2/2\n• **Satin Ribbon Bow** · common · hair accessory · ×2',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.inventoryTitle,
+          description:
+            'Your inventory · Page 2/2\n• **Satin Ribbon Bow** · common · hair accessory · ×2',
+        }),
+      ],
     });
   });
 
@@ -86,8 +93,12 @@ describe('inventory command', () => {
 
     expect(services.inventory.listInventory).toHaveBeenCalledWith('222222222222222222', 1);
     expect(createFollowup).toHaveBeenCalledWith({
-      content:
-        'Your inventory is empty. Browse `/shop` when you are ready to add your first keepsake.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.inventoryTitle,
+          description: NOELIA_COPY.inventoryEmpty,
+        }),
+      ],
     });
   });
 });

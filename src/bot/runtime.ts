@@ -9,6 +9,7 @@ import { ShopService } from '../shop/shop-service.js';
 import { InventoryService } from '../inventory/inventory-service.js';
 import { WardrobeService } from '../wardrobe/wardrobe-service.js';
 import { ProfileService } from '../profile/profile-service.js';
+import { PersonaPresenceRotator } from '../persona/presence-rotator.js';
 import { balanceCommand } from '../commands/balance/balance.command.js';
 import { balletCommand } from '../commands/ballet/ballet.command.js';
 import { dailyCommand } from '../commands/daily/daily.command.js';
@@ -37,6 +38,9 @@ export function createDiscordRuntime(
   const client = createClient(config.discord.token, {
     intents: ['guilds'],
     autoreconnect: true,
+  });
+  const presence = new PersonaPresenceRotator(client, (error) => {
+    logger.error('discord.presence_update_failed', error);
   });
   const economy = new EconomyService(pool);
   const daily = new DailyService(pool, economy);
@@ -67,6 +71,7 @@ export function createDiscordRuntime(
   let stopping = false;
 
   client.on('ready', () => {
+    presence.start();
     logger.info('discord.ready', {
       botUsername: client.user.username,
     });
@@ -116,6 +121,7 @@ export function createDiscordRuntime(
       try {
         await client.connect();
       } catch (error) {
+        presence.stop();
         client.disconnect({ reconnect: false });
         throw error;
       }
@@ -127,6 +133,7 @@ export function createDiscordRuntime(
 
       stopping = true;
       logger.info('discord.disconnecting');
+      presence.stop();
       client.disconnect({ reconnect: false });
     },
   };

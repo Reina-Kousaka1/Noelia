@@ -89,6 +89,15 @@ Discord transport, domain logic, persistence, rendering, configuration, and
 infrastructure are kept separate. No legacy Java code, database schemas, or
 migration history is part of this repository.
 
+## Persona and visual language
+
+Noélia's user-facing copy and Balletcore presence messages are centralized in
+`src/persona/copy.ts`; embed colors and semantic success/warning accents live in
+`src/ui/theme.ts`. Progression, shop, inventory, wardrobe, and profile responses
+use a consistent blush-pink embed. Presence rotates every 15 minutes through
+short studio-themed status lines. Infrastructure errors and future moderation
+and audit messages remain direct and factual.
+
 ## PostgreSQL safety
 
 The migration runner tracks immutable, checksummed SQL migrations in

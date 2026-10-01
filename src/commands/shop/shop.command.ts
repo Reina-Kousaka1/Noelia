@@ -6,6 +6,8 @@ import { SHOP_CATEGORIES } from '../../shop/types.js';
 import type { ShopCategory } from '../../shop/types.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 const categoryChoices = SHOP_CATEGORIES.map((category) => ({
   name: category
@@ -101,10 +103,12 @@ export const shopCommand: SlashCommand = {
           `• **${item.displayName}** — ${item.category.replaceAll('_', ' ')} · ${item.rarity} · ${formatBalance(item.price)}${item.minimumBalletLevel === null ? '' : ` · Ballet level ${item.minimumBalletLevel}+`}`,
       );
       await interaction.createFollowup({
-        content:
-          lines.length === 0
-            ? 'The collection has no items in that category yet.'
-            : lines.join('\n'),
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.shopTitle,
+            description: lines.length === 0 ? NOELIA_COPY.shopEmpty : lines.join('\n'),
+          }),
+        ],
       });
       return;
     }
@@ -123,7 +127,12 @@ export const shopCommand: SlashCommand = {
           : ` Ballet level ${item.minimumBalletLevel}+ required.`;
       const purchaseState = item.purchasable ? '' : ' This item is not currently purchasable.';
       await interaction.createFollowup({
-        content: `**${item.displayName}** · ${item.rarity}\n${item.description}\nPrice: ${formatBalance(item.price)}.${requirement}${purchaseState}`,
+        embeds: [
+          createNoeliaEmbed({
+            title: `${NOELIA_COPY.shopItemTitle}: ${item.displayName}`,
+            description: `${item.rarity} · ${item.description}\nPrice: ${formatBalance(item.price)}.${requirement}${purchaseState}`,
+          }),
+        ],
       });
       return;
     }
@@ -148,9 +157,17 @@ export const shopCommand: SlashCommand = {
         itemId,
         quantity,
       );
-      const heading = purchase.replayed ? 'Purchase already recorded' : 'Purchase complete';
+      const heading = purchase.replayed
+        ? NOELIA_COPY.shopPurchaseReplayed
+        : NOELIA_COPY.shopPurchaseComplete;
       await interaction.createFollowup({
-        content: `${heading}: ${purchase.quantity} × ${purchase.item.displayName} for ${formatBalance(purchase.totalPrice)}. Wallet: ${formatBalance(purchase.walletBalance)}. You own ${purchase.inventoryQuantity}.`,
+        embeds: [
+          createNoeliaEmbed({
+            title: heading,
+            description: `${purchase.quantity} × ${purchase.item.displayName} · ${formatBalance(purchase.totalPrice)}\nWallet: ${formatBalance(purchase.walletBalance)} · Owned: ${purchase.inventoryQuantity}`,
+            tone: purchase.replayed ? 'signature' : 'success',
+          }),
+        ],
       });
       return;
     }

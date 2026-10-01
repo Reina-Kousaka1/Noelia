@@ -2,6 +2,8 @@ import * as Eris from 'eris';
 import { describe, expect, it, vi } from 'vitest';
 
 import { balletCommand } from '../../src/commands/ballet/ballet.command.js';
+import { formatBalance } from '../../src/commands/balance/format-balance.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
@@ -62,7 +64,12 @@ describe('ballet command', () => {
     expect(services.ballet.getProgress).toHaveBeenCalledWith('222222222222222222');
     expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
     expect(createFollowup).toHaveBeenCalledWith({
-      content: 'Ballet Level 1 · 98 XP · 2 XP to the next level.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.balletStatusTitle,
+          description: 'Ballet Level 1 · 98 XP\n2 XP to the next level.',
+        }),
+      ],
     });
   });
 
@@ -90,7 +97,12 @@ describe('ballet command', () => {
     });
 
     expect(createFollowup).toHaveBeenCalledWith({
-      content: '• **Stretching** — 8 XP, 10 🩰 · Ready now',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.balletActivitiesTitle,
+          description: `• **Stretching** — 8 XP, ${formatBalance(10n)} · Ready now`,
+        }),
+      ],
     });
   });
 
@@ -134,8 +146,12 @@ describe('ballet command', () => {
       'stretching',
     );
     expect(createFollowup).toHaveBeenCalledWith({
-      content:
-        'Practice complete: Stretching earned 15 Ballet XP and 20 🩰. Level 2 · 105 XP · 95 XP to the next level.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.balletPracticeComplete,
+          description: `Stretching · +15 Ballet XP · +${formatBalance(20n)}\nLevel 2 · 105 XP · 95 XP to the next level.`,
+        }),
+      ],
     });
   });
 });

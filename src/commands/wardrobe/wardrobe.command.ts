@@ -4,6 +4,8 @@ import { SHOP_ITEM_CHOICES } from '../../shop/item-choices.js';
 import { WARDROBE_SLOTS } from '../../wardrobe/types.js';
 import type { WardrobeSlot } from '../../wardrobe/types.js';
 import type { SlashCommand } from '../command.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 const slotChoices = WARDROBE_SLOTS.map((slot) => ({
   name: slot
@@ -83,10 +85,15 @@ export const wardrobeCommand: SlashCommand = {
           `• **${entry.displayName}** — ${entry.slots.map((slot) => slot.replaceAll('_', ' ')).join(', ')}`,
       );
       await interaction.createFollowup({
-        content:
-          lines.length === 0
-            ? 'Your wardrobe is waiting for its first look.'
-            : `Current outfit\n${lines.join('\n')}`,
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.wardrobeTitle,
+            description:
+              lines.length === 0
+                ? NOELIA_COPY.wardrobeEmpty
+                : `Current outfit\n${lines.join('\n')}`,
+          }),
+        ],
       });
       return;
     }
@@ -104,7 +111,13 @@ export const wardrobeCommand: SlashCommand = {
           ? ''
           : ` Replaced: ${result.displacedItems.map((item) => item.displayName).join(', ')}.`;
       await interaction.createFollowup({
-        content: `**${result.displayName}** is now equipped in ${result.slots.map((slot) => slot.replaceAll('_', ' ')).join(', ')}.${displaced}`,
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.wardrobeTitle,
+            description: `**${result.displayName}** is now equipped in ${result.slots.map((slot) => slot.replaceAll('_', ' ')).join(', ')}.${displaced}`,
+            tone: 'success',
+          }),
+        ],
       });
       return;
     }
@@ -118,10 +131,16 @@ export const wardrobeCommand: SlashCommand = {
 
       const item = await services.wardrobe.unequip(discordUserId, slot as WardrobeSlot);
       await interaction.createFollowup({
-        content:
-          item === undefined
-            ? `There is nothing equipped in ${slot.replaceAll('_', ' ')}.`
-            : `Removed **${item.displayName}** from ${item.slots.map((itemSlot) => itemSlot.replaceAll('_', ' ')).join(', ')}.`,
+        embeds: [
+          createNoeliaEmbed({
+            title: NOELIA_COPY.wardrobeTitle,
+            description:
+              item === undefined
+                ? `There is nothing equipped in ${slot.replaceAll('_', ' ')}.`
+                : `Removed **${item.displayName}** from ${item.slots.map((itemSlot) => itemSlot.replaceAll('_', ' ')).join(', ')}.`,
+            tone: item === undefined ? 'signature' : 'success',
+          }),
+        ],
       });
       return;
     }

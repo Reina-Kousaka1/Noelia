@@ -27,6 +27,7 @@ function createFakeClient() {
   return Object.assign(new EventEmitter(), {
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
+    editStatus: vi.fn(),
     user: { username: 'Noelia' },
     getGuildCommands: vi.fn().mockResolvedValue([]),
     createGuildCommand: vi.fn().mockResolvedValue({}),
@@ -76,7 +77,7 @@ describe('createDiscordRuntime', () => {
     const client = createFakeClient();
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
-    createDiscordRuntime(config, logger, createFakePool(), () => client);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
 
     client.emit('ready');
     await vi.waitFor(() => {
@@ -109,6 +110,11 @@ describe('createDiscordRuntime', () => {
         expect.objectContaining({ name: 'profile' }),
       );
     });
+    expect(client.editStatus).toHaveBeenCalledWith('online', {
+      name: 'At the barre, finding my balance',
+      type: Eris.Constants.ActivityTypes.GAME,
+    });
     expect(client.getGuildCommands).toHaveBeenCalledWith(config.discord.guildId);
+    await runtime.stop();
   });
 });

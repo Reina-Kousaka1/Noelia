@@ -2,6 +2,7 @@ import * as Eris from 'eris';
 import { describe, expect, it, vi } from 'vitest';
 
 import { wardrobeCommand } from '../../src/commands/wardrobe/wardrobe.command.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
@@ -57,7 +58,12 @@ describe('wardrobe command', () => {
     await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
 
     expect(createFollowup).toHaveBeenCalledWith({
-      content: 'Current outfit\n• **Satin Ribbon Bow** — hair accessory',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.wardrobeTitle,
+          description: 'Current outfit\n• **Satin Ribbon Bow** — hair accessory',
+        }),
+      ],
     });
   });
 
@@ -90,7 +96,13 @@ describe('wardrobe command', () => {
       'ivory-wrap-cardigan',
     );
     expect(createFollowup).toHaveBeenCalledWith({
-      content: '**Ivory Wrap Cardigan** is now equipped in wrap, outerwear. Replaced: Old Wrap.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.wardrobeTitle,
+          description:
+            '**Ivory Wrap Cardigan** is now equipped in wrap, outerwear. Replaced: Old Wrap.',
+        }),
+      ],
     });
   });
 
@@ -120,7 +132,12 @@ describe('wardrobe command', () => {
 
     expect(services.wardrobe.unequip).toHaveBeenCalledWith('222222222222222222', 'wrap');
     expect(createFollowup).toHaveBeenCalledWith({
-      content: 'Removed **Ivory Wrap Cardigan** from outerwear, wrap.',
+      embeds: [
+        expect.objectContaining({
+          title: NOELIA_COPY.wardrobeTitle,
+          description: 'Removed **Ivory Wrap Cardigan** from outerwear, wrap.',
+        }),
+      ],
     });
   });
 });

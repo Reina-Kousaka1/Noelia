@@ -31,7 +31,14 @@ describe('balance command', () => {
 
     expect(getBalance).toHaveBeenCalledWith('123456789012345678');
     expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
-    expect(createFollowup).toHaveBeenCalledWith({ content: 'Your Ballet Slippers: 1,240 🩰' });
+    expect(createFollowup).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          title: 'Your Ballet Slippers',
+          description: formatBalance(1_240n),
+        }),
+      ],
+    });
   });
 
   it('formats zero and large bigint balances without floating-point conversion', () => {

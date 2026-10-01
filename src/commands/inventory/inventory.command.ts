@@ -1,6 +1,8 @@
 import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 export const inventoryCommand: SlashCommand = {
   definition: {
@@ -36,9 +38,16 @@ export const inventoryCommand: SlashCommand = {
     );
     const content =
       inventory.totalItems === 0
-        ? 'Your inventory is empty. Browse `/shop` when you are ready to add your first keepsake.'
+        ? NOELIA_COPY.inventoryEmpty
         : `Your inventory · Page ${inventory.page}/${inventory.totalPages}\n${lines.join('\n')}`;
 
-    await interaction.createFollowup({ content });
+    await interaction.createFollowup({
+      embeds: [
+        createNoeliaEmbed({
+          title: NOELIA_COPY.inventoryTitle,
+          description: content,
+        }),
+      ],
+    });
   },
 };

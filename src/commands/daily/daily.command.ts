@@ -2,6 +2,8 @@ import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 export const dailyCommand: SlashCommand = {
   definition: {
@@ -18,11 +20,17 @@ export const dailyCommand: SlashCommand = {
 
     await interaction.defer(Eris.Constants.MessageFlags.EPHEMERAL);
     const claim = await services.daily.claimDaily(interaction.id, discordUserId);
-    const status = claim.replayed ? 'Daily already claimed' : 'Daily claimed';
+    const status = claim.replayed ? NOELIA_COPY.dailyReplayed : NOELIA_COPY.dailyClaimed;
     const nextClaimTimestamp = Math.floor(claim.nextClaimAt.getTime() / 1_000);
 
     await interaction.createFollowup({
-      content: `${status}: +${formatBalance(claim.rewardAmount)}. Balance: ${formatBalance(claim.balance)}. Next in <t:${nextClaimTimestamp}:R>.`,
+      embeds: [
+        createNoeliaEmbed({
+          title: NOELIA_COPY.dailyTitle,
+          description: `${status}\n+${formatBalance(claim.rewardAmount)} · Balance ${formatBalance(claim.balance)}\nNext in <t:${nextClaimTimestamp}:R>.`,
+          tone: claim.replayed ? 'signature' : 'success',
+        }),
+      ],
     });
   },
 };

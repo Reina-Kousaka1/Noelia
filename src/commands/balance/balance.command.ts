@@ -2,6 +2,8 @@ import * as Eris from 'eris';
 
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from './format-balance.js';
+import { createNoeliaEmbed } from '../../ui/embed.js';
+import { NOELIA_COPY } from '../../persona/copy.js';
 
 export const balanceCommand: SlashCommand = {
   definition: {
@@ -20,7 +22,12 @@ export const balanceCommand: SlashCommand = {
     const balance = await services.economy.getBalance(discordUserId);
 
     await interaction.createFollowup({
-      content: `Your Ballet Slippers: ${formatBalance(balance)}`,
+      embeds: [
+        createNoeliaEmbed({
+          title: NOELIA_COPY.balanceTitle,
+          description: formatBalance(balance),
+        }),
+      ],
     });
   },
 };
