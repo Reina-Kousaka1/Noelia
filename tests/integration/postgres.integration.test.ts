@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BalletService } from '../../src/ballet/ballet-service.js';
+import { BalletAcademyService } from '../../src/ballet/academy-service.js';
 import {
   BalletActivityLockedError,
   BalletActivityRequirementError,
@@ -804,6 +805,14 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
     await shop.purchase(testSnowflake(), discordUserId, 'pearl-pointe-shoes', 1);
     await wardrobe.equip(discordUserId, 'pearl-pointe-shoes');
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'pointe-practice'),
+    ).rejects.toMatchObject({ requirement: 'STATS' });
+    await pool.query(
+      `UPDATE ballet_stats SET stat_value = 9
+       WHERE discord_user_id = $1 AND stat_key = 'technique'`,
+      [discordUserId],
+    );
     const pointe = await ballet.practice(testSnowflake(), discordUserId, 'pointe-practice');
     expect(pointe.stat).toEqual({ key: 'pointe', gain: 3, value: 3 });
 
@@ -845,6 +854,34 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
     await expect(economy.getBalance(discordUserId)).resolves.toBe(10n);
     await expect(economy.getLedger(discordUserId)).resolves.toHaveLength(1);
+  });
+
+  it('derives Academy standing from the existing Ballet records', async () => {
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const academy = new BalletAcademyService(pool);
+    const discordUserId = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [discordUserId]);
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 400, 5)`,
+      [discordUserId],
+    );
+    await pool.query(
+      `INSERT INTO ballet_stats (discord_user_id, stat_key, stat_value)
+       VALUES ($1, 'technique', 6)`,
+      [discordUserId],
+    );
+
+    for (const activity of ['class', 'barre', 'stretching', 'technique']) {
+      await ballet.practice(testSnowflake(), discordUserId, activity);
+    }
+
+    await expect(academy.getProgress(discordUserId)).resolves.toMatchObject({
+      currentRank: { id: 'apprentice', title: 'Academy Apprentice' },
+      nextRank: { id: 'repertoire-artist' },
+      completedRankCount: 1,
+    });
   });
 
   it('records deterministic performances transactionally, replays safely, and enforces cooldowns', async () => {
@@ -921,6 +958,9 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         unlockedAt: expect.any(Date),
       }),
     );
+    await expect(new AchievementService(pool).list(discordUserId)).resolves.toContainEqual(
+      expect.objectContaining({ achievementId: 'first-recital', unlockedAt: expect.any(Date) }),
+    );
     const history = await performances.listHistory(discordUserId, 1);
     expect(history).toMatchObject({ totalEntries: 1, entries: [{ score: 72, tier: 'SILVER' }] });
     await expect(economy.getBalance(discordUserId)).resolves.toBe(balanceBefore + 100n);
@@ -939,6 +979,38 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(
       performances.perform(testSnowflake(), noviceId, 'spring-recital'),
     ).rejects.toBeInstanceOf(PerformanceLockedError);
+
+    const primaUserId = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [primaUserId]);
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 3400, 35)`,
+      [primaUserId],
+    );
+    await pool.query(
+      `INSERT INTO ballet_stats (discord_user_id, stat_key, stat_value) VALUES
+        ($1, 'technique', 100), ($1, 'flexibility', 100), ($1, 'musicality', 100),
+        ($1, 'performance', 100), ($1, 'pointe', 100), ($1, 'stamina', 100)`,
+      [primaUserId],
+    );
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId: primaUserId,
+      amount: 500n,
+      reason: 'DAILY_REWARD',
+    });
+    const shop = new ShopService(pool, economy);
+    const wardrobe = new WardrobeService(pool);
+    await shop.purchase(testSnowflake(), primaUserId, 'pearl-pointe-shoes', 1);
+    await wardrobe.equip(primaUserId, 'pearl-pointe-shoes');
+    for (const activity of ['class', 'rehearsal', 'performance', 'audition']) {
+      await ballet.practice(testSnowflake(), primaUserId, activity);
+    }
+    const primaResult = await performances.perform(testSnowflake(), primaUserId, 'prima-audition');
+    expect(primaResult).toMatchObject({ score: 100, tier: 'PRIMA' });
+    await expect(new AchievementService(pool).list(primaUserId)).resolves.toContainEqual(
+      expect.objectContaining({ achievementId: 'prima-star', unlockedAt: expect.any(Date) }),
+    );
   });
 
   it('purchases a seeded shop item atomically and safely replays the interaction', async () => {
@@ -999,6 +1071,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const collections = new CollectionService(pool);
     const achievements = new AchievementService(pool);
     const relationships = new RelationshipService(pool);
+    const academy = new BalletAcademyService(pool);
     const profile = new ProfileService(
       economy,
       ballet,
@@ -1006,6 +1079,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       collections,
       achievements,
       relationships,
+      academy,
     );
     const marketplace = new MarketplaceService(pool, economy);
     await economy.credit({

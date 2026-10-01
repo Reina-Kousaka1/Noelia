@@ -7,6 +7,7 @@ export const NOELIA_COPY = {
   dailyClaimed: 'Daily reward claimed',
   dailyReplayed: 'Your daily reward is already recorded',
   balletStatusTitle: 'Studio progress',
+  balletAcademyTitle: 'Ballet Academy',
   balletActivitiesTitle: 'Today at the studio',
   balletPracticeComplete: 'Practice complete',
   balletPracticeReplayed: 'Practice already recorded',

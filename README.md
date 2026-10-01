@@ -18,7 +18,7 @@ from the shared Discord application. A second startup with the same catalog make
 command writes. The Discord application and its token are never deleted.
 Ballet Slippers use integer wallet balances with an auditable ledger and
 interaction idempotency. Daily rewards, levelled Ballet practice with six
-persistent capped stats, and a curated 62-item shop with transactional purchases
+persistent capped stats, derived Academy ranks, and a curated 62-item shop with transactional purchases
 and persistent inventory are active. Inventory pages and a persistent,
 ownership-checked wardrobe with saved outfit presets are also available, and `/profile` aggregates
 wallet, Ballet progress and stats, equipped look, collection progress, and an
@@ -28,6 +28,8 @@ concurrent purchases. Only listing sellers can cancel their own listings.
 `/performance` uses a data-backed catalog, the existing Ballet progression and
 wallet, a fixed stat-weighted score, transactional rewards, and persistent
 history; it does not use random outcomes or introduce a second economy. The
+`/ballet academy` connects activity, stat, level, and stage milestones without
+creating a second XP track. The
 `/shop collections` command shows progress across 11 named collections; items held in
 active marketplace escrow continue to count toward collection progress. The
 relationship domain stores proposals, current marriages, and divorce history

@@ -26,6 +26,13 @@ export interface BalletStatSnapshot {
   readonly value: number;
 }
 
+export interface BalletStatRequirementProgress {
+  readonly key: BalletStatKey;
+  readonly minimum: number;
+  readonly current: number;
+  readonly met: boolean;
+}
+
 export type BalletActivityAvailability = 'AVAILABLE' | 'LOCKED' | 'COOLDOWN';
 
 export interface BalletActivityView {
@@ -38,10 +45,11 @@ export interface BalletActivityView {
   readonly slippersReward: bigint;
   readonly statKey: BalletStatKey;
   readonly statGain: number;
+  readonly statRequirements: readonly BalletStatRequirementProgress[];
   readonly requirementMet: boolean;
   readonly requiredEquippedItemId: string | null;
   readonly requiredActivityCode: BalletActivityCode | null;
-  readonly lockReason: 'LEVEL' | 'REQUIREMENT' | null;
+  readonly lockReason: 'LEVEL' | 'REQUIREMENT' | 'STATS' | null;
   readonly availability: BalletActivityAvailability;
   readonly nextAvailableAt: Date | null;
 }

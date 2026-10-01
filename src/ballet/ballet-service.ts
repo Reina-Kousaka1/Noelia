@@ -22,6 +22,7 @@ import type {
   BalletProgressPort,
   BalletProgressStatus,
   BalletStatKey,
+  BalletStatRequirementProgress,
   BalletStats,
 } from './types.js';
 import { BALLET_ACTIVITY_CODES } from './activity-codes.js';
@@ -93,6 +94,16 @@ interface InsertedCompletionRow extends QueryResultRow {
 
 interface StatValueRow extends QueryResultRow {
   readonly stat_value: number;
+}
+
+interface ActivityStatRequirementRow extends QueryResultRow {
+  readonly stat_key: string;
+  readonly minimum_value: number;
+  readonly stat_value: number;
+}
+
+interface ListedActivityStatRequirementRow extends ActivityStatRequirementRow {
+  readonly activity_code: string;
 }
 
 interface StatListRow extends QueryResultRow {
@@ -179,13 +190,39 @@ export class BalletService implements BalletProgressPort {
        ORDER BY activity.minimum_level, activity.display_name`,
       [discordUserId],
     );
+    const requirementsResult = await this.pool.query<ListedActivityStatRequirementRow>(
+      `SELECT requirement.activity_code,
+              requirement.stat_key,
+              requirement.minimum_value,
+              COALESCE(stat.stat_value, 0) AS stat_value
+       FROM ballet_activity_stat_requirements AS requirement
+       LEFT JOIN ballet_stats AS stat
+         ON stat.discord_user_id = $1
+        AND stat.stat_key = requirement.stat_key
+       WHERE requirement.activity_code = ANY($2::text[])
+       ORDER BY requirement.activity_code, requirement.stat_key`,
+      [discordUserId, result.rows.map((row) => row.activity_code)],
+    );
+    const requirementsByActivity = new Map<string, BalletStatRequirementProgress[]>();
+    for (const requirement of requirementsResult.rows) {
+      const list = requirementsByActivity.get(requirement.activity_code) ?? [];
+      list.push({
+        key: this.parseStatKey(requirement.stat_key),
+        minimum: requirement.minimum_value,
+        current: requirement.stat_value,
+        met: requirement.stat_value >= requirement.minimum_value,
+      });
+      requirementsByActivity.set(requirement.activity_code, list);
+    }
 
     return result.rows.map((row) => {
       const nextAvailableAt = row.next_available_at;
       const levelLocked = row.current_level < row.minimum_level;
       const requirementMet = row.equipment_requirement_met && row.activity_requirement_met;
+      const statRequirements = requirementsByActivity.get(row.activity_code) ?? [];
+      const statsMet = statRequirements.every((requirement) => requirement.met);
       const availability =
-        levelLocked || !requirementMet
+        levelLocked || !requirementMet || !statsMet
           ? 'LOCKED'
           : nextAvailableAt !== null && row.current_time.getTime() < nextAvailableAt.getTime()
             ? 'COOLDOWN'
@@ -201,13 +238,20 @@ export class BalletService implements BalletProgressPort {
         slippersReward: BigInt(row.slippers_reward),
         statKey: this.parseStatKey(row.stat_key),
         statGain: row.stat_gain,
+        statRequirements,
         requiredEquippedItemId: row.required_equipped_item_id,
         requiredActivityCode:
           row.required_activity_code === null
             ? null
             : this.parseActivityCode(row.required_activity_code),
-        requirementMet,
-        lockReason: levelLocked ? 'LEVEL' : requirementMet ? null : 'REQUIREMENT',
+        requirementMet: requirementMet && statsMet,
+        lockReason: levelLocked
+          ? 'LEVEL'
+          : !requirementMet
+            ? 'REQUIREMENT'
+            : !statsMet
+              ? 'STATS'
+              : null,
         availability,
         nextAvailableAt,
       };
@@ -298,6 +342,19 @@ export class BalletService implements BalletProgressPort {
         if (prerequisite.rows.length === 0) {
           throw new BalletActivityRequirementError('PREVIOUS_ACTIVITY');
         }
+      }
+      const statRequirements = await client.query<ActivityStatRequirementRow>(
+        `SELECT requirement.stat_key, requirement.minimum_value, stat.stat_value
+         FROM ballet_activity_stat_requirements AS requirement
+         INNER JOIN ballet_stats AS stat
+           ON stat.discord_user_id = $1 AND stat.stat_key = requirement.stat_key
+         WHERE requirement.activity_code = $2
+         ORDER BY requirement.stat_key
+         FOR UPDATE OF stat`,
+        [discordUserId, activityCode],
+      );
+      if (statRequirements.rows.some((row) => row.stat_value < row.minimum_value)) {
+        throw new BalletActivityRequirementError('STATS');
       }
 
       const latestCompletion = await this.findLatestCompletion(client, discordUserId, activityCode);

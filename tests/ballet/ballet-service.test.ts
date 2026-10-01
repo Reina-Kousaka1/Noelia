@@ -36,6 +36,13 @@ interface ActivityFixture {
   readonly required_activity_code: string | null;
 }
 
+interface StatRequirementFixture {
+  readonly activity_code?: string;
+  readonly stat_key: string;
+  readonly minimum_value: number;
+  readonly stat_value: number;
+}
+
 interface CompletionFixture {
   readonly discord_user_id: string;
   readonly activity_code: string;
@@ -67,6 +74,7 @@ function createBalletService(options?: {
   readonly statValue?: number;
   readonly equipmentRequirementMet?: boolean;
   readonly activityRequirementMet?: boolean;
+  readonly statRequirements?: readonly StatRequirementFixture[];
 }) {
   const progress = options?.progress ?? { totalXp: 90n, level: 1 };
   const activity = options?.activity ?? {
@@ -119,6 +127,16 @@ function createBalletService(options?: {
       const selected = activities.find((item) => item.activity_code === String(values[0]));
       return { rows: selected === undefined ? [] : [selected] };
     }
+    if (sql.startsWith('SELECT requirement.stat_key')) {
+      return {
+        rows:
+          options?.statRequirements?.map(({ stat_key, minimum_value, stat_value }) => ({
+            stat_key,
+            minimum_value,
+            stat_value,
+          })) ?? [],
+      };
+    }
     if (sql.startsWith('SELECT next_available_at FROM ballet_activity_completions')) {
       return {
         rows:
@@ -158,6 +176,17 @@ function createBalletService(options?: {
           equipment_requirement_met: true,
           activity_requirement_met: true,
         })),
+      };
+    }
+    if (sql.startsWith('SELECT requirement.activity_code')) {
+      return {
+        rows:
+          options?.statRequirements?.map((requirement) => ({
+            activity_code: requirement.activity_code ?? activity.activity_code,
+            stat_key: requirement.stat_key,
+            minimum_value: requirement.minimum_value,
+            stat_value: requirement.stat_value,
+          })) ?? [],
       };
     }
     if (sql.startsWith('UPDATE ballet_progress')) {
@@ -346,6 +375,40 @@ describe('BalletService', () => {
       unknown.service.practice(interactionId, discordUserId, 'unlisted-activity'),
     ).rejects.toBeInstanceOf(UnknownBalletActivityError);
     expect(unknown.creditWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('blocks practice until the configured Ballet stats are met', async () => {
+    const database = createBalletService({
+      statRequirements: [{ stat_key: 'technique', minimum_value: 9, stat_value: 6 }],
+    });
+
+    await expect(
+      database.service.practice(interactionId, discordUserId, 'stretching'),
+    ).rejects.toMatchObject({ requirement: 'STATS' });
+    expect(database.creditWithinTransaction).not.toHaveBeenCalled();
+    expect(database.statements).toContain('ROLLBACK');
+  });
+
+  it('lists the exact current stat gate for an activity', async () => {
+    const database = createBalletService({
+      statRequirements: [
+        {
+          activity_code: 'stretching',
+          stat_key: 'technique',
+          minimum_value: 9,
+          stat_value: 6,
+        },
+      ],
+    });
+
+    await expect(database.service.listActivities(discordUserId)).resolves.toMatchObject([
+      {
+        code: 'stretching',
+        availability: 'LOCKED',
+        lockReason: 'STATS',
+        statRequirements: [{ key: 'technique', minimum: 9, current: 6, met: false }],
+      },
+    ]);
   });
 
   it('rejects an idempotency key reused for a different practice', async () => {

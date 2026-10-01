@@ -1,5 +1,6 @@
 import type Eris from 'eris';
 import type { BalletProgressPort } from '../ballet/types.js';
+import type { BalletAcademyPort } from '../ballet/academy-service.js';
 import type { DailyClaimResult } from '../economy/types.js';
 import type { ShopPort } from '../shop/types.js';
 import type { InventoryPort } from '../inventory/types.js';
@@ -33,6 +34,7 @@ export interface CommandServices {
   readonly economy: EconomyQueryPort;
   readonly daily: DailyClaimPort;
   readonly ballet: BalletProgressPort;
+  readonly academy?: BalletAcademyPort;
   readonly shop: ShopPort;
   readonly inventory: InventoryPort;
   readonly wardrobe: WardrobePort;

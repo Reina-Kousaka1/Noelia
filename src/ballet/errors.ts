@@ -21,12 +21,14 @@ export class BalletActivityLockedError extends ExpectedDomainError {
 }
 
 export class BalletActivityRequirementError extends ExpectedDomainError {
-  public constructor(public readonly requirement: 'EQUIPMENT' | 'PREVIOUS_ACTIVITY') {
+  public constructor(public readonly requirement: 'EQUIPMENT' | 'PREVIOUS_ACTIVITY' | 'STATS') {
     super(
       `The ballet activity requirement is not met: ${requirement}.`,
       requirement === 'EQUIPMENT'
         ? 'Equip the required ballet item before practicing this activity.'
-        : 'Complete the required ballet activity first.',
+        : requirement === 'PREVIOUS_ACTIVITY'
+          ? 'Complete the required ballet activity first.'
+          : 'Build the required Ballet stats before attempting this activity.',
     );
     this.name = 'BalletActivityRequirementError';
   }

@@ -27,6 +27,11 @@ export const balletCommand: SlashCommand = {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
       },
       {
+        name: 'academy',
+        description: 'See your Academy standing and the next milestones.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+      },
+      {
         name: 'activities',
         description: 'See practice activities and unlocks.',
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
@@ -105,6 +110,37 @@ export const balletCommand: SlashCommand = {
       return;
     }
 
+    if (subcommandName === 'academy') {
+      const academy = services.academy;
+      if (academy === undefined) throw new Error('The Ballet Academy service is not configured.');
+      const progress = await academy.getProgress(discordUserId);
+      const pending =
+        progress.nextRank?.requirements.filter((requirement) => !requirement.met) ?? [];
+      const description =
+        progress.nextRank === null
+          ? `${progress.currentRank.description}\nAll Academy distinctions are earned. Keep dancing and improving your stage results.`
+          : `${progress.currentRank.description}\n\nNext: **${progress.nextRank.title}**\n${progress.nextRank.requirements
+              .map((requirement) => `${requirement.met ? '✓' : '○'} ${requirement.label}`)
+              .join('\n')}`;
+      await completeCommand(interaction, {
+        embeds: [
+          await personaEmbed(
+            'academy_view',
+            {
+              academy_rank: progress.currentRank.id,
+              completed_ranks: progress.completedRankCount,
+              pending_requirements: pending.length,
+            },
+            {
+              title: `${NOELIA_COPY.balletAcademyTitle} · ${progress.currentRank.title}`,
+              description,
+            },
+          ),
+        ],
+      });
+      return;
+    }
+
     if (subcommandName === 'activities') {
       const activities = await services.ballet.listActivities(discordUserId);
       const lines = activities.map((activity) => {
@@ -112,9 +148,17 @@ export const balletCommand: SlashCommand = {
           activity.availability === 'LOCKED'
             ? activity.lockReason === 'LEVEL'
               ? `Unlocks at level ${activity.minimumLevel}`
-              : activity.requiredEquippedItemId !== null
-                ? `Equip ${activity.requiredEquippedItemId}`
-                : `Complete ${activity.requiredActivityCode ?? 'its requirement'} first`
+              : activity.lockReason === 'STATS'
+                ? `Build ${activity.statRequirements
+                    .filter((requirement) => !requirement.met)
+                    .map(
+                      (requirement) =>
+                        `${requirement.key} ${requirement.minimum}+ (now ${requirement.current})`,
+                    )
+                    .join(', ')}`
+                : activity.requiredEquippedItemId !== null
+                  ? `Equip ${activity.requiredEquippedItemId}`
+                  : `Complete ${activity.requiredActivityCode ?? 'its requirement'} first`
             : activity.availability === 'COOLDOWN' && activity.nextAvailableAt !== null
               ? `Ready <t:${Math.floor(activity.nextAvailableAt.getTime() / 1_000)}:R>`
               : 'Ready now';
@@ -135,7 +179,7 @@ export const balletCommand: SlashCommand = {
               title: NOELIA_COPY.balletActivitiesTitle,
               fields: activities.map((activity) => ({
                 name: `${activity.displayName} · ${activity.statKey} +${activity.statGain}`,
-                value: `${activity.description}${activity.requiredEquippedItemId === null ? '' : ` · Equip ${activity.requiredEquippedItemId}`}${activity.requiredActivityCode === null ? '' : ` · Complete ${activity.requiredActivityCode}`}`,
+                value: `${activity.description}${activity.requiredEquippedItemId === null ? '' : ` · Equip ${activity.requiredEquippedItemId}`}${activity.requiredActivityCode === null ? '' : ` · Complete ${activity.requiredActivityCode}`}${activity.statRequirements.length === 0 ? '' : ` · ${activity.statRequirements.map((requirement) => `${requirement.key} ${requirement.minimum}+`).join(', ')}`}`,
                 inline: false,
               })),
               description:

@@ -373,6 +373,18 @@ export class PerformanceService implements PerformancePort {
         'PERFORMANCE',
         interactionId,
       );
+      if (performanceId === 'spring-recital') {
+        await unlockAchievement(
+          client,
+          discordUserId,
+          'first-recital',
+          'PERFORMANCE',
+          interactionId,
+        );
+      }
+      if (tier === 'PRIMA' && performanceId === 'prima-audition') {
+        await unlockAchievement(client, discordUserId, 'prima-star', 'PERFORMANCE', interactionId);
+      }
       if (tier === 'GOLD' || tier === 'PRIMA') {
         await unlockAchievement(
           client,

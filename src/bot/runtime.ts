@@ -5,6 +5,7 @@ import type { AppConfig } from '../config/environment.js';
 import { EconomyService } from '../economy/economy-service.js';
 import { DailyService } from '../economy/daily-service.js';
 import { BalletService } from '../ballet/ballet-service.js';
+import { BalletAcademyService } from '../ballet/academy-service.js';
 import { ShopService } from '../shop/shop-service.js';
 import { InventoryService } from '../inventory/inventory-service.js';
 import { WardrobeService } from '../wardrobe/wardrobe-service.js';
@@ -75,6 +76,7 @@ export function createDiscordRuntime(
   const economy = new EconomyService(pool);
   const daily = new DailyService(pool, economy);
   const ballet = new BalletService(pool, economy);
+  const academy = new BalletAcademyService(pool);
   const shop = new ShopService(pool, economy);
   const inventory = new InventoryService(pool);
   const wardrobe = new WardrobeService(pool);
@@ -94,6 +96,7 @@ export function createDiscordRuntime(
     collections,
     achievements,
     relationships,
+    academy,
   );
   const personaGenerator = config.persona.generationEnabled
     ? new ChatCompletionsPersonaGenerator({
@@ -141,6 +144,7 @@ export function createDiscordRuntime(
     economy,
     daily,
     ballet,
+    academy,
     shop,
     inventory,
     wardrobe,

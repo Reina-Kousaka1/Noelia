@@ -35,17 +35,65 @@ function createServices() {
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     profile: { getProfile: vi.fn() },
+    academy: { getProgress: vi.fn() },
     persona: { generate: vi.fn().mockResolvedValue(undefined) } as PersonaTextPort,
   };
 }
 
 describe('ballet command', () => {
-  it('defines status, activities, and practice as subcommands', () => {
+  it('defines status, Academy, activities, and practice as subcommands', () => {
     expect(balletCommand.definition.options?.map((option) => option.name)).toEqual([
       'status',
+      'academy',
       'activities',
       'practice',
     ]);
+  });
+
+  it('shows deterministic rank milestones and sends allowlisted persona facts', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'academy' },
+    ]);
+    const services = createServices();
+    services.academy.getProgress.mockResolvedValue({
+      currentRank: {
+        id: 'apprentice',
+        title: 'Academy Apprentice',
+        description: 'Build a steady studio foundation.',
+        requirements: [{ label: 'Reach Ballet level 5', met: true }],
+      },
+      nextRank: {
+        id: 'repertoire-artist',
+        title: 'Repertoire Artist',
+        description: 'Connect repertoire work.',
+        requirements: [
+          { label: 'Reach Ballet level 12', met: false },
+          { label: 'Complete Rehearsal, Choreography, and Audition', met: false },
+        ],
+      },
+      completedRankCount: 1,
+    });
+
+    await balletCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.academy.getProgress).toHaveBeenCalledWith('222222222222222222');
+    expect(services.persona.generate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        domain: 'ballet',
+        action: 'academy_view',
+        facts: expect.objectContaining({ academy_rank: 'apprentice', completed_ranks: 1 }),
+      }),
+      '222222222222222222',
+      undefined,
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          title: 'Ballet Academy · Academy Apprentice',
+          description: expect.stringContaining('○ Reach Ballet level 12'),
+        }),
+      ],
+    });
   });
 
   it('shows XP and level progress publicly', async () => {
@@ -101,6 +149,7 @@ describe('ballet command', () => {
         slippersReward: 10n,
         statKey: 'flexibility',
         statGain: 2,
+        statRequirements: [],
         requirementMet: true,
         requiredEquippedItemId: null,
         requiredActivityCode: null,

@@ -65,6 +65,16 @@ describe('profile command', () => {
         description: 'Complete your first Ballet activity.',
         badgeMark: '🩰',
       },
+      academy: {
+        currentRank: {
+          id: 'student',
+          title: 'Studio Student',
+          description: 'Your Ballet journey begins with the next class.',
+          requirements: [],
+        },
+        nextRank: null,
+        completedRankCount: 0,
+      },
     });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
@@ -74,6 +84,7 @@ describe('profile command', () => {
     const response = editOriginalMessage.mock.calls[0]?.[0];
     const description = response?.embeds?.[0]?.description;
     expect(description).toContain('Ballet Level 3');
+    expect(description).toContain('Academy: Studio Student');
     expect(description).toContain('Technique 10 · Flexibility 20 · Musicality 30');
     expect(description).toContain('Performance 40 · Pointe 5 · Stamina 6');
     expect(description).toContain('Satin Ribbon Bow');
@@ -103,6 +114,16 @@ describe('profile command', () => {
       completedCollections: 0,
       totalCollections: 11,
       featuredAchievement: null,
+      academy: {
+        currentRank: {
+          id: 'principal-artist',
+          title: 'Principal Artist',
+          description: 'Bring the full studio journey together in a Prima Audition.',
+          requirements: [],
+        },
+        nextRank: null,
+        completedRankCount: 4,
+      },
     });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });

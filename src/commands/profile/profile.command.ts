@@ -69,6 +69,8 @@ export const profileCommand: SlashCommand = {
         completed_collections: profile.completedCollections,
         total_collections: profile.totalCollections,
         has_featured_achievement: profile.featuredAchievement !== null,
+        academy_rank: profile.academy.currentRank.id,
+        academy_completed_ranks: profile.academy.completedRankCount,
         technique: profile.ballet.stats.technique,
         flexibility: profile.ballet.stats.flexibility,
         musicality: profile.ballet.stats.musicality,
@@ -78,7 +80,7 @@ export const profileCommand: SlashCommand = {
       },
       {
         title: NOELIA_COPY.profileTitle,
-        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
+        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nAcademy: ${profile.academy.currentRank.title}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
       },
     );
     const marriageLine = NOELIA_COPY.profileMarriage(profile.marriage?.partnerUserId ?? null);

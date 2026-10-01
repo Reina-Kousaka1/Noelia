@@ -5,6 +5,7 @@ import type { CollectionPort } from '../collections/types.js';
 import type { WardrobePort } from '../wardrobe/types.js';
 import type { ProfilePort, ProfileSummary } from './types.js';
 import type { RelationshipPort } from '../relationships/types.js';
+import type { BalletAcademyPort } from '../ballet/academy-service.js';
 
 export interface ProfileWalletPort {
   getBalance(discordUserId: string): Promise<bigint>;
@@ -24,12 +25,13 @@ export class ProfileService implements ProfilePort {
     private readonly collections: ProfileCollectionPort,
     private readonly achievements: ProfileAchievementPort,
     private readonly relationships: ProfileRelationshipPort,
+    private readonly academy: BalletAcademyPort,
   ) {}
 
   public async getProfile(discordUserId: string): Promise<ProfileSummary> {
     assertDiscordSnowflake(discordUserId, 'Discord user ID');
 
-    const [balletSlippers, ballet, outfit, collections, featuredAchievement, marriage] =
+    const [balletSlippers, ballet, outfit, collections, featuredAchievement, marriage, academy] =
       await Promise.all([
         this.wallet.getBalance(discordUserId),
         this.ballet.getProgress(discordUserId),
@@ -37,6 +39,7 @@ export class ProfileService implements ProfilePort {
         this.collections.listProgress(discordUserId),
         this.achievements.getFeatured(discordUserId),
         this.relationships.getMarriage(discordUserId),
+        this.academy.getProgress(discordUserId),
       ]);
 
     return {
@@ -47,6 +50,7 @@ export class ProfileService implements ProfilePort {
       totalCollections: collections.length,
       featuredAchievement,
       marriage,
+      academy,
     };
   }
 }

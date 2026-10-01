@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(17);
+    expect(migrations).toHaveLength(18);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -118,6 +118,12 @@ describe('PostgreSQL migrations', () => {
       name: 'catalog_collection_membership_backfill',
     });
     expect(migrations[16]?.sql).toContain('ON CONFLICT (item_id, collection_id) DO NOTHING');
+    expect(migrations[17]).toMatchObject({
+      version: 18,
+      name: 'ballet_academy_v1',
+    });
+    expect(migrations[17]?.sql).toContain('CREATE TABLE ballet_activity_stat_requirements');
+    expect(migrations[17]?.sql).toContain("'prima-star'");
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -133,8 +139,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 17,
-      currentVersion: 17,
+      appliedCount: 18,
+      currentVersion: 18,
     });
 
     expect(statements).toContain('BEGIN');
@@ -250,6 +256,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [17, 'catalog_collection_membership_backfill', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [18, 'ballet_academy_v1', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

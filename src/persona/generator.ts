@@ -43,6 +43,13 @@ export interface PersonaTextPort {
 const factKeyPattern = /^[a-z][a-zA-Z0-9_]{0,39}$/;
 const integerFactPattern = /^\d{1,24}$/;
 const safeEnumFacts: Readonly<Record<string, ReadonlySet<string>>> = {
+  academy_rank: new Set([
+    'student',
+    'apprentice',
+    'repertoire-artist',
+    'soloist',
+    'principal-artist',
+  ]),
   activity: new Set(BALLET_ACTIVITY_CODES.map((code) => code.replaceAll('-', '_'))),
   category: new Set([...SHOP_CATEGORIES, 'all']),
   rarity: new Set(SHOP_RARITIES),

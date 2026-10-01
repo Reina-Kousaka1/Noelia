@@ -24,3 +24,9 @@ race-safe.
 the persistent completion history. PostgreSQL integration tests cover a forced
 mid-transaction failure and verify that the wallet, XP, and history all roll
 back together.
+
+Spring Recital completion unlocks the `First Recital` achievement; earning the
+Prima tier in Prima Audition unlocks `Prima Star`. Both are inserted in the
+same transaction as the immutable performance result and are replay-safe.
+Academy ranks read the best persisted tier for each event and never influence
+performance rewards or scores.

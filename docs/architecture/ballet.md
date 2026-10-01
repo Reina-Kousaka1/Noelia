@@ -19,6 +19,18 @@ later repertoire activities form a progression through earlier practice.
 Both `/ballet activities` and the mutation service evaluate requirements, so
 the command cannot bypass an unlock.
 
+V18 adds stat gates for Pointe Practice, Choreography, Performance, Audition,
+Recital, and Showcase. The activity browser shows current and required values;
+the practice transaction checks the same requirements while holding the user's
+progression lock. These gates use the existing six Ballet stats.
+
+`/ballet academy` derives Studio Student, Academy Apprentice, Repertoire Artist,
+Soloist, and Principal Artist standing from the existing Ballet level, unique
+activity completions, stats, and best recorded event tiers. It does not write a
+second rank or XP record. `/profile` includes the current standing. Stage and
+repertoire milestones remain deterministic and visible in the existing
+activity and performance commands.
+
 ## Stats
 
 `ballet_stats` persists Technique, Flexibility, Musicality, Performance,

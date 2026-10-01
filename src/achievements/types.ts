@@ -9,6 +9,8 @@ export const ACHIEVEMENT_IDS = [
   'first-market-purchase',
   'first-collection',
   'three-collections',
+  'first-recital',
+  'prima-star',
 ] as const;
 
 export type AchievementId = (typeof ACHIEVEMENT_IDS)[number];
