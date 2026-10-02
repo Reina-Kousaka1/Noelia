@@ -114,6 +114,7 @@ export const balletCommand: SlashCommand = {
       const academy = services.academy;
       if (academy === undefined) throw new Error('The Ballet Academy service is not configured.');
       const progress = await academy.getProgress(discordUserId);
+      const uniform = await academy.getUniformStatus(discordUserId);
       const pending =
         progress.nextRank?.requirements.filter((requirement) => !requirement.met) ?? [];
       const description =
@@ -133,7 +134,7 @@ export const balletCommand: SlashCommand = {
             },
             {
               title: `${NOELIA_COPY.balletAcademyTitle} · ${progress.currentRank.title}`,
-              description,
+              description: `${description}\n\nUniform: **${uniform.ready ? 'Ready' : 'Incomplete'}** — leotard, tights, and ballet flats are required for standard Academy activities. Check /wardrobe uniform for owned options.${uniform.optionalRankAccent === null ? '' : `\nOptional cosmetic rank styling: ${uniform.optionalRankAccent.label}.`}`,
             },
           ),
         ],

@@ -8,6 +8,8 @@ import { withTransaction } from '../database/transaction.js';
 import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import { BalletXpLimitError } from '../ballet/errors.js';
+import { AcademyUniformRequirementError } from '../ballet/errors.js';
+import { loadAcademyUniformStatus } from '../ballet/academy-service.js';
 import type { WalletCreditTransactionPort } from '../economy/ports.js';
 import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import {
@@ -250,16 +252,6 @@ export class PerformanceService implements PerformancePort {
       }
       const totalXp = BigInt(progress.total_xp);
       if (progress.level < catalog.minimum_level) throw new PerformanceLockedError('LEVEL');
-
-      if (catalog.required_equipped_item_id !== null) {
-        const item = await client.query(
-          `SELECT 1 FROM wardrobe_equipment
-           WHERE discord_user_id = $1 AND item_id = $2
-           LIMIT 1`,
-          [discordUserId, catalog.required_equipped_item_id],
-        );
-        if (item.rows.length === 0) throw new PerformanceLockedError('EQUIPMENT');
-      }
       if (catalog.required_activity_code !== null) {
         const activity = await client.query(
           `SELECT 1 FROM ballet_activity_completions
@@ -294,6 +286,23 @@ export class PerformanceService implements PerformancePort {
         requirementResult.rows.some((row) => row.stat_value < row.minimum_value)
       ) {
         throw new PerformanceLockedError('STATS');
+      }
+
+      const uniform = await loadAcademyUniformStatus(
+        client,
+        discordUserId,
+        catalog.required_equipped_item_id,
+      );
+      if (!uniform.ready) throw new AcademyUniformRequirementError(uniform);
+
+      if (catalog.required_equipped_item_id !== null) {
+        const item = await client.query(
+          `SELECT 1 FROM wardrobe_equipment
+           WHERE discord_user_id = $1 AND item_id = $2
+           LIMIT 1`,
+          [discordUserId, catalog.required_equipped_item_id],
+        );
+        if (item.rows.length === 0) throw new PerformanceLockedError('EQUIPMENT');
       }
       const currentStats = await this.getStats(client, discordUserId);
       const score = calculatePerformanceScore(statRequirements, currentStats);

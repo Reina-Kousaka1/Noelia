@@ -6,6 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BalletService } from '../../src/ballet/ballet-service.js';
 import { BalletAcademyService } from '../../src/ballet/academy-service.js';
 import {
+  AcademyUniformAlreadyClaimedError,
+  AcademyUniformRequirementError,
   BalletActivityLockedError,
   BalletActivityRequirementError,
   BalletCooldownError,
@@ -64,6 +66,33 @@ import {
 } from '../../src/relationships/errors.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
+
+async function grantAcademyBasics(pool: Pool, discordUserId: string, equip = true): Promise<void> {
+  await pool.query(
+    `INSERT INTO discord_users (discord_user_id) VALUES ($1)
+     ON CONFLICT (discord_user_id) DO NOTHING`,
+    [discordUserId],
+  );
+  const pieces = [
+    ['soft-pink-leotard', 'leotard'],
+    ['cloud-soft-tights', 'tights'],
+    ['classic-ballet-flats', 'shoes'],
+  ] as const;
+  for (const [itemId, slot] of pieces) {
+    await pool.query(
+      `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source)
+       VALUES ($1, $2, 1, 'ADMIN_GRANT') ON CONFLICT (discord_user_id, item_id) DO NOTHING`,
+      [discordUserId, itemId],
+    );
+    if (equip) {
+      await pool.query(
+        `INSERT INTO wardrobe_equipment (discord_user_id, slot, item_id)
+         VALUES ($1, $2, $3) ON CONFLICT (discord_user_id, slot) DO NOTHING`,
+        [discordUserId, slot, itemId],
+      );
+    }
+  }
+}
 
 function testSnowflake(): string {
   const randomHex = randomUUID().replaceAll('-', '').slice(0, 15);
@@ -155,8 +184,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 12,
-        currentVersion: 18,
+        appliedCount: 14,
+        currentVersion: 20,
       });
       await expect(
         upgradePool.query(
@@ -184,7 +213,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 18 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 19 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -424,7 +453,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       expect.objectContaining({
         collectionId: 'first-position',
         ownedItems: 1,
-        totalItems: 8,
+        totalItems: 13,
         complete: false,
       }),
     );
@@ -437,11 +466,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     );
     const escrowed = await collections.listProgress(discordUserId);
     expect(escrowed).toContainEqual(
-      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 8 }),
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 13 }),
     );
     await marketplace.cancel(testSnowflake(), discordUserId, listing.listing.listingId);
     await expect(collections.listProgress(discordUserId)).resolves.toContainEqual(
-      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 8 }),
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 13 }),
     );
   });
 
@@ -452,6 +481,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const ballet = new BalletService(pool, economy);
     const achievements = new AchievementService(pool);
     const discordUserId = testSnowflake();
+    await grantAcademyBasics(pool, discordUserId);
     await economy.credit({
       interactionId: testSnowflake(),
       discordUserId,
@@ -693,6 +723,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const daily = new DailyService(pool, economy);
     const discordUserId = testSnowflake();
     const interactionId = testSnowflake();
+    await grantAcademyBasics(pool, discordUserId);
 
     const firstClaim = await daily.claimDaily(interactionId, discordUserId);
     const replay = await daily.claimDaily(interactionId, discordUserId);
@@ -769,7 +800,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const shop = new ShopService(pool, economy);
     const wardrobe = new WardrobeService(pool);
     const discordUserId = testSnowflake();
-    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [discordUserId]);
+    await grantAcademyBasics(pool, discordUserId);
     await pool.query(
       `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
        VALUES ($1, 600, 7)`,
@@ -795,19 +826,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     );
     await expect(
       ballet.practice(testSnowflake(), discordUserId, 'pointe-practice'),
-    ).rejects.toBeInstanceOf(BalletActivityRequirementError);
-
-    await economy.credit({
-      interactionId: testSnowflake(),
-      discordUserId,
-      amount: 500n,
-      reason: 'DAILY_REWARD',
-    });
-    await shop.purchase(testSnowflake(), discordUserId, 'pearl-pointe-shoes', 1);
-    await wardrobe.equip(discordUserId, 'pearl-pointe-shoes');
-    await expect(
-      ballet.practice(testSnowflake(), discordUserId, 'pointe-practice'),
     ).rejects.toMatchObject({ requirement: 'STATS' });
+
     await pool.query(
       `INSERT INTO ballet_stats (discord_user_id, stat_key)
        VALUES ($1, 'technique')
@@ -819,6 +839,18 @@ integrationDescribe('isolated PostgreSQL integration', () => {
        WHERE discord_user_id = $1 AND stat_key = 'technique'`,
       [discordUserId],
     );
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'pointe-practice'),
+    ).rejects.toBeInstanceOf(AcademyUniformRequirementError);
+
+    await economy.credit({
+      interactionId: testSnowflake(),
+      discordUserId,
+      amount: 500n,
+      reason: 'DAILY_REWARD',
+    });
+    await shop.purchase(testSnowflake(), discordUserId, 'pearl-pointe-shoes', 1);
+    await wardrobe.equip(discordUserId, 'pearl-pointe-shoes');
     const pointe = await ballet.practice(testSnowflake(), discordUserId, 'pointe-practice');
     expect(pointe.stat).toEqual({ key: 'pointe', gain: 3, value: 3 });
 
@@ -846,6 +878,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const ballet = new BalletService(pool, economy);
     const discordUserId = testSnowflake();
     const interactionId = testSnowflake();
+    await grantAcademyBasics(pool, discordUserId);
 
     const results = await Promise.all([
       ballet.practice(interactionId, discordUserId, 'stretching'),
@@ -868,6 +901,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const academy = new BalletAcademyService(pool);
     const discordUserId = testSnowflake();
     await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [discordUserId]);
+    await grantAcademyBasics(pool, discordUserId);
     await pool.query(
       `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
        VALUES ($1, 400, 5)`,
@@ -890,13 +924,134 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
   });
 
+  it('requires equipped permanent Academy basics before a practice reward or cooldown is recorded', async () => {
+    const discordUserId = testSnowflake();
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const wardrobe = new WardrobeService(pool);
+    const presets = new WardrobePresetService(pool);
+    const academy = new BalletAcademyService(pool);
+    await grantAcademyBasics(pool, discordUserId, false);
+
+    const before = await academy.getUniformStatus(discordUserId);
+    expect(before).toMatchObject({ ready: false, rank: { id: 'student' } });
+    expect(before.pieces.filter((piece) => !piece.satisfied)).toHaveLength(3);
+    await expect(
+      ballet.practice(testSnowflake(), discordUserId, 'stretching'),
+    ).rejects.toBeInstanceOf(AcademyUniformRequirementError);
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(0n);
+    await expect(
+      pool.query(
+        'SELECT interaction_id FROM ballet_activity_completions WHERE discord_user_id = $1',
+        [discordUserId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+
+    const claimInteractionId = testSnowflake();
+    const claim = await academy.claimStarterUniform(claimInteractionId, discordUserId);
+    expect(claim).toMatchObject({
+      items: ['Sunday Cotton Leotard', 'Cream Studio Tights', 'Classic Ballet Flats'],
+      replayed: false,
+    });
+    await expect(
+      academy.claimStarterUniform(claimInteractionId, discordUserId),
+    ).resolves.toMatchObject({
+      items: claim.items,
+      replayed: true,
+    });
+    await expect(
+      academy.claimStarterUniform(testSnowflake(), discordUserId),
+    ).rejects.toBeInstanceOf(AcademyUniformAlreadyClaimedError);
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(0n);
+    const preset = await presets.createPreset(testSnowflake(), discordUserId, 'Academy basics');
+    expect(await academy.getUniformStatus(discordUserId)).toMatchObject({
+      ready: true,
+      pointeRequired: false,
+    });
+    const result = await ballet.practice(testSnowflake(), discordUserId, 'stretching');
+    expect(result).toMatchObject({ activityCode: 'stretching', slippersAwarded: 10n });
+
+    await wardrobe.unequip(discordUserId, 'shoes');
+    await wardrobe.unequip(discordUserId, 'tights');
+    await wardrobe.unequip(discordUserId, 'leotard');
+    expect(await academy.getUniformStatus(discordUserId)).toMatchObject({
+      ready: false,
+    });
+    await presets.applyPreset(testSnowflake(), discordUserId, preset.presetId);
+    expect(await academy.getUniformStatus(discordUserId)).toMatchObject({
+      ready: true,
+      look: ['Soft Pink Leotard', 'Cloud-Soft Tights', 'Classic Ballet Flats'],
+    });
+  });
+
+  it('keeps every required beginner uniform role obtainable from permanent level-one catalog entries', async () => {
+    const result = await pool.query<{
+      readonly role: string;
+      readonly available_count: number;
+      readonly minimum_level: number;
+    }>(
+      `SELECT roles.role, count(*)::integer AS available_count,
+              min(item.minimum_ballet_level)::integer AS minimum_level
+       FROM shop_catalog AS item
+       CROSS JOIN LATERAL jsonb_array_elements_text(
+         item.cosmetic_metadata -> 'academy_uniform_roles'
+       ) AS roles(role)
+       WHERE item.active = true AND item.purchasable = true
+         AND item.minimum_ballet_level <= 1
+         AND roles.role = ANY($1::text[])
+       GROUP BY roles.role`,
+      [['academy-leotard', 'academy-tights', 'academy-flat']],
+    );
+    expect(result.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ role: 'academy-leotard', minimum_level: 1 }),
+        expect.objectContaining({ role: 'academy-tights', minimum_level: 1 }),
+        expect.objectContaining({ role: 'academy-flat', minimum_level: 1 }),
+      ]),
+    );
+    expect(result.rows.every((row) => row.available_count > 0)).toBe(true);
+  });
+
+  it('rejects an ununiformed performance before recording its attempt or reward', async () => {
+    const discordUserId = testSnowflake();
+    const economy = new EconomyService(pool);
+    const ballet = new BalletService(pool, economy);
+    const performances = new PerformanceService(pool, economy);
+    await grantAcademyBasics(pool, discordUserId);
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 900, 10)`,
+      [discordUserId],
+    );
+    await pool.query(
+      `INSERT INTO ballet_stats (discord_user_id, stat_key, stat_value) VALUES
+        ($1, 'technique', 50), ($1, 'musicality', 70), ($1, 'performance', 80)`,
+      [discordUserId],
+    );
+    for (const activity of ['class', 'rehearsal', 'performance']) {
+      await ballet.practice(testSnowflake(), discordUserId, activity);
+    }
+    await new WardrobeService(pool).unequip(discordUserId, 'tights');
+    const balanceBefore = await economy.getBalance(discordUserId);
+    await expect(
+      performances.perform(testSnowflake(), discordUserId, 'spring-recital'),
+    ).rejects.toBeInstanceOf(AcademyUniformRequirementError);
+    await expect(economy.getBalance(discordUserId)).resolves.toBe(balanceBefore);
+    await expect(
+      pool.query(
+        'SELECT interaction_id FROM ballet_performance_completions WHERE discord_user_id = $1',
+        [discordUserId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 0 });
+  });
+
   it('records deterministic performances transactionally, replays safely, and enforces cooldowns', async () => {
     const economy = new EconomyService(pool);
     const ballet = new BalletService(pool, economy);
     const performances = new PerformanceService(pool, economy);
     const discordUserId = testSnowflake();
     const interactionId = testSnowflake();
-    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [discordUserId]);
+    await grantAcademyBasics(pool, discordUserId);
     await pool.query(
       `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
        VALUES ($1, 900, 10)`,
@@ -987,7 +1142,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     ).rejects.toBeInstanceOf(PerformanceLockedError);
 
     const primaUserId = testSnowflake();
-    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [primaUserId]);
+    await grantAcademyBasics(pool, primaUserId);
     await pool.query(
       `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
        VALUES ($1, 3400, 35)`,
@@ -1138,6 +1293,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(profile.getProfile(discordUserId)).resolves.toMatchObject({
       balletSlippers: 840n,
       outfit: [expect.objectContaining({ itemId: 'first-class-leotard', slots: ['leotard'] })],
+      academyUniform: { ready: false, look: ['First Class Leotard'] },
       totalCollections: 11,
     });
 

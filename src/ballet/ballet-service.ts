@@ -27,6 +27,8 @@ import type {
 } from './types.js';
 import { BALLET_ACTIVITY_CODES } from './activity-codes.js';
 import { BALLET_STAT_KEYS } from './types.js';
+import { loadAcademyUniformStatus } from './academy-service.js';
+import { AcademyUniformRequirementError } from './errors.js';
 
 const MAX_POSTGRES_BIGINT = 9_223_372_036_854_775_807n;
 
@@ -319,18 +321,6 @@ export class BalletService implements BalletProgressPort {
         throw new BalletActivityLockedError(minimumLevel);
       }
 
-      if (activity.required_equipped_item_id !== null) {
-        const equipment = await client.query(
-          `SELECT 1
-           FROM wardrobe_equipment
-           WHERE discord_user_id = $1 AND item_id = $2
-           LIMIT 1`,
-          [discordUserId, activity.required_equipped_item_id],
-        );
-        if (equipment.rows.length === 0) {
-          throw new BalletActivityRequirementError('EQUIPMENT');
-        }
-      }
       if (activity.required_activity_code !== null) {
         const prerequisite = await client.query(
           `SELECT 1
@@ -355,6 +345,26 @@ export class BalletService implements BalletProgressPort {
       );
       if (statRequirements.rows.some((row) => row.stat_value < row.minimum_value)) {
         throw new BalletActivityRequirementError('STATS');
+      }
+
+      const uniform = await loadAcademyUniformStatus(
+        client,
+        discordUserId,
+        activity.required_equipped_item_id,
+      );
+      if (!uniform.ready) throw new AcademyUniformRequirementError(uniform);
+
+      if (activity.required_equipped_item_id !== null) {
+        const equipment = await client.query(
+          `SELECT 1
+           FROM wardrobe_equipment
+           WHERE discord_user_id = $1 AND item_id = $2
+           LIMIT 1`,
+          [discordUserId, activity.required_equipped_item_id],
+        );
+        if (equipment.rows.length === 0) {
+          throw new BalletActivityRequirementError('EQUIPMENT');
+        }
       }
 
       const latestCompletion = await this.findLatestCompletion(client, discordUserId, activityCode);

@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(18);
+    expect(migrations).toHaveLength(20);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -139,8 +139,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 18,
-      currentVersion: 18,
+      appliedCount: 20,
+      currentVersion: 20,
     });
 
     expect(statements).toContain('BEGIN');

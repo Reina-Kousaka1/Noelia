@@ -62,7 +62,18 @@ describe('ProfileService', () => {
       nextRank: null,
       completedRankCount: 0,
     };
-    const academy = { getProgress: vi.fn().mockResolvedValue(academyProgress) };
+    const academy = {
+      getProgress: vi.fn().mockResolvedValue(academyProgress),
+      getUniformStatus: vi.fn(),
+    };
+    const academyUniform = {
+      rank: academyProgress.currentRank,
+      ready: true,
+      pointeRequired: false,
+      pieces: [],
+      look: ['Soft Pink Leotard', 'Cloud-Soft Tights', 'Classic Ballet Flats'],
+    };
+    academy.getUniformStatus.mockResolvedValue(academyUniform);
     const service = new ProfileService(
       wallet,
       ballet,
@@ -101,6 +112,7 @@ describe('ProfileService', () => {
       featuredAchievement,
       marriage,
       academy: academyProgress,
+      academyUniform,
     });
     expect(wallet.getBalance).toHaveBeenCalledWith(discordUserId);
     expect(ballet.getProgress).toHaveBeenCalledWith(discordUserId);
@@ -109,6 +121,7 @@ describe('ProfileService', () => {
     expect(achievements.getFeatured).toHaveBeenCalledWith(discordUserId);
     expect(relationships.getMarriage).toHaveBeenCalledWith(discordUserId);
     expect(academy.getProgress).toHaveBeenCalledWith(discordUserId);
+    expect(academy.getUniformStatus).toHaveBeenCalledWith(discordUserId);
   });
 
   it('validates the Discord identity before calling domain readers', async () => {
@@ -118,7 +131,7 @@ describe('ProfileService', () => {
     const collections = { listProgress: vi.fn() };
     const achievements = { getFeatured: vi.fn() };
     const relationships = { getMarriage: vi.fn() };
-    const academy = { getProgress: vi.fn() };
+    const academy = { getProgress: vi.fn(), getUniformStatus: vi.fn() };
     const service = new ProfileService(
       wallet,
       ballet,
@@ -139,5 +152,6 @@ describe('ProfileService', () => {
     expect(achievements.getFeatured).not.toHaveBeenCalled();
     expect(relationships.getMarriage).not.toHaveBeenCalled();
     expect(academy.getProgress).not.toHaveBeenCalled();
+    expect(academy.getUniformStatus).not.toHaveBeenCalled();
   });
 });

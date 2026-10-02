@@ -80,7 +80,7 @@ export const profileCommand: SlashCommand = {
       },
       {
         title: NOELIA_COPY.profileTitle,
-        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nAcademy: ${profile.academy.currentRank.title}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
+        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nAcademy: ${profile.academy.currentRank.title} · Uniform ${profile.academyUniform.ready ? 'Ready' : 'Incomplete'}\nAcademy look: ${profile.academyUniform.look.join(', ') || 'Not equipped'}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
       },
     );
     const marriageLine = NOELIA_COPY.profileMarriage(profile.marriage?.partnerUserId ?? null);

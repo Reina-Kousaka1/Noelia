@@ -27,6 +27,23 @@ export const wardrobeCommand: SlashCommand = {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
       },
       {
+        name: 'uniform',
+        description: 'Check or claim your Academy uniform.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP,
+        options: [
+          {
+            name: 'status',
+            description: 'Check your Academy uniform and available pieces.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+          },
+          {
+            name: 'claim',
+            description: 'Claim and equip the one-time Academy starter uniform.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+          },
+        ],
+      },
+      {
         name: 'equip',
         description: 'Equip an item you own.',
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
@@ -189,6 +206,80 @@ export const wardrobeCommand: SlashCommand = {
                 lines.length === 0
                   ? NOELIA_COPY.wardrobeEmpty
                   : `Current outfit\n${lines.join('\n')}`,
+            },
+          ),
+        ],
+      });
+      return;
+    }
+
+    if (subcommand.name === 'uniform' && action.name === 'status') {
+      const academy = services.academy;
+      if (academy === undefined) throw new Error('The Ballet Academy service is not configured.');
+      const status = await academy.getUniformStatus(discordUserId);
+      const lines = status.pieces.map((piece) => {
+        if (piece.satisfied) return `✓ **${piece.label}:** ${piece.equippedItemName} — equipped`;
+        if (piece.ownedAlternatives.length > 0) {
+          return `○ **${piece.label}:** owned, not equipped — ${piece.ownedAlternatives.join(' or ')}`;
+        }
+        return `○ **${piece.label}:** missing — permanent Shop options: ${piece.availableAlternatives.join(' or ') || 'none currently available'}`;
+      });
+      const description = [
+        `Academy rank: **${status.rank.title}** · Uniform: **${status.ready ? 'Ready' : 'Incomplete'}**`,
+        `Required look: leotard, tights, and ${status.pointeRequired ? 'pointe shoes for this activity' : 'ballet flats'}.`,
+        ...lines,
+        `Currently equipped Academy look: ${status.look.join(', ') || 'No tagged uniform pieces equipped.'}`,
+        ...(status.optionalRankAccent === null
+          ? []
+          : [
+              `Optional rank styling: ${status.optionalRankAccent.label} — ${(status.optionalRankAccent.equippedItemName ?? status.optionalRankAccent.ownedAlternatives.join(' or ')) || 'not equipped or owned'} (cosmetic only).`,
+            ]),
+        'Equip owned pieces with `/wardrobe equip`; missing pieces are never purchased automatically.',
+      ].join('\n');
+      await completeCommand(interaction, {
+        embeds: [
+          await personaEmbed(
+            'academy_uniform',
+            { ready: status.ready, rank: status.rank.id },
+            {
+              title: `Academy Uniform · ${status.ready ? 'Ready' : 'Incomplete'}`,
+              description,
+              tone: status.ready ? 'success' : 'warning',
+            },
+          ),
+        ],
+      });
+      return;
+    }
+
+    if (subcommand.name === 'uniform' && action.name === 'claim') {
+      const claimStarterUniform = services.academy?.claimStarterUniform;
+      if (claimStarterUniform === undefined) {
+        throw new Error('The Academy uniform claim service is not configured.');
+      }
+      const result = await claimStarterUniform.call(
+        services.academy,
+        interaction.id,
+        discordUserId,
+      );
+      const displaced =
+        result.replacedItems.length === 0
+          ? ''
+          : ` Replaced existing pieces: ${result.replacedItems.join(', ')}.`;
+      await completeCommand(interaction, {
+        embeds: [
+          await personaEmbed(
+            'academy_uniform_claimed',
+            {
+              item_count: result.items.length,
+              replayed: result.replayed,
+            },
+            {
+              title: 'Academy Starter Uniform',
+              description: result.replayed
+                ? 'Your original uniform claim was safely replayed; no items or changes were duplicated.'
+                : `Claimed and equipped: ${result.items.join(', ')}.${displaced} This one-time starter set was not purchased.`,
+              tone: result.replayed ? 'signature' : 'success',
             },
           ),
         ],

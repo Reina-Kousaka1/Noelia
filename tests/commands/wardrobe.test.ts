@@ -28,6 +28,7 @@ function createServices() {
     shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+    academy: { getProgress: vi.fn(), getUniformStatus: vi.fn() },
     wardrobePresets: {
       clear: vi.fn(),
       listPresets: vi.fn(),
@@ -45,6 +46,7 @@ describe('wardrobe command', () => {
   it('defines outfit clearing and a grouped outfit preset flow', () => {
     expect(wardrobeCommand.definition.options?.map((option) => option.name)).toEqual([
       'view',
+      'uniform',
       'equip',
       'unequip',
       'clear',
@@ -70,6 +72,76 @@ describe('wardrobe command', () => {
     } else {
       throw new Error('Presets must be a grouped slash command.');
     }
+  });
+
+  it('shows equipped versus owned Academy uniform pieces without purchasing anything', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'uniform' },
+    ]);
+    const services = createServices();
+    services.academy.getUniformStatus.mockResolvedValue({
+      rank: { id: 'student', title: 'Studio Student', description: '', requirements: [] },
+      ready: false,
+      pointeRequired: false,
+      pieces: [
+        {
+          slot: 'leotard',
+          label: 'Leotard',
+          satisfied: true,
+          equippedItemName: 'First Class Leotard',
+          ownedAlternatives: ['First Class Leotard'],
+          availableAlternatives: ['First Class Leotard'],
+        },
+        {
+          slot: 'tights',
+          label: 'Ballet tights',
+          satisfied: false,
+          equippedItemName: null,
+          ownedAlternatives: ['Cloud-Soft Tights'],
+          availableAlternatives: ['Cloud-Soft Tights'],
+        },
+        {
+          slot: 'shoes',
+          label: 'Ballet flats',
+          satisfied: false,
+          equippedItemName: null,
+          ownedAlternatives: [],
+          availableAlternatives: ['Classic Ballet Flats'],
+        },
+      ],
+      look: ['First Class Leotard'],
+      optionalRankAccent: null,
+    });
+
+    const commandInteraction = {
+      ...interaction,
+      data: {
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP,
+            name: 'uniform',
+            options: [
+              { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'status' },
+            ],
+          },
+        ],
+      },
+    } as Eris.CommandInteraction;
+    await wardrobeCommand.execute({
+      client: {} as Eris.Client,
+      interaction: commandInteraction,
+      services,
+    });
+
+    expect(services.academy.getUniformStatus).toHaveBeenCalledWith('222222222222222222');
+    expect(services.shop.purchase).not.toHaveBeenCalled();
+    expect(editOriginalMessage).toHaveBeenCalledWith({
+      embeds: [
+        expect.objectContaining({
+          description: expect.stringContaining('owned, not equipped'),
+        }),
+      ],
+    });
   });
 
   it('shows the current outfit publicly', async () => {

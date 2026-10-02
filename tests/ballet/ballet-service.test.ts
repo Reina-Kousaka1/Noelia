@@ -75,6 +75,7 @@ function createBalletService(options?: {
   readonly equipmentRequirementMet?: boolean;
   readonly activityRequirementMet?: boolean;
   readonly statRequirements?: readonly StatRequirementFixture[];
+  readonly uniformReady?: boolean;
 }) {
   const progress = options?.progress ?? { totalXp: 90n, level: 1 };
   const activity = options?.activity ?? {
@@ -121,6 +122,40 @@ function createBalletService(options?: {
     if (sql.startsWith('SELECT completion.discord_user_id')) {
       return {
         rows: options?.existingCompletion === undefined ? [] : [options.existingCompletion],
+      };
+    }
+    if (sql.startsWith('SELECT COALESCE((SELECT level FROM ballet_progress')) {
+      return {
+        rows: [
+          {
+            level: progress.level,
+            completed_activity_codes: [],
+            best_performance_tiers: [],
+            technique: 0,
+            musicality: 0,
+            performance: 0,
+          },
+        ],
+      };
+    }
+    if (sql.startsWith('SELECT item.item_id, item.display_name, item.category')) {
+      return {
+        rows: [
+          ['basic-leotard', 'Leotard', 'academy-leotard'],
+          ['basic-tights', 'Tights', 'academy-tights'],
+          ['basic-flats', 'Ballet Flats', 'academy-flat'],
+          ['pearl-pointe-shoes', 'Pointe Shoes', 'academy-pointe'],
+        ].map(([item_id, display_name, role]) => ({
+          item_id,
+          display_name,
+          category: 'uniform',
+          minimum_ballet_level: 1,
+          academy_uniform_roles: [role],
+          quantity: 1,
+          equipped: options?.uniformReady !== false,
+          purchasable: true,
+          active: true,
+        })),
       };
     }
     if (sql.startsWith('SELECT activity_code, display_name, description, category')) {
@@ -319,9 +354,7 @@ describe('BalletService', () => {
     });
     await expect(
       withoutShoes.service.practice(interactionId, discordUserId, 'pointe-practice'),
-    ).rejects.toMatchObject({
-      requirement: 'EQUIPMENT',
-    });
+    ).rejects.toMatchObject({ requirement: 'EQUIPMENT' });
     expect(withoutShoes.creditWithinTransaction).not.toHaveBeenCalled();
 
     const requiredActivity = createBalletService({
@@ -344,6 +377,25 @@ describe('BalletService', () => {
       requirement: 'PREVIOUS_ACTIVITY',
     });
     expect(requiredActivity.creditWithinTransaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an incomplete outfit before cooldown, completion, XP, stats, or wallet rewards', async () => {
+    const database = createBalletService({ uniformReady: false });
+
+    await expect(
+      database.service.practice(interactionId, discordUserId, 'stretching'),
+    ).rejects.toMatchObject({
+      name: 'AcademyUniformRequirementError',
+      userMessage: expect.stringContaining('Academy uniform required'),
+    });
+    expect(database.creditWithinTransaction).not.toHaveBeenCalled();
+    expect(database.statements.some((sql) => sql.startsWith('SELECT next_available_at'))).toBe(
+      false,
+    );
+    expect(
+      database.statements.some((sql) => sql.startsWith('INSERT INTO ballet_activity_completions')),
+    ).toBe(false);
+    expect(database.statements).toContain('ROLLBACK');
   });
 
   it('enforces level unlocks and rejects unknown activities', async () => {

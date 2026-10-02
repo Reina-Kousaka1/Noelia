@@ -35,7 +35,7 @@ function createServices() {
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     profile: { getProfile: vi.fn() },
-    academy: { getProgress: vi.fn() },
+    academy: { getProgress: vi.fn(), getUniformStatus: vi.fn() },
     persona: { generate: vi.fn().mockResolvedValue(undefined) } as PersonaTextPort,
   };
 }
@@ -72,6 +72,19 @@ describe('ballet command', () => {
         ],
       },
       completedRankCount: 1,
+    });
+    services.academy.getUniformStatus.mockResolvedValue({
+      rank: { id: 'apprentice', title: 'Academy Apprentice', description: '', requirements: [] },
+      ready: false,
+      pointeRequired: false,
+      pieces: [],
+      look: [],
+      optionalRankAccent: {
+        label: 'Apprentice wrap',
+        equippedItemName: null,
+        ownedAlternatives: [],
+        availableAlternatives: [],
+      },
     });
 
     await balletCommand.execute({ client: {} as Eris.Client, interaction, services });

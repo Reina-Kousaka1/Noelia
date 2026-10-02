@@ -31,16 +31,25 @@ export class ProfileService implements ProfilePort {
   public async getProfile(discordUserId: string): Promise<ProfileSummary> {
     assertDiscordSnowflake(discordUserId, 'Discord user ID');
 
-    const [balletSlippers, ballet, outfit, collections, featuredAchievement, marriage, academy] =
-      await Promise.all([
-        this.wallet.getBalance(discordUserId),
-        this.ballet.getProgress(discordUserId),
-        this.wardrobe.getOutfit(discordUserId),
-        this.collections.listProgress(discordUserId),
-        this.achievements.getFeatured(discordUserId),
-        this.relationships.getMarriage(discordUserId),
-        this.academy.getProgress(discordUserId),
-      ]);
+    const [
+      balletSlippers,
+      ballet,
+      outfit,
+      collections,
+      featuredAchievement,
+      marriage,
+      academy,
+      academyUniform,
+    ] = await Promise.all([
+      this.wallet.getBalance(discordUserId),
+      this.ballet.getProgress(discordUserId),
+      this.wardrobe.getOutfit(discordUserId),
+      this.collections.listProgress(discordUserId),
+      this.achievements.getFeatured(discordUserId),
+      this.relationships.getMarriage(discordUserId),
+      this.academy.getProgress(discordUserId),
+      this.academy.getUniformStatus(discordUserId),
+    ]);
 
     return {
       balletSlippers,
@@ -51,6 +60,7 @@ export class ProfileService implements ProfilePort {
       featuredAchievement,
       marriage,
       academy,
+      academyUniform,
     };
   }
 }

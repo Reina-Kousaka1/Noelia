@@ -75,6 +75,7 @@ describe('profile command', () => {
         nextRank: null,
         completedRankCount: 0,
       },
+      academyUniform: { ready: true, look: ['First Class Leotard'] },
     });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
@@ -124,6 +125,7 @@ describe('profile command', () => {
         nextRank: null,
         completedRankCount: 4,
       },
+      academyUniform: { ready: false, look: [] },
     });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });

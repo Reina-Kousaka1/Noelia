@@ -3,6 +3,7 @@ import type { FeaturedAchievement } from '../achievements/types.js';
 import type { WardrobeOutfitItem } from '../wardrobe/types.js';
 import type { MarriageSummary } from '../relationships/types.js';
 import type { BalletAcademyProgress } from '../ballet/academy.js';
+import type { AcademyUniformStatus } from '../ballet/uniform.js';
 
 export interface ProfileSummary {
   readonly balletSlippers: bigint;
@@ -13,6 +14,7 @@ export interface ProfileSummary {
   readonly featuredAchievement: FeaturedAchievement | null;
   readonly marriage: MarriageSummary | null;
   readonly academy: BalletAcademyProgress;
+  readonly academyUniform: AcademyUniformStatus;
 }
 
 export interface ProfilePort {

@@ -1,4 +1,24 @@
 import { ExpectedDomainError } from '../utils/expected-domain-error.js';
+import { formatUniformRequirement } from './uniform.js';
+import type { AcademyUniformStatus } from './uniform.js';
+
+export class AcademyUniformRequirementError extends ExpectedDomainError {
+  public constructor(public readonly status: AcademyUniformStatus) {
+    const userMessage = formatUniformRequirement(status);
+    super(`Academy uniform requirement is not met for ${status.rank.id}.`, userMessage);
+    this.name = 'AcademyUniformRequirementError';
+  }
+}
+
+export class AcademyUniformAlreadyClaimedError extends ExpectedDomainError {
+  public constructor() {
+    super(
+      'The one-time Academy starter uniform was already claimed by this user.',
+      'Your Academy starter uniform has already been claimed. You can still buy and equip other eligible pieces.',
+    );
+    this.name = 'AcademyUniformAlreadyClaimedError';
+  }
+}
 
 export class UnknownBalletActivityError extends ExpectedDomainError {
   public constructor() {
