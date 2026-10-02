@@ -1,6 +1,6 @@
 import * as Eris from 'eris';
 import { EventEmitter } from 'node:events';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { Pool } from 'pg';
 
@@ -53,6 +53,10 @@ function createFakePool(): Pool {
 }
 
 describe('createDiscordRuntime', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('starts and stops Eris with reconnect disabled on shutdown', async () => {
     const client = createFakeClient();
     const createClient = vi.fn(() => client);
@@ -85,6 +89,27 @@ describe('createDiscordRuntime', () => {
 
     await expect(runtime.start()).rejects.toThrow('connection failed');
     expect(client.disconnect).toHaveBeenCalledWith({ reconnect: false });
+  });
+
+  it('keeps one presence timer through reconnects and clears it on shutdown', async () => {
+    vi.useFakeTimers();
+    const client = createFakeClient();
+    const logger = new StructuredLogger();
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
+    vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
+
+    client.emit('ready');
+    client.emit('disconnect');
+    client.emit('ready');
+
+    expect(client.editStatus).toHaveBeenCalledTimes(1);
+    expect(vi.getTimerCount()).toBe(1);
+    vi.advanceTimersByTime(120_000);
+    expect(client.editStatus).toHaveBeenCalledTimes(2);
+
+    await runtime.stop();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('requests privileged AutoMod intents only when their runtime switches are enabled', async () => {
