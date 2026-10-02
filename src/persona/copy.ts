@@ -214,7 +214,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'A gentle pause between classes, voilà.',
   ],
   shop: [
-    'The studio boutique has something lovely waiting.',
+    'A lovely find is waiting, ma chérie.',
     'A little ballet-world treasure, magnifique.',
     'Let’s browse the studio edit, ma chérie.',
   ],

@@ -89,13 +89,15 @@ describe('shop command', () => {
       embeds: [
         expect.objectContaining({
           title: expect.stringContaining(NOELIA_COPY.shopTitle),
-          description: `Page 1/1\n**Satin Ribbon Bow** (\`satin-ribbon-bow\`) — hair accessory · Common · ${formatBalance(80n)} · Ballet level 1+ · First Position`,
+          description: `Page 1/1\n**Satin Ribbon Bow** · ${formatBalance(80n)}\nHair Accessory · Common · Lv. 1+ · First Position`,
         }),
       ],
     });
+    const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
+    expect(response?.embeds?.[0]?.description).not.toContain('satin-ribbon-bow');
   });
 
-  it('paginates the larger catalog and exposes stable item IDs instead of a capped choice list', async () => {
+  it('paginates the larger catalog without exposing stable item IDs', async () => {
     const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
@@ -129,14 +131,60 @@ describe('shop command', () => {
     });
     const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
     const description = response?.embeds?.[0]?.description;
-    expect(description).toContain('catalog-piece-11');
-    expect(description).not.toContain('catalog-piece-1)');
+    expect(description).toContain(
+      `**Catalog Piece 11** · ${formatBalance(80n)}\nHair Accessory · Common · Lv. 1+ · First Position`,
+    );
+    expect(description).toContain(
+      `**Catalog Piece 12** · ${formatBalance(80n)}\nHair Accessory · Common · Lv. 1+ · First Position`,
+    );
+    expect(description).not.toMatch(/catalog-piece-\d+/);
+    expect(description?.match(/\*\*Catalog Piece \d+\*\*/g)).toHaveLength(2);
     const buyOption = shopCommand.definition.options?.find((option) => option.name === 'buy');
     if (buyOption?.type === Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND) {
       expect(buyOption.options?.[0]).not.toHaveProperty('choices');
     } else {
       throw new Error('The buy command must be a slash subcommand.');
     }
+  });
+
+  it('keeps ten items per page and omits missing optional metadata cleanly', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'browse',
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.INTEGER,
+            name: 'page',
+            value: 1,
+          },
+        ],
+      },
+    ]);
+    const services = createServices();
+    services.shop.listItems.mockResolvedValue(
+      Array.from({ length: 11 }, (_, index) => ({
+        ...item,
+        itemId: `catalog-piece-${index + 1}`,
+        displayName: index === 0 ? 'Example Item' : `Catalog Piece ${index + 1}`,
+        category: index === 0 ? 'accessory' : item.category,
+        price: index === 0 ? 120n : item.price,
+        minimumBalletLevel: index === 0 ? null : item.minimumBalletLevel,
+        collection: index === 0 ? null : item.collection,
+      })),
+    );
+
+    await shopCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    const response = vi.mocked(editOriginalMessage).mock.calls[0]?.[0];
+    const description = response?.embeds?.[0]?.description;
+    expect(description).toContain('Page 1/2');
+    expect(description).toContain(`**Example Item** · ${formatBalance(120n)}\nAccessory · Common`);
+    expect(description?.match(/\*\*(?:Example Item|Catalog Piece \d+)\*\*/g)).toHaveLength(10);
+    expect(description).not.toContain('Catalog Piece 11');
+    expect(description).not.toMatch(/catalog-piece-\d+/);
+    expect(description).not.toContain('\n\n');
+    expect(description).not.toMatch(/·\s*·|·\s*$/m);
   });
 
   it('shows stable item details', async () => {

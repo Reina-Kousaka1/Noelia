@@ -12,6 +12,7 @@ import {
   SafePersonaPresenter,
 } from '../../src/persona/presentation.js';
 import type { PersonaGenerator, PersonaTextPort } from '../../src/persona/generator.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 const context = createPersonaContext('ballet', 'practice_complete', {
   activity: 'class',
@@ -149,6 +150,14 @@ describe('persona presentation', () => {
 
     expect(first).not.toBe(second);
     expect(secondRun.render(context, embed.title)).toBe(first);
+  });
+
+  it('keeps the shop fallback from repeating the boutique heading', () => {
+    const shopContext = createPersonaContext('shop', 'browse', { category: 'all' });
+    const title = new DeterministicPersonaFallback().render(shopContext, NOELIA_COPY.shopTitle);
+
+    expect(title).toContain(NOELIA_COPY.shopTitle);
+    expect(title.match(/The studio boutique/g)).toHaveLength(1);
   });
 
   it('uses a gentle uniform reminder without needing persona generation', async () => {
