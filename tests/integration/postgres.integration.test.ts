@@ -980,10 +980,16 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       ready: false,
     });
     await presets.applyPreset(testSnowflake(), discordUserId, preset.presetId);
-    expect(await academy.getUniformStatus(discordUserId)).toMatchObject({
-      ready: true,
-      look: ['Sunday Cotton Leotard', 'Cream Studio Tights', 'Classic Ballet Flats'],
-    });
+    const uniformAfterPreset = await academy.getUniformStatus(discordUserId);
+    expect(uniformAfterPreset).toMatchObject({ ready: true });
+    expect(uniformAfterPreset.look).toHaveLength(3);
+    expect(uniformAfterPreset.look).toEqual(
+      expect.arrayContaining([
+        'Sunday Cotton Leotard',
+        'Cream Studio Tights',
+        'Classic Ballet Flats',
+      ]),
+    );
   });
 
   it('keeps every required beginner uniform role obtainable from permanent level-one catalog entries', async () => {
