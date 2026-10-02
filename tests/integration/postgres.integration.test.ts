@@ -213,7 +213,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 19 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 20 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -408,7 +408,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const memberships = new Set(
       membershipRows.rows.map((row) => `${row.item_id}:${row.collection_id}`),
     );
-    expect(membershipRows.rows).toHaveLength(98);
+    expect(membershipRows.rows).toHaveLength(103);
     for (const item of catalog.rows) {
       expect(SHOP_CATEGORIES).toContain(item.category);
       expect(SHOP_RARITIES).toContain(item.rarity);
@@ -769,6 +769,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const ballet = new BalletService(pool, economy);
     const discordUserId = testSnowflake();
     const interactionId = testSnowflake();
+    await grantAcademyBasics(pool, discordUserId);
 
     const firstPractice = await ballet.practice(interactionId, discordUserId, 'stretching');
     const replay = await ballet.practice(interactionId, discordUserId, 'stretching');
@@ -853,6 +854,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await wardrobe.equip(discordUserId, 'pearl-pointe-shoes');
     const pointe = await ballet.practice(testSnowflake(), discordUserId, 'pointe-practice');
     expect(pointe.stat).toEqual({ key: 'pointe', gain: 3, value: 3 });
+    await wardrobe.equip(discordUserId, 'classic-ballet-flats');
 
     await expect(
       ballet.practice(testSnowflake(), discordUserId, 'choreography'),
@@ -980,7 +982,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await presets.applyPreset(testSnowflake(), discordUserId, preset.presetId);
     expect(await academy.getUniformStatus(discordUserId)).toMatchObject({
       ready: true,
-      look: ['Soft Pink Leotard', 'Cloud-Soft Tights', 'Classic Ballet Flats'],
+      look: ['Sunday Cotton Leotard', 'Cream Studio Tights', 'Classic Ballet Flats'],
     });
   });
 
@@ -1162,11 +1164,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
     const shop = new ShopService(pool, economy);
     const wardrobe = new WardrobeService(pool);
-    await shop.purchase(testSnowflake(), primaUserId, 'pearl-pointe-shoes', 1);
-    await wardrobe.equip(primaUserId, 'pearl-pointe-shoes');
     for (const activity of ['class', 'rehearsal', 'performance', 'audition']) {
       await ballet.practice(testSnowflake(), primaUserId, activity);
     }
+    await shop.purchase(testSnowflake(), primaUserId, 'pearl-pointe-shoes', 1);
+    await wardrobe.equip(primaUserId, 'pearl-pointe-shoes');
     const primaResult = await performances.perform(testSnowflake(), primaUserId, 'prima-audition');
     expect(primaResult).toMatchObject({ score: 100, tier: 'PRIMA' });
     await expect(new AchievementService(pool).list(primaUserId)).resolves.toContainEqual(
