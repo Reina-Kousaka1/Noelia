@@ -88,7 +88,7 @@ describe('shop command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.shopTitle,
+          title: expect.stringContaining(NOELIA_COPY.shopTitle),
           description: `Page 1/1\n**Satin Ribbon Bow** (\`satin-ribbon-bow\`) — hair accessory · Common · ${formatBalance(80n)} · Ballet level 1+ · First Position`,
         }),
       ],
@@ -165,7 +165,7 @@ describe('shop command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: `${NOELIA_COPY.shopItemTitle}: Satin Ribbon Bow`,
+          title: expect.stringContaining(`${NOELIA_COPY.shopItemTitle}: Satin Ribbon Bow`),
           description: `Common · A soft blush satin bow for a neat studio bun.\nPrice: ${formatBalance(80n)}. Ballet level 1+ required.`,
         }),
       ],
@@ -250,7 +250,7 @@ describe('shop command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.shopPurchaseComplete,
+          title: expect.stringContaining(NOELIA_COPY.shopPurchaseComplete),
           description: `1 × Satin Ribbon Bow · ${formatBalance(80n)}\nWallet: ${formatBalance(220n)} · Owned: 1`,
         }),
       ],

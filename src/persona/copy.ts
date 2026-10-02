@@ -100,6 +100,152 @@ export const NOELIA_COPY = {
   marriageCancelButton: 'Cancel proposal',
 } as const;
 
+export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]>> = {
+  'ballet:status_view': [
+    'A little progress, très bien.',
+    'Your ballet work is finding its line.',
+    'Soft focus, stronger technique — voilà.',
+  ],
+  'ballet:academy_view': [
+    'Bienvenue to the Academy, ma chérie.',
+    'Magnifique — your work at the barre is showing.',
+    'Your Academy path is taking shape, one class at a time.',
+  ],
+  'ballet:activities_view': [
+    'Shall we begin at the barre, ma chérie?',
+    'Choose your next class, doucement.',
+    'A good day for a careful tendu.',
+  ],
+  'ballet:practice_complete': [
+    'Très bien — your work at the barre is showing.',
+    'A calm, careful class — and a little more poise.',
+    'A lovely plié today; your line is growing.',
+    'Magnifique — every tendu brought you forward.',
+  ],
+  'ballet:practice_replayed': [
+    'Voilà — that practice is safely recorded.',
+    'Your studio note is already in place, très bien.',
+    'No extra pirouettes needed; the practice is already saved.',
+  ],
+  'performance:attempt_complete': [
+    'Take your bow, ma chérie — the stage is yours.',
+    'A lovely moment under the lights.',
+    'And that is your curtain call, voilà.',
+    'A graceful finish, your practice on display.',
+  ],
+  'performance:attempt_replayed': [
+    'Voilà — your stage notes are safely recorded.',
+    'That curtain call is already in the book, ma chérie.',
+    'Your performance is noted; take a little bow.',
+  ],
+  'performance:browse': [
+    'The stage is waiting; choose your moment.',
+    'A little curtain call, bien sûr.',
+    'Which performance shall we take to the lights?',
+  ],
+  'performance:history_view': [
+    'A few stage moments to keep, ma chérie.',
+    'Your recital notes, gathered in one place.',
+    'Voilà — every performance leaves a little glow.',
+  ],
+  'wardrobe:academy_uniform:ready': [
+    'Parfait — your Academy uniform is ready for class.',
+    'Your studio basics are in place, très bien.',
+    'Ready for class, with a lovely line.',
+  ],
+  'wardrobe:academy_uniform:missing': [
+    'Doucement, ma chérie — the Academy look needs its required pieces.',
+    'A gentle studio reminder: your uniform is not ready yet.',
+    'Let’s finish your Academy basics before class, doucement.',
+  ],
+  'wardrobe:academy_uniform_claimed': [
+    'Voilà — your starter uniform is ready to wear.',
+    'One lovely studio set, ready for class.',
+    'Parfait — your Academy basics are in place.',
+  ],
+  'daily:claim_complete': [
+    'Bonjour — a little reward for showing up.',
+    'A little studio sparkle for your day, voilà.',
+    'A soft reward for today’s effort.',
+  ],
+  'daily:claim_replayed': [
+    'Your daily studio note is already in place, voilà.',
+    'That little reward is safely recorded, ma chérie.',
+    'No second claim needed; it is already yours.',
+  ],
+  'shop:collections_view': [
+    'A pretty collection of studio dreams, ma chérie.',
+    'Magnifique — let’s see what the boutique holds.',
+    'Every collection has its own little story.',
+  ],
+  'shop:purchase_complete': [
+    'Voilà — a new piece for your studio look.',
+    'Très bien, a lovely piece is yours.',
+    'A new boutique find for your studio look.',
+  ],
+  'shop:purchase_replayed': [
+    'Already yours; no second checkout needed, voilà.',
+    'That purchase is safely recorded, très bien.',
+    'Your boutique note is already in place, ma chérie.',
+  ],
+  ballet: [
+    'Back to the barre, doucement.',
+    'A little poise goes a long way, ma chérie.',
+    'Très bien — let’s keep a graceful rhythm.',
+  ],
+  performance: [
+    'The stage is yours, ma chérie.',
+    'A graceful line, then take your bow.',
+    'Voilà — a little theatre suits the studio.',
+  ],
+  wardrobe: [
+    'Your studio look is coming together, ma chérie.',
+    'A little styling, a little port de bras.',
+    'Soft details, balanced with a graceful line.',
+  ],
+  profile: [
+    'Your ballet journey is taking shape, one class at a time.',
+    'Look at that progress — graceful work, bravo.',
+    'A proud little moment at the barre.',
+  ],
+  daily: [
+    'A little studio moment for your day.',
+    'Bonjour — glad you stopped by.',
+    'A gentle pause between classes, voilà.',
+  ],
+  shop: [
+    'The studio boutique has something lovely waiting.',
+    'A little ballet-world treasure, magnifique.',
+    'Let’s browse the studio edit, ma chérie.',
+  ],
+  inventory: [
+    'Your little keepsakes, all in one place.',
+    'Every piece tells a small studio story, voilà.',
+    'A lovely collection, ma chérie.',
+  ],
+  achievements: [
+    'Bravo — each little milestone matters.',
+    'Your studio effort is adding up, magnifique.',
+    'A gold-star kind of day at the barre.',
+  ],
+  market: [
+    'A friendly studio exchange, voilà.',
+    'Let’s find your piece a new home.',
+    'A little give-and-take between studio friends, ma chérie.',
+  ],
+  help: [
+    'Bienvenue — I’ll show you around the studio.',
+    'Need a hand? Your studio guide is right here.',
+    'Let’s find the right command, doucement.',
+  ],
+  balance: [
+    'A little Ballet Slippers check, voilà.',
+    'Your slippers are right where they should be.',
+    'Every ballet dream needs a slipper or two.',
+  ],
+  ping: ['Oui — right here.', 'Bonjour!', 'At the barre, still here.'],
+};
+
 export const NOELIA_PRESENCE = [
   'At the barre, finding my balance',
   'Tying a satin ribbon before class',

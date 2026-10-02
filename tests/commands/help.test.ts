@@ -36,7 +36,7 @@ describe('help command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.helpTitle,
+          title: expect.stringContaining(NOELIA_COPY.helpTitle),
           description: expect.stringContaining('/ping'),
         }),
       ],

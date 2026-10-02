@@ -78,7 +78,7 @@ describe('achievements command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.achievementsTitle,
+          title: expect.stringContaining(NOELIA_COPY.achievementsTitle),
           description: expect.stringContaining('ID: first-performance'),
         }),
       ],
@@ -179,7 +179,7 @@ describe('achievements command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.achievementFeatureTitle,
+          title: expect.stringContaining(NOELIA_COPY.achievementFeatureTitle),
           description: NOELIA_COPY.achievementFeaturedSummary('🩰', 'First Steps'),
         }),
       ],

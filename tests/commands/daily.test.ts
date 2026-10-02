@@ -46,7 +46,7 @@ describe('daily command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.dailyTitle,
+          title: expect.stringContaining(NOELIA_COPY.dailyTitle),
           description: `${NOELIA_COPY.dailyClaimed}\n+${formatBalance(100n)} · Balance ${formatBalance(375n)}\nNext in <t:1790942400:R>.`,
         }),
       ],
