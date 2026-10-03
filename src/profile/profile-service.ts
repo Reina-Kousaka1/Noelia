@@ -6,6 +6,7 @@ import type { WardrobePort } from '../wardrobe/types.js';
 import type { ProfilePort, ProfileSummary } from './types.js';
 import type { RelationshipPort } from '../relationships/types.js';
 import type { BalletAcademyPort } from '../ballet/academy-service.js';
+import type { KnowledgePort } from '../knowledge/types.js';
 
 export interface ProfileWalletPort {
   getBalance(discordUserId: string): Promise<bigint>;
@@ -16,6 +17,7 @@ export type ProfileWardrobePort = Pick<WardrobePort, 'getOutfit'>;
 export type ProfileCollectionPort = Pick<CollectionPort, 'listProgress'>;
 export type ProfileAchievementPort = Pick<AchievementPort, 'getFeatured'>;
 export type ProfileRelationshipPort = Pick<RelationshipPort, 'getMarriage'>;
+export type ProfileKnowledgePort = Pick<KnowledgePort, 'getProgress'>;
 
 export class ProfileService implements ProfilePort {
   public constructor(
@@ -26,6 +28,7 @@ export class ProfileService implements ProfilePort {
     private readonly achievements: ProfileAchievementPort,
     private readonly relationships: ProfileRelationshipPort,
     private readonly academy: BalletAcademyPort,
+    private readonly knowledge: ProfileKnowledgePort,
   ) {}
 
   public async getProfile(discordUserId: string): Promise<ProfileSummary> {
@@ -40,6 +43,7 @@ export class ProfileService implements ProfilePort {
       marriage,
       academy,
       academyUniform,
+      knowledge,
     ] = await Promise.all([
       this.wallet.getBalance(discordUserId),
       this.ballet.getProgress(discordUserId),
@@ -49,6 +53,7 @@ export class ProfileService implements ProfilePort {
       this.relationships.getMarriage(discordUserId),
       this.academy.getProgress(discordUserId),
       this.academy.getUniformStatus(discordUserId),
+      this.knowledge.getProgress(discordUserId),
     ]);
 
     return {
@@ -61,6 +66,7 @@ export class ProfileService implements ProfilePort {
       marriage,
       academy,
       academyUniform,
+      knowledge,
     };
   }
 }

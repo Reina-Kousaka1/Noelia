@@ -5,9 +5,10 @@
 - **Implemented:** existing Ballet practice, stats, deterministic stage
   performance, canonical derived 18-stage Academy curriculum, uniform policy,
   wallet/shop/inventory, profile aggregation, safe bounded persona, separate
-  relationships, and fictional Academy-history copy.
-- **In development / follow-up:** persisted stage assessments, Knowledge
-  courses, expanded practical exercises and Preparation, auditable stochastic
+  relationships, fictional Academy-history copy, and Knowledge V1 with eight
+  starter lessons and profile aggregation.
+- **In development / follow-up:** persisted stage assessments, expanded
+  Knowledge courses, practical exercises and Preparation, auditable stochastic
   performance outcomes, Stamina cycles, persistent Madame Mood/Patience,
   corrective training, central settings, optional fictional character age,
   broader wardrobe categories, and pets.

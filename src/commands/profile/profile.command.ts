@@ -58,6 +58,18 @@ export const profileCommand: SlashCommand = {
             profile.featuredAchievement.badgeMark,
             profile.featuredAchievement.displayName,
           );
+    const knowledgePoints = profile.knowledge.domains.reduce(
+      (total, domain) => total + domain.points,
+      0,
+    );
+    const completedKnowledgeLessons = profile.knowledge.domains.reduce(
+      (total, domain) => total + domain.completedLessons,
+      0,
+    );
+    const totalKnowledgeLessons = profile.knowledge.domains.reduce(
+      (total, domain) => total + domain.totalLessons,
+      0,
+    );
 
     const embed = await personaEmbed(
       'progress_view',
@@ -80,7 +92,7 @@ export const profileCommand: SlashCommand = {
       },
       {
         title: NOELIA_COPY.profileTitle,
-        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nAcademy: ${profile.academy.currentRank.title} · Uniform ${profile.academyUniform.ready ? 'Ready' : 'Incomplete'}\nAcademy look: ${profile.academyUniform.look.join(', ') || 'Not equipped'}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
+        description: `Ballet Level ${profile.ballet.level} · ${formatInteger(profile.ballet.totalXp)} XP · ${nextLevel}\nAcademy: ${profile.academy.currentRank.title} · Uniform ${profile.academyUniform.ready ? 'Ready' : 'Incomplete'}\nKnowledge: ${knowledgePoints} points · ${completedKnowledgeLessons}/${totalKnowledgeLessons} lessons\nAcademy look: ${profile.academyUniform.look.join(', ') || 'Not equipped'}\nBallet Slippers: ${formatBalance(profile.balletSlippers)}\n${stats}\n${NOELIA_COPY.currentLook}\n${outfit}\n${NOELIA_COPY.profileCollectionProgress(profile.completedCollections, profile.totalCollections)}\n${featuredAchievement}`,
       },
     );
     const marriageLine = NOELIA_COPY.profileMarriage(profile.marriage?.partnerUserId ?? null);

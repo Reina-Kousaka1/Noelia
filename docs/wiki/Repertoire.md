@@ -1,7 +1,8 @@
 # Repertoire
 
-**Status: Existing practice/performance activities implemented; dedicated study track planned.**
+**Status: Existing practice/performance activities and a starter study lesson implemented; expanded study track planned.**
 
 Rehearsal, Choreography, Audition, Recital, and Showcase already exist in
 Ballet gameplay. A future repertoire course may add works, roles, variations,
-and interpretation. Do not present unimplemented study lessons as available.
+and interpretation. `/learn` currently has one introductory repertoire-study
+lesson; do not present unimplemented expanded courses as available.

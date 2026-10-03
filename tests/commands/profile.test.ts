@@ -76,6 +76,17 @@ describe('profile command', () => {
         completedRankCount: 0,
       },
       academyUniform: { ready: true, look: ['First Class Leotard'] },
+      knowledge: {
+        domains: [
+          {
+            domain: 'ballet_french',
+            domainName: 'Ballet French',
+            points: 5,
+            completedLessons: 1,
+            totalLessons: 1,
+          },
+        ],
+      },
     });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });
@@ -86,6 +97,7 @@ describe('profile command', () => {
     const description = response?.embeds?.[0]?.description;
     expect(description).toContain('Ballet Level 3');
     expect(description).toContain('Academy: Studio Student');
+    expect(description).toContain('Knowledge: 5 points · 1/1 lessons');
     expect(description).toContain('Technique 10 · Flexibility 20 · Musicality 30');
     expect(description).toContain('Performance 40 · Pointe 5 · Stamina 6');
     expect(description).toContain('Satin Ribbon Bow');
@@ -126,6 +138,7 @@ describe('profile command', () => {
         completedRankCount: 4,
       },
       academyUniform: { ready: false, look: [] },
+      knowledge: { domains: [] },
     });
 
     await profileCommand.execute({ client: {} as Eris.Client, interaction, services });

@@ -4,6 +4,7 @@ import type { WardrobeOutfitItem } from '../wardrobe/types.js';
 import type { MarriageSummary } from '../relationships/types.js';
 import type { BalletAcademyProgress } from '../ballet/academy.js';
 import type { AcademyUniformStatus } from '../ballet/uniform.js';
+import type { KnowledgeProgress } from '../knowledge/types.js';
 
 export interface ProfileSummary {
   readonly balletSlippers: bigint;
@@ -15,6 +16,7 @@ export interface ProfileSummary {
   readonly marriage: MarriageSummary | null;
   readonly academy: BalletAcademyProgress;
   readonly academyUniform: AcademyUniformStatus;
+  readonly knowledge: KnowledgeProgress;
 }
 
 export interface ProfilePort {

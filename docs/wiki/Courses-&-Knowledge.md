@@ -1,9 +1,12 @@
 # Courses & Knowledge
 
-**Status: Planned.**
+**Status: Knowledge V1 implemented; larger curriculum in development.**
 
-Knowledge will remain distinct from Ballet XP, with lessons, progress,
-assessment/quiz attempts, completion, and idempotent rewards. Domains will
-include Musicality, Ballet French, Ballet Theory, Ballet History, French
+`/learn browse`, `/learn read`, `/learn answer`, and `/learn progress` support
+eight domains: Musicality, Ballet French, Ballet Theory, Ballet History, French
 History & Culture, Academy History, Repertoire Studies, and Academy Etiquette.
-No course or knowledge reward is currently represented as live gameplay.
+Each currently has one short multiple-choice lesson. Correct completion awards
+centralized Knowledge points; wrong attempts may be retried. Attempts and
+completions are recorded transactionally and replay-safe under the Discord
+interaction ID. Knowledge is distinct from Ballet XP, currency, and stats.
+More lessons and Knowledge-based Academy assessments are planned.

@@ -41,6 +41,8 @@ import { ModerationService } from '../moderation/moderation-service.js';
 import { AutomodService } from '../automod/automod-service.js';
 import { AutomodEngine } from '../automod/engine.js';
 import { automodCommand } from '../commands/automod/automod.command.js';
+import { KnowledgeService } from '../knowledge/knowledge-service.js';
+import { learnCommand } from '../commands/learn/learn.command.js';
 import { CommandRegistry, synchronizeApplicationCommands } from '../commands/registry.js';
 import { InteractionRouter } from '../interactions/interaction-router.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
@@ -88,6 +90,7 @@ export function createDiscordRuntime(
   const relationships = new RelationshipService(pool);
   const moderation = new ModerationService(pool);
   const automod = new AutomodService(pool);
+  const knowledge = new KnowledgeService(pool);
   const automodEngine = new AutomodEngine();
   const profile = new ProfileService(
     economy,
@@ -97,6 +100,7 @@ export function createDiscordRuntime(
     achievements,
     relationships,
     academy,
+    knowledge,
   );
   const personaGenerator = config.persona.generationEnabled
     ? new ChatCompletionsPersonaGenerator({
@@ -137,6 +141,7 @@ export function createDiscordRuntime(
     marriageCommand,
     divorceCommand,
     automodCommand,
+    learnCommand,
   ];
   const commands = [...coreCommands, ...moderationCommands];
   const registry = new CommandRegistry([...commands, createHelpCommand(commands)]);
@@ -158,6 +163,7 @@ export function createDiscordRuntime(
     relationships,
     moderation,
     automod,
+    knowledge,
     automodRuntime: {
       messageScanningEnabled: config.automod.messageScanningEnabled,
       joinMonitoringEnabled: config.automod.joinMonitoringEnabled,

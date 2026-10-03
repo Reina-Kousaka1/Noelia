@@ -11,13 +11,13 @@ transfer and are not published to that repository.
 | [[Training & Preparation]]     | Training implemented; preparation planned                  |
 | [[Skills & Stamina]]           | Existing Ballet stats implemented; cycle system planned    |
 | [[Performance & RNG]]          | Deterministic performance implemented; RNG engine planned  |
-| [[Courses & Knowledge]]        | Planned                                                    |
-| [[Ballet French]]              | Planned                                                    |
-| [[Ballet Theory]]              | Planned                                                    |
-| [[Ballet History]]             | Planned                                                    |
-| [[French History & Culture]]   | Planned                                                    |
-| [[Academy History]]            | Fictional lore content implemented; lessons planned        |
-| [[Repertoire]]                 | Existing activities implemented; study track planned       |
+| [[Courses & Knowledge]]        | Knowledge V1 implemented — one starter lesson per domain   |
+| [[Ballet French]]              | Starter lesson implemented; more lessons planned           |
+| [[Ballet Theory]]              | Starter lesson implemented; more lessons planned           |
+| [[Ballet History]]             | Starter lesson implemented; more lessons planned           |
+| [[French History & Culture]]   | Starter lesson implemented; more lessons planned           |
+| [[Academy History]]            | Fictional lore and starter lesson implemented              |
+| [[Repertoire]]                 | Existing activities and one study lesson implemented       |
 | [[Madame Noélia]]              | Safe presentation implemented; teacher state planned       |
 | [[Assessments & Promotions]]   | Planned                                                    |
 | [[Wardrobe & Equipment]]       | Uniform/equipment implemented; broader wardrobe V2 planned |

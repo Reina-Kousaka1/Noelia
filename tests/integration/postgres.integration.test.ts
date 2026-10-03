@@ -23,6 +23,8 @@ import {
   InsufficientBalletSlippersError,
 } from '../../src/economy/errors.js';
 import { createIsolatedTestPool } from '../support/test-database.js';
+import { KnowledgeService } from '../../src/knowledge/knowledge-service.js';
+import { KnowledgeIdempotencyConflictError } from '../../src/knowledge/errors.js';
 import { AchievementNotUnlockedError } from '../../src/achievements/errors.js';
 import { AchievementService } from '../../src/achievements/achievement-service.js';
 import {
@@ -926,6 +928,66 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     });
   });
 
+  it('awards Knowledge once, stores wrong answers, and serializes concurrent lesson completions', async () => {
+    const knowledge = new KnowledgeService(pool);
+    const discordUserId = testSnowflake();
+    const wrongInteractionId = testSnowflake();
+    const completionIds = [testSnowflake(), testSnowflake()] as const;
+
+    const wrong = await knowledge.answer(
+      wrongInteractionId,
+      discordUserId,
+      'ballet-french-plie-01',
+      'a',
+    );
+    expect(wrong).toMatchObject({ outcome: 'INCORRECT', pointsAwarded: 0, pointsAfter: 0 });
+    await expect(
+      knowledge.answer(wrongInteractionId, discordUserId, 'ballet-french-plie-01', 'b'),
+    ).rejects.toBeInstanceOf(KnowledgeIdempotencyConflictError);
+    await expect(
+      knowledge.answer(wrongInteractionId, testSnowflake(), 'ballet-french-plie-01', 'a'),
+    ).rejects.toBeInstanceOf(KnowledgeIdempotencyConflictError);
+
+    const concurrentResults = await Promise.all(
+      completionIds.map((interactionId) =>
+        knowledge.answer(interactionId, discordUserId, 'ballet-french-plie-01', 'b'),
+      ),
+    );
+    expect(concurrentResults.map((result) => result.outcome).sort()).toEqual([
+      'ALREADY_COMPLETED',
+      'CORRECT',
+    ]);
+    expect(concurrentResults.reduce((total, result) => total + result.pointsAwarded, 0)).toBe(5);
+
+    const firstCompletionId = completionIds[0];
+    if (firstCompletionId === undefined) throw new Error('The lesson completion ID is missing.');
+    const replay = await knowledge.answer(
+      firstCompletionId,
+      discordUserId,
+      'ballet-french-plie-01',
+      'b',
+    );
+    expect(replay).toMatchObject({
+      outcome: 'CORRECT',
+      pointsAwarded: 5,
+      pointsAfter: 5,
+      replayed: true,
+    });
+    await expect(knowledge.getProgress(discordUserId)).resolves.toMatchObject({
+      domains: expect.arrayContaining([
+        expect.objectContaining({
+          domain: 'ballet_french',
+          points: 5,
+          completedLessons: 1,
+          totalLessons: 1,
+        }),
+      ]),
+    });
+    await expect(knowledge.listLessons(discordUserId, 'ballet_french')).resolves.toMatchObject([
+      { lessonId: 'ballet-french-plie-01', completed: true },
+    ]);
+  });
+
   it('requires equipped permanent Academy basics before a practice reward or cooldown is recorded', async () => {
     const discordUserId = testSnowflake();
     const economy = new EconomyService(pool);
@@ -1249,6 +1311,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       achievements,
       relationships,
       academy,
+      new KnowledgeService(pool),
     );
     const marketplace = new MarketplaceService(pool, economy);
     await economy.credit({

@@ -15,6 +15,7 @@ import type { PersonaTextPort } from '../persona/generator.js';
 import type { RelationshipPort } from '../relationships/types.js';
 import type { ModerationPort } from '../moderation/moderation-types.js';
 import type { AutomodPort } from '../automod/types.js';
+import type { KnowledgePort } from '../knowledge/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -48,6 +49,7 @@ export interface CommandServices {
   readonly relationships?: RelationshipPort;
   readonly moderation?: ModerationPort;
   readonly automod?: AutomodPort;
+  readonly knowledge?: KnowledgePort;
   readonly automodRuntime?: {
     readonly messageScanningEnabled: boolean;
     readonly joinMonitoringEnabled: boolean;

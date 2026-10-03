@@ -99,11 +99,21 @@ be centralized. No cycle state or migration is implemented in this block.
 
 ## Knowledge and courses
 
-**Planned:** independently persisted knowledge domains: Musicality, Ballet
+**Implemented (Knowledge V1):** eight separate domains—Musicality, Ballet
 French, Ballet Theory, Ballet History, French History & Culture, Academy
-History, Repertoire Studies, and Academy Etiquette. Lessons, quiz attempts,
-completion and rewards need idempotent PostgreSQL transactions. Knowledge is
-not Ballet XP and does not automatically grant stat bonuses.
+History, Repertoire Studies, and Academy Etiquette—with one starter lesson per
+domain. `/learn browse`, `/learn read`, `/learn answer`, and `/learn progress`
+provide the initial workflow. A correct first answer grants centralized
+Knowledge points; wrong answers can be retried without a penalty. Each attempt
+is keyed by Discord interaction ID and recorded transactionally. Completion
+history is append-only; domain points are derived from completed lessons, not a
+second mutable counter. `/profile` aggregates Knowledge read-only. Migration
+021 is additive. XP, wallet/currency, and Ballet stats are not changed by
+lessons.
+
+**Planned:** larger course catalogs, richer interactions, assessments, and
+using Knowledge evidence in future Academy assessments/promotions. Current
+reward and lesson count are initial defaults, not final curriculum balance.
 
 **Implemented (content only):** `src/ballet/academy-history.ts` contains seven
 fictional Academy-history chapters. It is separate from gameplay rules and is
@@ -171,18 +181,20 @@ no level-999 continuation.
   forward-only.
 - Production databases are never used for development tests or migration runs.
 
-No database migration was needed for the canonical derived curriculum and lore
-content in this block.
+The canonical derived curriculum and fictional-history content needed no
+database migration. Knowledge V1 adds only migration 021; migrations 001–020
+remain immutable.
 
 ## Testing strategy
 
 Unit tests cover stage ordering, combined evidence requirements, entry-stage
-semantics, advanced pointe gating, Solo Seal’s terminal boundary, and fictional
-history content. PostgreSQL integration tests cover query-backed progression
-and transactional gameplay; they run only with an explicitly isolated test
-database. The full quality gate is `npm run check`; in constrained Windows
-workers the equivalent Vitest invocation may disable isolate/file parallelism
-without changing test assertions.
+semantics, advanced pointe gating, Solo Seal’s terminal boundary, fictional
+history content, lesson validation, and command rendering. PostgreSQL
+integration tests cover query-backed progression, concurrent duplicate lesson
+completion, incorrect answers, and replay; they run only with an explicitly
+isolated test database. The full quality gate is `npm run check`; in constrained
+Windows workers the equivalent Vitest invocation may disable isolate/file
+parallelism without changing test assertions.
 
 ## TBD balancing and follow-up blocks
 
@@ -192,5 +204,6 @@ without changing test assertions.
 - Teacher mood durations, patience changes, corrective caps.
 - Pet needs/decay and optional social encouragement parameters.
 - Settings hierarchy and privacy defaults.
-- Lesson catalog, course unlocks, quizzes, and promotion integration.
+- More lesson content, course unlocks, and Knowledge-based promotion/assessment
+  integration.
 - Wiki transfer and any product-release status.

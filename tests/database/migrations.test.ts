@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(20);
+    expect(migrations).toHaveLength(21);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -124,6 +124,13 @@ describe('PostgreSQL migrations', () => {
     });
     expect(migrations[17]?.sql).toContain('CREATE TABLE ballet_activity_stat_requirements');
     expect(migrations[17]?.sql).toContain("'prima-star'");
+    expect(migrations[20]).toMatchObject({
+      version: 21,
+      name: 'academy_knowledge_v1',
+    });
+    expect(migrations[20]?.sql).toContain('CREATE TABLE academy_lesson_attempts');
+    expect(migrations[20]?.sql).toContain('CREATE TABLE academy_lesson_completions');
+    expect(migrations[20]?.sql).toContain('academy_lesson_completions_valid_attempt');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -139,8 +146,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 20,
-      currentVersion: 20,
+      appliedCount: 21,
+      currentVersion: 21,
     });
 
     expect(statements).toContain('BEGIN');

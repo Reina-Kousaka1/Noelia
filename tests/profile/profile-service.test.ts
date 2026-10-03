@@ -74,6 +74,18 @@ describe('ProfileService', () => {
       look: ['Soft Pink Leotard', 'Cloud-Soft Tights', 'Classic Ballet Flats'],
     };
     academy.getUniformStatus.mockResolvedValue(academyUniform);
+    const knowledgeProgress = {
+      domains: [
+        {
+          domain: 'ballet_french' as const,
+          domainName: 'Ballet French',
+          points: 5,
+          completedLessons: 1,
+          totalLessons: 1,
+        },
+      ],
+    };
+    const knowledge = { getProgress: vi.fn().mockResolvedValue(knowledgeProgress) };
     const service = new ProfileService(
       wallet,
       ballet,
@@ -82,6 +94,7 @@ describe('ProfileService', () => {
       achievements,
       relationships,
       academy,
+      knowledge,
     );
 
     await expect(service.getProfile(discordUserId)).resolves.toEqual({
@@ -113,6 +126,7 @@ describe('ProfileService', () => {
       marriage,
       academy: academyProgress,
       academyUniform,
+      knowledge: knowledgeProgress,
     });
     expect(wallet.getBalance).toHaveBeenCalledWith(discordUserId);
     expect(ballet.getProgress).toHaveBeenCalledWith(discordUserId);
@@ -122,6 +136,7 @@ describe('ProfileService', () => {
     expect(relationships.getMarriage).toHaveBeenCalledWith(discordUserId);
     expect(academy.getProgress).toHaveBeenCalledWith(discordUserId);
     expect(academy.getUniformStatus).toHaveBeenCalledWith(discordUserId);
+    expect(knowledge.getProgress).toHaveBeenCalledWith(discordUserId);
   });
 
   it('validates the Discord identity before calling domain readers', async () => {
@@ -132,6 +147,7 @@ describe('ProfileService', () => {
     const achievements = { getFeatured: vi.fn() };
     const relationships = { getMarriage: vi.fn() };
     const academy = { getProgress: vi.fn(), getUniformStatus: vi.fn() };
+    const knowledge = { getProgress: vi.fn() };
     const service = new ProfileService(
       wallet,
       ballet,
@@ -140,6 +156,7 @@ describe('ProfileService', () => {
       achievements,
       relationships,
       academy,
+      knowledge,
     );
 
     await expect(service.getProfile('not-a-snowflake')).rejects.toThrow(
@@ -153,5 +170,6 @@ describe('ProfileService', () => {
     expect(relationships.getMarriage).not.toHaveBeenCalled();
     expect(academy.getProgress).not.toHaveBeenCalled();
     expect(academy.getUniformStatus).not.toHaveBeenCalled();
+    expect(knowledge.getProgress).not.toHaveBeenCalled();
   });
 });

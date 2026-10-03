@@ -1,7 +1,8 @@
 # Profile V2
 
 The profile is a read-only aggregator, not a persistence owner. It reads the
-wallet balance, Ballet level and stats, current wardrobe, collection
+wallet balance, Ballet level and stats, Knowledge points and lesson completion
+summary, current wardrobe, collection
 completion count, selected achievement badge, and active relationship from
 their respective domain ports concurrently. It writes none of those states
 and does not duplicate their repositories.
