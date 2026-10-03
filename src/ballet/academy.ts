@@ -1,4 +1,5 @@
 import type { PerformanceTier } from '../performance/types.js';
+import type { KnowledgeDomain } from '../knowledge/catalog.js';
 
 export interface BalletAcademyEvidence {
   readonly level: number;
@@ -43,6 +44,7 @@ interface AcademyStageDefinition {
   readonly requiredActivities?: readonly string[];
   readonly minimumDistinctActivities?: number;
   readonly stats?: Partial<Readonly<Record<AcademyStat, number>>>;
+  readonly knowledgeLessons?: Partial<Readonly<Record<KnowledgeDomain, number>>>;
   readonly performance?: {
     readonly id: string;
     readonly tier: PerformanceTier;
@@ -100,6 +102,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     minimumLevel: 6,
     minimumDistinctActivities: 4,
     stats: { flexibility: 4, stamina: 2 },
+    knowledgeLessons: { ballet_theory: 1 },
   },
   {
     id: 'grade-4',
@@ -116,6 +119,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     minimumLevel: 8,
     minimumDistinctActivities: 5,
     stats: { flexibility: 6, stamina: 4 },
+    knowledgeLessons: { musicality: 1 },
   },
   {
     id: 'grade-6',
@@ -124,6 +128,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     minimumLevel: 9,
     requiredActivities: ['rehearsal'],
     stats: { performance: 5 },
+    knowledgeLessons: { ballet_french: 1 },
   },
   {
     id: 'grade-7',
@@ -141,6 +146,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     requiredActivities: ['performance'],
     minimumDistinctActivities: 6,
     stats: { technique: 10, stamina: 7 },
+    knowledgeLessons: { academy_etiquette: 1 },
   },
   {
     id: 'discovering-repertoire',
@@ -149,6 +155,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     minimumLevel: 12,
     requiredActivities: ['rehearsal', 'choreography', 'audition'],
     stats: { musicality: 12, performance: 10 },
+    knowledgeLessons: { repertoire_studies: 2 },
   },
   {
     id: 'intermediate-foundation',
@@ -158,6 +165,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     requiredActivities: ['recital'],
     stats: { technique: 15, performance: 12 },
     performance: { id: 'spring-recital', tier: 'SILVER' },
+    knowledgeLessons: { ballet_history: 2 },
   },
   {
     id: 'intermediate',
@@ -167,6 +175,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     requiredActivities: ['showcase'],
     stats: { musicality: 20, performance: 20, stamina: 15 },
     performance: { id: 'moonlit-showcase', tier: 'SILVER' },
+    knowledgeLessons: { french_history_culture: 2 },
   },
   {
     id: 'advanced-foundation',
@@ -175,6 +184,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     minimumLevel: 25,
     requiredActivities: ['pointe-practice'],
     stats: { technique: 30, pointe: 15, stamina: 20 },
+    knowledgeLessons: { academy_history: 2 },
   },
   {
     id: 'advanced-1',
@@ -184,6 +194,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     requiredActivities: ['audition', 'recital'],
     stats: { technique: 40, performance: 35, pointe: 20 },
     performance: { id: 'prima-audition', tier: 'SILVER' },
+    knowledgeLessons: { ballet_theory: 3 },
   },
   {
     id: 'advanced-2',
@@ -193,6 +204,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     requiredActivities: ['pointe-practice', 'showcase'],
     stats: { technique: 55, performance: 50, pointe: 25, stamina: 30 },
     performance: { id: 'prima-audition', tier: 'GOLD' },
+    knowledgeLessons: { repertoire_studies: 3 },
   },
   {
     id: 'solo-seal',
@@ -202,6 +214,7 @@ export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
     requiredActivities: ['pointe-practice', 'showcase'],
     stats: { technique: 70, musicality: 60, performance: 70, pointe: 40, stamina: 40 },
     performance: { id: 'prima-audition', tier: 'PRIMA' },
+    knowledgeLessons: { musicality: 3, academy_etiquette: 3 },
   },
 ];
 
@@ -263,6 +276,16 @@ function evaluateRequirements(
       met: ((evidence[key] as number | undefined) ?? 0) >= minimum,
     });
   }
+  for (const [domain, minimum] of Object.entries(stage.knowledgeLessons ?? {}) as [
+    KnowledgeDomain,
+    number,
+  ][]) {
+    const domainName = KNOWLEDGE_DOMAIN_NAMES[domain];
+    requirements.push({
+      label: `Complete ${minimum} ${domainName} Knowledge lesson${minimum === 1 ? '' : 's'}`,
+      met: (evidence.knowledge?.[domain] ?? 0) >= minimum,
+    });
+  }
   if (stage.performance !== undefined) {
     requirements.push({
       label: `Earn ${stage.performance.tier} or higher in ${performanceName(stage.performance.id)}`,
@@ -271,6 +294,17 @@ function evaluateRequirements(
   }
   return requirements;
 }
+
+const KNOWLEDGE_DOMAIN_NAMES: Readonly<Record<KnowledgeDomain, string>> = {
+  musicality: 'Musicality',
+  ballet_french: 'Ballet French',
+  ballet_theory: 'Ballet Theory',
+  ballet_history: 'Ballet History',
+  french_history_culture: 'French History & Culture',
+  academy_history: 'Academy History',
+  repertoire_studies: 'Repertoire Studies',
+  academy_etiquette: 'Academy Etiquette',
+};
 
 function toRank(
   stage: AcademyStageDefinition,

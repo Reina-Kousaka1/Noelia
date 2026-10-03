@@ -31,9 +31,11 @@ remain idempotency keys for mutations. SQL remains parameterized.
 ## Academy progression
 
 **Implemented:** a canonical ordered 18-stage curriculum is derived from the
-existing Ballet level, activity completion history, six Ballet stats, and best
-performance tiers. It does not create a second XP or rank store. Every stage
-after the entry stage requires evidence beyond level alone. The order is:
+existing Ballet level, activity completion history, six Ballet stats, best
+performance tiers, and selected completed Knowledge lessons. It does not
+create a second XP or rank store. Knowledge gates read immutable completions
+from the Knowledge domain and show missing lesson requirements explicitly.
+Every stage after the entry stage requires evidence beyond level alone. The order is:
 
 1. Minis & Bambinis
 2. Pre-Primary
@@ -55,7 +57,7 @@ after the entry stage requires evidence beyond level alone. The order is:
 18. Solo Seal
 
 `src/ballet/academy.ts` is the centralized curriculum and contains the current
-initial gameplay thresholds. These are **provisional balancing defaults**,
+initial gameplay thresholds, including Knowledge lesson counts. These are **provisional balancing defaults**,
 not final educational standards. Stage is derived, not yet a persisted
 assessment/promotion decision. The existing result property names
 `currentRank`/`nextRank` are retained for compatibility while consumers migrate
@@ -111,8 +113,9 @@ second mutable counter. `/profile` aggregates Knowledge read-only. Migration
 021 is additive. XP, wallet/currency, and Ballet stats are not changed by
 lessons.
 
-**Planned:** larger course catalogs, richer interactions, assessments, and
-using Knowledge evidence in future Academy assessments/promotions. Current
+**Planned:** larger course catalogs, richer interactions, and persisted
+Academy assessments/promotions. Knowledge evidence participates in the
+current derived-stage requirements. Current
 reward and lesson content are initial defaults, not final curriculum balance.
 
 **Implemented (content only):** `src/ballet/academy-history.ts` contains seven

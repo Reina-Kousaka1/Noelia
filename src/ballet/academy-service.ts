@@ -19,6 +19,7 @@ interface AcademyEvidenceRow extends QueryResultRow {
   readonly level: number;
   readonly completed_activity_codes: string[];
   readonly best_performance_tiers: string[];
+  readonly knowledge_lesson_counts: Record<string, number>;
   readonly technique: number;
   readonly flexibility: number;
   readonly musicality: number;
@@ -236,6 +237,15 @@ export async function loadBalletAcademyProgress(
              ORDER BY performance_id, score DESC, completed_at, interaction_id
            ) AS best
          ), ARRAY[]::text[]) AS best_performance_tiers,
+         COALESCE((
+           SELECT jsonb_object_agg(completion.domain, completion.lesson_count)
+           FROM (
+             SELECT domain, count(*)::integer AS lesson_count
+             FROM academy_lesson_completions
+             WHERE discord_user_id = $1
+             GROUP BY domain
+           ) AS completion
+         ), '{}'::jsonb) AS knowledge_lesson_counts,
          COALESCE((SELECT stat_value FROM ballet_stats
                    WHERE discord_user_id = $1 AND stat_key = 'technique'), 0) AS technique,
          COALESCE((SELECT stat_value FROM ballet_stats
@@ -268,6 +278,7 @@ export async function loadBalletAcademyProgress(
     level: row.level,
     completedActivityCodes: row.completed_activity_codes,
     bestPerformanceTiers,
+    knowledge: row.knowledge_lesson_counts,
     technique: row.technique,
     flexibility: row.flexibility,
     musicality: row.musicality,

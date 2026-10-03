@@ -35,6 +35,16 @@ const completeEvidence: BalletAcademyEvidence = {
     'moonlit-showcase': 'PRIMA',
     'prima-audition': 'PRIMA',
   },
+  knowledge: {
+    musicality: 3,
+    ballet_french: 3,
+    ballet_theory: 3,
+    ballet_history: 3,
+    french_history_culture: 3,
+    academy_history: 3,
+    repertoire_studies: 3,
+    academy_etiquette: 3,
+  },
   technique: 100,
   flexibility: 100,
   musicality: 100,
@@ -91,6 +101,25 @@ describe('Maison Noélia Academy progression', () => {
 
     expect(result.currentRank.id).toBe('minis-bambinis');
     expect(result.nextRank?.requirements.some((requirement) => !requirement.met)).toBe(true);
+  });
+
+  it('uses completed Knowledge lessons as explicit, non-XP Academy requirements', () => {
+    const withoutLessons = getBalletAcademyProgress({ ...completeEvidence, knowledge: {} });
+    expect(withoutLessons.currentRank).toMatchObject({ id: 'grade-2', title: 'Grade 2' });
+    expect(withoutLessons.nextRank?.requirements).toContainEqual({
+      label: 'Complete 1 Ballet Theory Knowledge lesson',
+      met: false,
+    });
+
+    const partiallyPrepared = getBalletAcademyProgress({
+      ...completeEvidence,
+      knowledge: { ...completeEvidence.knowledge, repertoire_studies: 2 },
+    });
+    expect(partiallyPrepared.currentRank.id).toBe('advanced-1');
+    expect(partiallyPrepared.nextRank?.requirements).toContainEqual({
+      label: 'Complete 3 Repertoire Studies Knowledge lessons',
+      met: false,
+    });
   });
 
   it('requires pointe practice only at the advanced foundation stage', () => {

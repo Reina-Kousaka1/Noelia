@@ -7,6 +7,7 @@ interface EvidenceRow extends QueryResultRow {
   readonly level: number;
   readonly completed_activity_codes: string[];
   readonly best_performance_tiers: string[];
+  readonly knowledge_lesson_counts: Record<string, number>;
   readonly technique: number;
   readonly flexibility: number;
   readonly musicality: number;
@@ -40,6 +41,16 @@ describe('BalletAcademyService', () => {
             'moonlit-showcase:PRIMA',
             'prima-audition:GOLD',
           ],
+          knowledge_lesson_counts: {
+            musicality: 3,
+            ballet_french: 3,
+            ballet_theory: 3,
+            ballet_history: 3,
+            french_history_culture: 3,
+            academy_history: 3,
+            repertoire_studies: 3,
+            academy_etiquette: 3,
+          },
           technique: 80,
           flexibility: 80,
           musicality: 80,
@@ -56,7 +67,7 @@ describe('BalletAcademyService', () => {
       nextRank: { id: 'solo-seal' },
       completedRankCount: 16,
     });
-    expect(query).toHaveBeenCalledWith(expect.stringContaining('ballet_performance_completions'), [
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('academy_lesson_completions'), [
       '222222222222222222',
     ]);
   });
