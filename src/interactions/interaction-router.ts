@@ -9,6 +9,12 @@ import { NOELIA_COPY } from '../persona/copy.js';
 import { parseRelationshipButtonId } from '../relationships/components.js';
 import type { RelationshipProposalStatus } from '../relationships/types.js';
 import { respondPrivately, respondPrivatelyToComponent } from './response-policy.js';
+import {
+  isBalletClassComponentId,
+  parseBalletClassComponentId,
+} from '../ballet/class/components.js';
+import { renderBalletClassMessage } from '../commands/ballet/class-presentation.js';
+import type { BalletClassAttempt, BalletClassView } from '../ballet/class/types.js';
 
 export class InteractionRouter {
   public constructor(
@@ -71,6 +77,11 @@ export class InteractionRouter {
   }
 
   public async dispatchComponent(interaction: Eris.ComponentInteraction): Promise<void> {
+    if (isBalletClassComponentId(interaction.data.custom_id)) {
+      await this.dispatchBalletClassComponent(interaction);
+      return;
+    }
+
     const parsed = parseRelationshipButtonId(interaction.data.custom_id);
     if (parsed === null) {
       await interaction.createMessage({
@@ -134,6 +145,76 @@ export class InteractionRouter {
       await this.respondComponent(
         interaction,
         'Noélia could not complete that action. Please try again in a moment.',
+      );
+    }
+  }
+
+  private async dispatchBalletClassComponent(
+    interaction: Eris.ComponentInteraction,
+  ): Promise<void> {
+    const parsed = parseBalletClassComponentId(interaction.data.custom_id);
+    const discordUserId = interaction.member?.id;
+    const balletClass = this.services.balletClass;
+    if (parsed === null || interaction.guildID === undefined) {
+      await interaction.createMessage({
+        content: 'That Ballet class control is no longer available.',
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      });
+      return;
+    }
+    if (discordUserId === undefined || balletClass === undefined) {
+      await interaction.createMessage({
+        content: 'Ballet classes are available from a server member session.',
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      });
+      return;
+    }
+
+    try {
+      await interaction.deferUpdate();
+      let view: BalletClassView;
+      let latestAttempt: BalletClassAttempt | undefined;
+      if (parsed.action === 'preparation') {
+        view = await balletClass.markPreparation(
+          interaction.id,
+          discordUserId,
+          parsed.classId,
+          parsed.area,
+        );
+      } else if (parsed.action === 'begin') {
+        view = await balletClass.begin(interaction.id, discordUserId, parsed.classId);
+      } else if (parsed.action === 'attempt') {
+        const result = await balletClass.attempt(
+          interaction.id,
+          discordUserId,
+          parsed.classId,
+          parsed.exerciseId,
+        );
+        view = result.class;
+        latestAttempt = result.attempt ?? undefined;
+      } else {
+        view = await balletClass.abandon(interaction.id, discordUserId, parsed.classId);
+      }
+      await interaction.editParent(
+        await renderBalletClassMessage(view, this.services.persona, discordUserId, latestAttempt),
+      );
+    } catch (error) {
+      if (error instanceof ExpectedDomainError) {
+        this.logger.info('discord.component_rejected', {
+          component: 'ballet_class',
+          errorType: error.name,
+          interactionId: interaction.id,
+        });
+        await this.respondComponent(interaction, error.userMessage);
+        return;
+      }
+      this.logger.error('discord.component_failed', error, {
+        component: 'ballet_class',
+        interactionId: interaction.id,
+      });
+      await this.respondComponent(
+        interaction,
+        'Noélia could not update this Ballet class. Please try again in a moment.',
       );
     }
   }

@@ -16,6 +16,7 @@ import type { RelationshipPort } from '../relationships/types.js';
 import type { ModerationPort } from '../moderation/moderation-types.js';
 import type { AutomodPort } from '../automod/types.js';
 import type { KnowledgePort } from '../knowledge/types.js';
+import type { BalletClassPort } from '../ballet/class/types.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -35,6 +36,7 @@ export interface CommandServices {
   readonly economy: EconomyQueryPort;
   readonly daily: DailyClaimPort;
   readonly ballet: BalletProgressPort;
+  readonly balletClass?: BalletClassPort;
   readonly academy?: BalletAcademyPort;
   readonly shop: ShopPort;
   readonly inventory: InventoryPort;

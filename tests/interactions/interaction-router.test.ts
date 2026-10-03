@@ -7,6 +7,7 @@ import { MarriageProposalActorError } from '../../src/relationships/errors.js';
 import { CommandRegistry } from '../../src/commands/registry.js';
 import { InteractionRouter } from '../../src/interactions/interaction-router.js';
 import { StructuredLogger } from '../../src/infrastructure/logging/logger.js';
+import { buildBalletClassCurriculum } from '../../src/ballet/class/curriculum.js';
 
 function createInteraction(name: string, acknowledged = false): Eris.CommandInteraction {
   return {
@@ -164,6 +165,93 @@ describe('InteractionRouter', () => {
       expect.objectContaining({
         content: expect.stringContaining('You need 10'),
         flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      }),
+    );
+  });
+
+  it('routes a Ballet exercise button through the class domain and refreshes the session', async () => {
+    const classId = '250aad21-50a6-4d43-a450-b2c8f8825070';
+    const curriculum = buildBalletClassCurriculum('minis-bambinis', 'BARRE_FOCUS', classId);
+    const firstExercise = curriculum.exercises[0]!;
+    const attempt = {
+      attemptId: 'b44c0309-7752-4b23-8abc-aef68e03c151',
+      interactionId: '555555555555555555',
+      exerciseId: firstExercise.id,
+      exerciseName: firstExercise.displayName,
+      section: firstExercise.section,
+      outcome: 'SHAKY',
+      score: 62,
+      rollMicros: 500000,
+      correction: { category: 'FOOTWORK', severity: 2 },
+      skillSnapshot: {
+        technique: 0,
+        flexibility: 0,
+        musicality: 0,
+        performance: 0,
+        pointe: 0,
+        stamina: 0,
+      },
+      preparationSnapshot: [],
+      attemptedAt: new Date('2026-10-03T12:00:00.000Z'),
+    } as const;
+    const view = {
+      classId,
+      discordUserId: '444444444444444444',
+      classType: 'BARRE_FOCUS',
+      classTypeName: 'Barre Focus',
+      academyStageId: 'minis-bambinis',
+      academyStageName: 'Minis & Bambinis',
+      status: 'IN_PROGRESS',
+      currentSection: firstExercise.section,
+      startedAt: new Date('2026-10-03T12:00:00.000Z'),
+      completedAt: null,
+      abandonedAt: null,
+      currentExerciseIndex: 1,
+      curriculum,
+      preparation: [],
+      attempts: [attempt],
+      review: null,
+      replayed: false,
+    } as const;
+    const interaction = {
+      id: '555555555555555555',
+      data: { custom_id: 'noelia:ballet-class:' + classId + ':attempt:' + firstExercise.id },
+      guildID: '333333333333333333',
+      member: { id: '444444444444444444' },
+      acknowledged: false,
+      deferUpdate: vi.fn().mockResolvedValue(undefined),
+      editParent: vi.fn().mockResolvedValue(undefined),
+      createFollowup: vi.fn().mockResolvedValue(undefined),
+      createMessage: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Eris.ComponentInteraction;
+    const balletClass = {
+      attempt: vi.fn().mockResolvedValue({ class: view, attempt, replayed: false }),
+    };
+    const router = new InteractionRouter(new CommandRegistry([]), new StructuredLogger(), {
+      economy: { getBalance: vi.fn() },
+      daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
+      balletClass,
+    } as never);
+
+    await router.dispatchComponent(interaction);
+
+    expect(balletClass.attempt).toHaveBeenCalledWith(
+      '555555555555555555',
+      '444444444444444444',
+      classId,
+      firstExercise.id,
+    );
+    expect(interaction.deferUpdate).toHaveBeenCalledOnce();
+    expect(interaction.editParent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({ description: expect.stringContaining('SHAKY · 62/100') }),
+        ],
       }),
     );
   });

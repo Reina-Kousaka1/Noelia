@@ -5,6 +5,7 @@ import { balletCommand } from '../../src/commands/ballet/ballet.command.js';
 import { formatBalance } from '../../src/commands/balance/format-balance.js';
 import { NOELIA_COPY } from '../../src/persona/copy.js';
 import type { PersonaTextPort } from '../../src/persona/generator.js';
+import { buildBalletClassCurriculum } from '../../src/ballet/class/curriculum.js';
 
 function createInteraction(options: Eris.InteractionDataOptions[]) {
   const defer = vi.fn().mockResolvedValue(undefined);
@@ -31,6 +32,14 @@ function createServices() {
       listActivities: vi.fn(),
       practice: vi.fn(),
     },
+    balletClass: {
+      startOrResume: vi.fn(),
+      getClass: vi.fn(),
+      markPreparation: vi.fn(),
+      begin: vi.fn(),
+      attempt: vi.fn(),
+      abandon: vi.fn(),
+    },
     shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
@@ -41,13 +50,65 @@ function createServices() {
 }
 
 describe('ballet command', () => {
-  it('defines status, Academy, activities, and practice as subcommands', () => {
+  it('defines status, Academy, activities, practice, and class as subcommands', () => {
     expect(balletCommand.definition.options?.map((option) => option.name)).toEqual([
       'status',
       'academy',
       'activities',
       'practice',
+      'class',
     ]);
+  });
+
+  it('starts a persistent class through the Ballet class domain and renders its controls', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'class',
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+            name: 'type',
+            value: 'BARRE_FOCUS',
+          },
+        ],
+      },
+    ]);
+    const services = createServices();
+    const classId = '250aad21-50a6-4d43-a450-b2c8f8825070';
+    services.balletClass.startOrResume.mockResolvedValue({
+      classId,
+      discordUserId: '222222222222222222',
+      classType: 'BARRE_FOCUS',
+      classTypeName: 'Barre Focus',
+      academyStageId: 'minis-bambinis',
+      academyStageName: 'Minis & Bambinis',
+      status: 'PREPARING',
+      currentSection: null,
+      startedAt: new Date('2026-10-03T12:00:00.000Z'),
+      completedAt: null,
+      abandonedAt: null,
+      currentExerciseIndex: 0,
+      curriculum: buildBalletClassCurriculum('minis-bambinis', 'BARRE_FOCUS', classId),
+      preparation: [],
+      attempts: [],
+      review: null,
+      replayed: false,
+    });
+
+    await balletCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.balletClass.startOrResume).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+      'BARRE_FOCUS',
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [expect.objectContaining({ title: expect.stringContaining('Barre Focus') })],
+        components: expect.any(Array),
+      }),
+    );
   });
 
   it('shows canonical Academy stage milestones and sends allowlisted persona facts', async () => {

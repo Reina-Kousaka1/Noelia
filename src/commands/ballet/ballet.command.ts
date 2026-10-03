@@ -6,6 +6,9 @@ import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
 import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
+import { BALLET_CLASS_TYPE_CATALOG } from '../../ballet/class/catalog.js';
+import { isBalletClassType } from '../../ballet/class/curriculum.js';
+import { renderBalletClassMessage } from './class-presentation.js';
 
 const activityChoices = BALLET_ACTIVITY_CODES.map((code) => ({
   name: code
@@ -50,6 +53,23 @@ export const balletCommand: SlashCommand = {
           },
         ],
       },
+      {
+        name: 'class',
+        description: 'Start or resume a guided Ballet class.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        options: [
+          {
+            name: 'type',
+            description: 'Choose a class focus.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+            required: false,
+            choices: BALLET_CLASS_TYPE_CATALOG.map((classType) => ({
+              name: classType.displayName,
+              value: classType.id,
+            })),
+          },
+        ],
+      },
     ],
   },
   async execute({ interaction, services }) {
@@ -69,6 +89,28 @@ export const balletCommand: SlashCommand = {
 
     const subcommandName = subcommand.name;
     await deferCommand(interaction);
+
+    if (subcommandName === 'class') {
+      const balletClass = services.balletClass;
+      if (balletClass === undefined) throw new Error('The Ballet class service is not configured.');
+      const subcommandOptions = 'options' in subcommand ? subcommand.options : undefined;
+      const typeOption = subcommandOptions?.find(
+        (option) => option.name === 'type' && 'value' in option,
+      );
+      const requestedType =
+        typeOption !== undefined && 'value' in typeOption && typeof typeOption.value === 'string'
+          ? typeOption.value
+          : 'REGULAR';
+      if (!isBalletClassType(requestedType)) {
+        throw new Error('The selected Ballet class type is invalid.');
+      }
+      const view = await balletClass.startOrResume(interaction.id, discordUserId, requestedType);
+      await completeCommand(
+        interaction,
+        await renderBalletClassMessage(view, services.persona, discordUserId),
+      );
+      return;
+    }
 
     if (subcommandName === 'status') {
       const progress = await services.ballet.getProgress(discordUserId);

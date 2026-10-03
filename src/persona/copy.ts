@@ -127,6 +127,30 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'Your studio note is already in place, très bien.',
     'No extra pirouettes needed; the practice is already saved.',
   ],
+  'ballet:class_preparing': [
+    'Take your time preparing, ma chère. Class begins when you choose.',
+    'A little readiness for today’s class, doucement.',
+    'The barre is ready whenever you are.',
+  ],
+  'ballet:class_in_progress': [
+    'One exercise at a time, with care and musicality.',
+    'Stay present in the combination, ma chère.',
+    'Très bien. Let’s keep the class moving.',
+  ],
+  'ballet:class_result': [
+    'Noted. Carry Madame’s correction into the next exercise.',
+    'A clear result, and something useful to remember.',
+    'Très bien. Each combination teaches us something.',
+  ],
+  'ballet:class_review': [
+    'Your class notes are complete, ma chère.',
+    'A thoughtful class, recorded from barre to final exercise.',
+    'Voilà — your progress is written in the studio book.',
+  ],
+  'ballet:class_abandoned': [
+    'Your class notes are saved. You may begin another when ready.',
+    'The session is closed, doucement. Its completed work remains recorded.',
+  ],
   'performance:attempt_complete': [
     'Take your bow, ma chérie — the stage is yours.',
     'A lovely moment under the lights.',
