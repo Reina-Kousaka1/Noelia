@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(21);
+    expect(migrations).toHaveLength(22);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -131,6 +131,14 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[20]?.sql).toContain('CREATE TABLE academy_lesson_attempts');
     expect(migrations[20]?.sql).toContain('CREATE TABLE academy_lesson_completions');
     expect(migrations[20]?.sql).toContain('academy_lesson_completions_valid_attempt');
+    expect(migrations[21]).toMatchObject({
+      version: 22,
+      name: 'ballet_classes_v1',
+    });
+    expect(migrations[21]?.sql).toContain('CREATE TABLE ballet_classes');
+    expect(migrations[21]?.sql).toContain('CREATE TABLE ballet_class_attempts');
+    expect(migrations[21]?.sql).toContain('CREATE TABLE academy_training_evidence');
+    expect(migrations[21]?.sql).toContain('ballet_class_attempts_append_only');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -146,8 +154,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 21,
-      currentVersion: 21,
+      appliedCount: 22,
+      currentVersion: 22,
     });
 
     expect(statements).toContain('BEGIN');

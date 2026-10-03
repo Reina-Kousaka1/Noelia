@@ -226,6 +226,10 @@ export async function loadBalletAcademyProgress(
              SELECT DISTINCT activity_code
              FROM ballet_activity_completions
              WHERE discord_user_id = $1
+             UNION
+             SELECT DISTINCT academy_activity_code AS activity_code
+             FROM academy_training_evidence
+             WHERE discord_user_id = $1 AND academy_activity_code IS NOT NULL
            ) AS completed
          ), ARRAY[]::text[]) AS completed_activity_codes,
          COALESCE((

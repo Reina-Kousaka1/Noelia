@@ -4,6 +4,8 @@ import { resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BalletService } from '../../src/ballet/ballet-service.js';
+import { BalletClassService } from '../../src/ballet/class/class-service.js';
+import { BalletClassStateError } from '../../src/ballet/class/errors.js';
 import { BalletAcademyService } from '../../src/ballet/academy-service.js';
 import {
   AcademyUniformAlreadyClaimedError,
@@ -186,8 +188,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 14,
-        currentVersion: 20,
+        appliedCount: 16,
+        currentVersion: 22,
       });
       await expect(
         upgradePool.query(
@@ -215,9 +217,119 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 20 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 22 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
+  });
+
+  it('persists Ballet classes and replays an exercise result without rolling again', async () => {
+    const discordUserId = testSnowflake();
+    let rollCount = 0;
+    const service = new BalletClassService(pool, () => {
+      rollCount += 1;
+      return 0.5;
+    });
+    const startInteractionId = testSnowflake();
+    const started = await service.startOrResume(startInteractionId, discordUserId, 'BARRE_FOCUS');
+    const startReplay = await service.startOrResume(
+      startInteractionId,
+      discordUserId,
+      'BARRE_FOCUS',
+    );
+    expect(startReplay.classId).toBe(started.classId);
+    expect(startReplay.replayed).toBe(true);
+
+    const prepared = await service.markPreparation(
+      testSnowflake(),
+      discordUserId,
+      started.classId,
+      'BALANCE',
+    );
+    expect(prepared.preparation).toContain('BALANCE');
+    const inProgress = await service.begin(testSnowflake(), discordUserId, started.classId);
+    expect(inProgress.status).toBe('IN_PROGRESS');
+    const firstExercise = inProgress.curriculum.exercises[0];
+    if (firstExercise === undefined) throw new Error('Expected the barre class to have exercises.');
+    const attemptInteractionId = testSnowflake();
+    const duplicateAttempts = await Promise.all([
+      service.attempt(attemptInteractionId, discordUserId, started.classId, firstExercise.id),
+      service.attempt(attemptInteractionId, discordUserId, started.classId, firstExercise.id),
+    ]);
+    expect(duplicateAttempts.map((result) => result.replayed).sort()).toEqual([false, true]);
+    expect(rollCount).toBe(1);
+    expect(duplicateAttempts[0]?.attempt?.outcome).toBe(duplicateAttempts[1]?.attempt?.outcome);
+
+    const restartedService = new BalletClassService(pool, () => {
+      rollCount += 1;
+      return 0.99;
+    });
+    const restartReplay = await restartedService.attempt(
+      attemptInteractionId,
+      discordUserId,
+      started.classId,
+      firstExercise.id,
+    );
+    expect(restartReplay.replayed).toBe(true);
+    expect(rollCount).toBe(1);
+
+    let current = await restartedService.getClass(discordUserId, started.classId);
+    while (current.status === 'IN_PROGRESS') {
+      const nextExercise = current.curriculum.exercises[current.currentExerciseIndex];
+      if (nextExercise === undefined) throw new Error('Class index did not match its curriculum.');
+      current = (
+        await restartedService.attempt(
+          testSnowflake(),
+          discordUserId,
+          started.classId,
+          nextExercise.id,
+        )
+      ).class;
+    }
+    expect(current.status).toBe('COMPLETED');
+    expect(current.review?.completedExercises).toBe(current.curriculum.exercises.length);
+    expect(current.review?.primaryCorrection).not.toBeNull();
+    const evidence = await pool.query<{
+      readonly evidence_type: string;
+      readonly academy_activity_code: string | null;
+    }>(
+      'SELECT evidence_type, academy_activity_code FROM academy_training_evidence WHERE class_id = $1::uuid ORDER BY evidence_type, academy_activity_code NULLS LAST',
+      [started.classId],
+    );
+    expect(evidence.rows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          evidence_type: 'CLASS_COMPLETED',
+          academy_activity_code: 'class',
+        }),
+        expect.objectContaining({
+          evidence_type: 'SECTION_COMPLETED',
+          academy_activity_code: 'barre',
+        }),
+      ]),
+    );
+  });
+
+  it('allows a class with no preparation and persists the empty readiness snapshot', async () => {
+    const discordUserId = testSnowflake();
+    const service = new BalletClassService(pool, () => 0.5);
+    const started = await service.startOrResume(testSnowflake(), discordUserId, 'BARRE_FOCUS');
+    const firstExercise = started.curriculum.exercises[0];
+    if (firstExercise === undefined) throw new Error('Expected a barre exercise.');
+
+    await expect(
+      service.attempt(testSnowflake(), discordUserId, started.classId, firstExercise.id),
+    ).rejects.toBeInstanceOf(BalletClassStateError);
+    const begun = await service.begin(testSnowflake(), discordUserId, started.classId);
+    expect(begun.preparation).toEqual([]);
+
+    const result = await service.attempt(
+      testSnowflake(),
+      discordUserId,
+      started.classId,
+      firstExercise.id,
+    );
+    expect(result.attempt?.preparationSnapshot).toEqual([]);
+    expect(result.class.attempts).toHaveLength(1);
   });
 
   it('persists AutoMod rules and allowlist changes idempotently', async () => {
