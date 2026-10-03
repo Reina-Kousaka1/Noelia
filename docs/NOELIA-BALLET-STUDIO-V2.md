@@ -101,9 +101,9 @@ be centralized. No cycle state or migration is implemented in this block.
 
 **Implemented (Knowledge V1):** eight separate domains—Musicality, Ballet
 French, Ballet Theory, Ballet History, French History & Culture, Academy
-History, Repertoire Studies, and Academy Etiquette—with one starter lesson per
-domain. `/learn browse`, `/learn read`, `/learn answer`, and `/learn progress`
-provide the initial workflow. A correct first answer grants centralized
+History, Repertoire Studies, and Academy Etiquette—with three introductory
+lessons per domain. `/learn browse`, `/learn read`, `/learn answer`, and
+`/learn progress` provide the initial workflow. A correct first answer grants centralized
 Knowledge points; wrong answers can be retried without a penalty. Each attempt
 is keyed by Discord interaction ID and recorded transactionally. Completion
 history is append-only; domain points are derived from completed lessons, not a
@@ -113,7 +113,7 @@ lessons.
 
 **Planned:** larger course catalogs, richer interactions, assessments, and
 using Knowledge evidence in future Academy assessments/promotions. Current
-reward and lesson count are initial defaults, not final curriculum balance.
+reward and lesson content are initial defaults, not final curriculum balance.
 
 **Implemented (content only):** `src/ballet/academy-history.ts` contains seven
 fictional Academy-history chapters. It is separate from gameplay rules and is

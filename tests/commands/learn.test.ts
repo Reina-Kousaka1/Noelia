@@ -36,6 +36,17 @@ describe('learn command', () => {
       'read',
       'answer',
     ]);
+    const commandOptions = learnCommand.definition.options as readonly {
+      readonly name: string;
+      readonly options?: readonly {
+        readonly name: string;
+        readonly choices?: readonly unknown[];
+      }[];
+    }[];
+    const readCommand = commandOptions.find((option) => option.name === 'read');
+    const lessonOption = readCommand?.options?.find((option) => option.name === 'lesson');
+    expect(lessonOption?.choices).toHaveLength(24);
+    expect(lessonOption?.choices?.length).toBeLessThanOrEqual(25);
   });
 
   it('renders lesson content and available answers without changing progress', async () => {

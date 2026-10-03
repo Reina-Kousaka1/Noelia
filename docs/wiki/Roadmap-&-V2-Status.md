@@ -5,7 +5,7 @@
 - **Implemented:** existing Ballet practice, stats, deterministic stage
   performance, canonical derived 18-stage Academy curriculum, uniform policy,
   wallet/shop/inventory, profile aggregation, safe bounded persona, separate
-  relationships, fictional Academy-history copy, and Knowledge V1 with eight
+  relationships, fictional Academy-history copy, and Knowledge V1 with 24
   starter lessons and profile aggregation.
 - **In development / follow-up:** persisted stage assessments, expanded
   Knowledge courses, practical exercises and Preparation, auditable stochastic

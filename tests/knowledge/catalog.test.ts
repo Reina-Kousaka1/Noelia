@@ -15,8 +15,9 @@ describe('Academy Knowledge catalog', () => {
       KNOWLEDGE_LESSONS.length,
     );
     for (const domain of KNOWLEDGE_DOMAINS) {
-      expect(listKnowledgeLessons(domain)).toHaveLength(1);
+      expect(listKnowledgeLessons(domain)).toHaveLength(3);
     }
+    expect(KNOWLEDGE_LESSONS).toHaveLength(24);
   });
 
   it('keeps each question answerable and its explanation in the lesson content', () => {
