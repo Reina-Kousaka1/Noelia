@@ -9,4 +9,7 @@ Each currently has three short multiple-choice lessons. Correct completion award
 centralized Knowledge points; wrong attempts may be retried. Attempts and
 completions are recorded transactionally and replay-safe under the Discord
 interaction ID. Knowledge is distinct from Ballet XP, currency, and stats.
-More lessons and Knowledge-based Academy assessments are planned.
+Academy Assessment V1 snapshots questions from this catalog without awarding
+lesson points or marking lessons complete. Assessment answers are stored in
+separate records. More lessons and course progression remain future work; the
+assessment migration has not been applied to Production.

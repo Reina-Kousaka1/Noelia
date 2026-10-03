@@ -57,9 +57,12 @@ Every stage after the entry stage requires evidence beyond level alone. The orde
 18. Solo Seal
 
 `src/ballet/academy.ts` is the centralized curriculum and contains the current
-initial gameplay thresholds, including Knowledge lesson counts. These are **provisional balancing defaults**,
-not final educational standards. Stage is derived, not yet a persisted
-assessment/promotion decision. The existing result property names
+initial gameplay thresholds, including Knowledge lesson counts. These are
+**provisional balancing defaults**, not final educational standards. Before
+Assessment V1, stage was derived only from evidence. With additive migration
+023, the first guided class or assessment start records the user's then-current
+derived stage as a persistent baseline; subsequent advancement is controlled by
+one-stage-at-a-time assessment promotion. The existing result property names
 `currentRank`/`nextRank` are retained for compatibility while consumers migrate
 to stage terminology.
 
@@ -128,10 +131,16 @@ second mutable counter. `/profile` aggregates Knowledge read-only. Migration
 021 is additive. XP, wallet/currency, and Ballet stats are not changed by
 lessons.
 
-**Planned:** larger course catalogs, richer interactions, and persisted
-Academy assessments/promotions. Knowledge evidence participates in the
-current derived-stage requirements. Current
-reward and lesson content are initial defaults, not final curriculum balance.
+**Implemented in application code / deployment not verified:** `/academy assessment`
+reports canonical requirement progress, uses a completed saved
+class review and a question snapshot from the existing Knowledge catalog, and
+stores replay-safe attempts. Passing results promote one stage; a failed result
+requires a new current-stage class before retake. A one-time immutable legacy
+baseline preserves the stage an existing user had reached. Migration 023 is
+additive and has not been applied to Production. See
+`docs/architecture/academy-assessments.md`. Larger course catalogs and richer
+Knowledge interactions remain planned. Current reward and lesson content are
+initial defaults, not final curriculum balance.
 
 **Implemented (content only):** `src/ballet/academy-history.ts` contains seven
 fictional Academy-history chapters. It is separate from gameplay rules and is
@@ -198,14 +207,17 @@ no level-999 continuation.
 
 The canonical derived curriculum and fictional-history content needed no
 database migration. Knowledge V1 added migration 021. The persistent class
-engine adds only the forward-only migration 022; migrations 001–021 remain
-immutable.
+engine added migration 022, and Academy Assessments add only forward-only
+migration 023; migrations 001–022 remain immutable. No Production migration was
+performed here.
 
 ## Testing strategy
 
-Unit tests cover stage ordering, class gating, preparation scoring, fixed
-outcome boundaries, correction aggregation, component IDs, and the /ballet
-class command path. PostgreSQL integration tests cover class creation/resume,
+Unit tests cover stage ordering, assessment eligibility/results/components,
+class gating, preparation scoring, fixed outcome boundaries, correction
+aggregation, component IDs, and the /ballet class command path. PostgreSQL
+integration tests cover assessment start/resume, eligibility, retakes,
+concurrent idempotent promotion, class creation/resume,
 partial preparation, concurrent duplicate attempts, restart/replay without
 rerolling, completion review, and Academy evidence. They run only with an
 explicitly isolated test database. The full quality gate is npm run check; in
@@ -214,12 +226,12 @@ changing test assertions.
 
 ## TBD balancing and follow-up blocks
 
-- Final promotion thresholds, assessment structure, XP/Knowledge rewards.
+- Further review of provisional promotion thresholds; Assessment V1 adds no
+  XP, Knowledge-point, wallet, or training-stat rewards.
 - Further balance review of the centralized class score calibration.
 - Stamina cycle workload/deadline bands and caps.
 - Teacher mood durations, patience changes, corrective caps.
 - Pet needs/decay and optional social encouragement parameters.
 - Settings hierarchy and privacy defaults.
-- More lesson content, course unlocks, and Knowledge-based promotion/assessment
-  integration.
+- More lesson content, course unlocks, and deeper Knowledge course progression.
 - Wiki transfer and any product-release status.

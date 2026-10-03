@@ -23,8 +23,10 @@ flowchart TD
 ```
 
 Class type and exercise definitions live in TypeScript domain catalogs.
-Starting a session filters the section plan by the user's current derived
-Academy stage and saves a versioned curriculum snapshot. A partial unique
+Starting a session filters the section plan by the user's current Academy
+stage and saves a versioned curriculum snapshot. Before an assessment baseline
+exists, the evidence-only resolver supplies that stage; otherwise the persisted
+assessment-controlled stage is used. A partial unique
 index allows one PREPARING or IN_PROGRESS class per user. The user row lock
 serializes starts, preparation updates, class transitions, and attempts with
 the existing Ballet mutation paths.
@@ -46,3 +48,7 @@ inventory, permissions, or the existing deterministic /performance command.
 Migration 022 adds class sessions, preparation marks, action idempotency,
 attempt/correction history, and Academy training evidence. It is additive and
 has not been applied to any production database in this work.
+
+Assessment V1 consumes a class's stored Practical review and does not rerun
+exercise RNG. Stage baselines, assessment attempts, answers, and promotions are
+documented in [Academy Assessments V1](academy-assessments.md).

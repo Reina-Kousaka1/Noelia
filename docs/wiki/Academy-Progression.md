@@ -2,12 +2,12 @@
 
 **Status: Implemented — initial thresholds are provisional.**
 
-The canonical derived curriculum is Minis & Bambinis, Pre-Primary, Primary,
+The canonical 18-stage curriculum is Minis & Bambinis, Pre-Primary, Primary,
 Grades 1–8, Discovering Repertoire, Intermediate Foundation, Intermediate,
 Advanced Foundation, Advanced 1, Advanced 2, and Solo Seal. Minis & Bambinis is
 one stage. Progress derives from existing Ballet level, activity history,
-stats, best performance tiers, and selected completed Knowledge lessons; there
-is no separate XP track or persisted Academy rank. Missing lesson gates appear
+stats, best performance tiers, and selected completed Knowledge lessons before
+an assessment baseline is captured. Missing lesson gates appear
 with the other unmet requirements. Every stage after entry requires evidence
 beyond level alone. Pointe practice begins at Advanced Foundation. Thresholds
 are provisional Noélia gameplay, not official certification. Source:
@@ -16,7 +16,10 @@ are provisional Noélia gameplay, not official certification. Source:
 Completed `/ballet class` sessions add immutable class and section evidence to
 this same progression query. Evidence can satisfy an existing distinct Ballet
 activity requirement; exercise successes are separately recorded for future
-assessment/repertoire use. Classes do not create a second rank or XP track and
-do not change the user's current Academy stage retroactively: each session
-keeps the stage and exercise sequence captured when it began. Migration 022
-adds the class/evidence records without modifying prior Academy evidence.
+assessment/repertoire use. Users without an assessment baseline retain the
+existing evidence-derived stage. The first guided class or assessment start
+captures that stage as an immutable baseline. Afterward, only a passed
+assessment advances one stage. Each class keeps the stage and exercise sequence
+captured when it began. Migration 023 adds the progression pointer and
+assessment records without modifying prior Academy evidence. Production has
+not been migrated by this implementation work.

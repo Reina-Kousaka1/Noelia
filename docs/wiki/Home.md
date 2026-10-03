@@ -19,7 +19,7 @@ transfer and are not published to that repository.
 | [[Academy History]]            | Fictional lore and three starter lessons implemented        |
 | [[Repertoire]]                 | Existing activities and three study lessons implemented     |
 | [[Madame Noélia]]              | Safe presentation implemented; teacher state planned        |
-| [[Assessments & Promotions]]   | Planned                                                     |
+| [[Assessments & Promotions]]   | V1 implemented in code; DB validation and release pending   |
 | [[Wardrobe & Equipment]]       | Uniform/equipment implemented; broader wardrobe V2 planned  |
 | [[Shop & Economy]]             | Existing shop/economy implemented                           |
 | [[Pets]]                       | Planned, optional                                           |

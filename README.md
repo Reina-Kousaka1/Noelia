@@ -10,7 +10,7 @@ of the archived Lindsey bot.
 
 The current runtime connects through Eris, validates PostgreSQL, applies the
 fresh schema, and registers development-guild `/help`, `/ping`, `/balance`, `/daily`,
-`/ballet`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, `/market`, `/achievements`, `/marry`, `/marriage`, and `/divorce` commands.
+`/ballet`, `/academy`, `/performance`, `/shop`, `/inventory`, `/wardrobe`, `/profile`, `/market`, `/achievements`, `/marry`, `/marriage`, and `/divorce` commands.
 On startup it reconciles the configured guild's application commands against the registry:
 missing commands are created, changed definitions are updated, and stale commands are
 removed. After the guild catalog is ready, it removes old global application commands
@@ -43,6 +43,17 @@ query. Migration 022 adds its session and attempt records; this implementation
 has not been deployed or run through a Production migration here. See
 [the class architecture](docs/architecture/ballet-classes.md) for its
 transaction and persistence boundaries.
+
+`/academy assessment` connects that canonical stage track to saved class
+reviews and existing Knowledge lessons. It shows concrete eligibility
+requirements, persists practical/theory attempts, and promotes one stage only
+after a stored pass. Existing users keep their evidence-derived stage as an
+immutable baseline when they first start a guided class or assessment after
+migration 023. Attempts are idempotent across retries and restarts; a failed
+assessment requires a new current-stage class before retaking. The additive
+assessment migration and command have not been deployed or applied to
+Production. See [Academy Assessments V1](docs/architecture/academy-assessments.md)
+for eligibility, result, promotion, and retake details.
 
 ## Technology
 
@@ -170,7 +181,10 @@ transactional achievements and optional featured profile badges. V13–V20 add
 relationships, expanded catalog content, moderation/AutoMod persistence,
 Academy progression and uniform rules, and starter-uniform claims. V21 adds the
 Knowledge lesson system; V22 adds persistent stage-aware Ballet classes,
-exercise attempts, corrections, and Academy training evidence. Rarity controls
+exercise attempts, corrections, and Academy training evidence; V23 adds
+assessment attempts, saved Knowledge answers, an assessment-managed stage
+pointer with legacy baseline, and promotion audit records. These are additive
+migrations and have not been applied to Production as part of this work. Rarity controls
 presentation only; collections grant no automatic currency or gameplay
 bonuses. Purchases atomically check eligibility and balance, debit the wallet,
 add inventory, and record the purchase. `/inventory` reads owned items in pages

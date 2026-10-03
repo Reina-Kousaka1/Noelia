@@ -9,8 +9,11 @@
   starter lessons and profile aggregation. The persistent, stage-aware Ballet
   class engine also supports optional preparation, saved exercise outcomes,
   structured corrections, class review, and Academy activity evidence.
-- **In development / follow-up:** persisted stage assessments, expanded
-  Knowledge courses, Stamina cycles, persistent Madame Mood/Patience,
+- **Implemented in application code / validation pending:** persistent Academy
+  assessment attempts, eligibility from canonical requirements, existing
+  Knowledge questions and saved class reviews, deterministic results, and
+  one-stage promotions. Migration 023 is additive and is not deployed.
+- **Follow-up:** expanded Knowledge courses, Stamina cycles, persistent Madame Mood/Patience,
   corrective training, central settings, broader wardrobe categories, and
   optional pets. Existing /ballet practice remains supported alongside class.
 - **No character-age system:** Academy stage represents progression only.

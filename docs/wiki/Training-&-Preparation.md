@@ -53,9 +53,11 @@ requirements; it does not add a second XP or rank system and does not remove
 existing Knowledge, activity, stat, or performance evidence.
 
 The current /ballet practice and /performance domains are unchanged.
-Formal Academy assessments, Stamina cycles, Injury/Rehabilitation, Nutrition,
-Fatigue, and other later systems are not implemented here. There is no
-character-age field or age-based Academy logic.
+Formal Academy assessments now reuse saved class reviews and Knowledge
+questions; see [Assessments & Promotions](Assessments-&-Promotions.md). Stamina
+cycles, Injury/Rehabilitation, Nutrition, Fatigue, and other later systems are
+not implemented here. There is no character-age field or age-based Academy
+logic.
 
 Schema changes are additive in migration 022. Existing migrations, Ballet
 practice records, stats, Academy evidence, and production data are preserved.
