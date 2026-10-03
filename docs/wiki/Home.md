@@ -8,9 +8,9 @@ transfer and are not published to that repository.
 | Page                           | Status                                                      |
 | ------------------------------ | ----------------------------------------------------------- |
 | [[Academy Progression]]        | Implemented — derived curriculum; thresholds provisional    |
-| [[Training & Preparation]]     | Training implemented; preparation planned                   |
+| [[Training & Preparation]]     | Persistent stage-aware classes and preparation implemented  |
 | [[Skills & Stamina]]           | Existing Ballet stats implemented; cycle system planned     |
-| [[Performance & RNG]]          | Deterministic performance implemented; RNG engine planned   |
+| [[Performance & RNG]]          | Performance fixed-score; class attempts persist RNG results |
 | [[Courses & Knowledge]]        | Knowledge V1 implemented — three starter lessons per domain |
 | [[Ballet French]]              | Three starter lessons implemented; more planned             |
 | [[Ballet Theory]]              | Three starter lessons implemented; more planned             |
@@ -24,7 +24,7 @@ transfer and are not published to that repository.
 | [[Shop & Economy]]             | Existing shop/economy implemented                           |
 | [[Pets]]                       | Planned, optional                                           |
 | [[Relationships]]              | Existing separate social domain implemented                 |
-| [[Academy Character Settings]] | Planned, optional and fictional only                        |
+| [[Academy Character Settings]] | No age system; Academy stage is progression only            |
 | [[Settings & Feature Flags]]   | Planned                                                     |
 | [[Professional Career]]        | Boundary planned; not implemented                           |
 | [[Technical Architecture]]     | Existing architecture documented                            |

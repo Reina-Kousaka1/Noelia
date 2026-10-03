@@ -1,9 +1,9 @@
 # Academy Character Settings
 
-**Status: Planned; no age field is currently implemented.**
+**Status: No character-age system.**
 
-Any future Academy Character Age is an optional fictional gameplay attribute,
-never the Discord user's real age. The bot must not ask, infer, or import real
-age. If disabled or private, omit it from public UI and persona context.
-Academy gameplay must work fully without it; associated content stays
-age-appropriate and non-sexual.
+Maison Noélia does not store, infer, request, or display character ages or
+Discord users' ages. Academy stages describe progression through the fictional
+curriculum only; Minis & Bambinis, Pre-Primary, Primary, and later stages are
+not age ranges. No age field, age progression, or age-based shop or class rule
+is part of the Academy.

@@ -35,6 +35,15 @@ active marketplace escrow continue to count toward collection progress. The
 relationship domain stores proposals, current marriages, and divorce history
 transactionally; it does not alter economy or gameplay state.
 
+The source now also includes a persistent /ballet class subcommand with
+stage-specific class sections, optional preparation, saved exercise outcomes
+and corrections, replay-safe buttons, and a deterministic class review. It
+reuses the existing Ballet stats and feeds the existing Academy evidence
+query. Migration 022 adds its session and attempt records; this implementation
+has not been deployed or run through a Production migration here. See
+[the class architecture](docs/architecture/ballet-classes.md) for its
+transaction and persistence boundaries.
+
 ## Technology
 
 - Node.js 24 LTS
@@ -157,14 +166,20 @@ immutable sale history, V8 adds six Ballet stats, activity requirements, and
 six more data-defined activities, V9 adds deterministic performances, V10
 adds normalized collection membership and expands the curated catalog to 62
 original pieces, V11 adds persistent, idempotent outfit presets, and V12 adds
-transactional achievements and optional featured profile badges. Rarity
-controls presentation only; collections grant no
-automatic currency or gameplay bonuses. Purchases atomically check eligibility and balance, debit the wallet, add
-inventory, and record the purchase. `/inventory` reads owned items in pages of 10. `/wardrobe` supports outfit view, equip, unequip, clear, and persistent outfit presets. Only owned items may
-be equipped; preset application rechecks ownership, including marketplace
-escrow, and metadata can make a costume occupy multiple slots. Economy,
-practice rewards, and shop purchases use PostgreSQL transactions and row locks
-to prevent negative balances or duplicate rewards during concurrent actions.
+transactional achievements and optional featured profile badges. V13–V20 add
+relationships, expanded catalog content, moderation/AutoMod persistence,
+Academy progression and uniform rules, and starter-uniform claims. V21 adds the
+Knowledge lesson system; V22 adds persistent stage-aware Ballet classes,
+exercise attempts, corrections, and Academy training evidence. Rarity controls
+presentation only; collections grant no automatic currency or gameplay
+bonuses. Purchases atomically check eligibility and balance, debit the wallet,
+add inventory, and record the purchase. `/inventory` reads owned items in pages
+of 10. `/wardrobe` supports outfit view, equip, unequip, clear, and persistent
+outfit presets. Only owned items may be equipped; preset application rechecks
+ownership, including marketplace escrow, and metadata can make a costume occupy
+multiple slots. Economy, practice rewards, and shop purchases use PostgreSQL
+transactions and row locks to prevent negative balances or duplicate rewards
+during concurrent actions.
 Daily reward amount is centrally configured in `src/config/gameplay.ts`
 (currently 100 🩰) with a rolling 24-hour cooldown. Daily state and its
 wallet/ledger reward share one transaction. Discord interaction IDs are

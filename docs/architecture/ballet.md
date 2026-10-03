@@ -58,3 +58,14 @@ completion record in one PostgreSQL transaction. A repeated interaction
 returns its original reward/stat snapshot; a concurrent duplicate cannot award
 twice. Stats affect presentation and activity progression only; they do not
 increase Ballet Slippers rewards.
+
+## Persistent Ballet classes
+
+The separate /ballet class flow stores a versioned, Academy-stage-aware
+session and uses the same six Ballet stats as weighted exercise inputs.
+Preparation is session-specific, optional, and persisted. Exercise outcomes,
+the single RNG roll, skill/preparation snapshots, corrections, interaction
+idempotency, and final review are saved independently from the existing
+deterministic /performance domain. Completed class/section evidence feeds the
+existing Academy activity-evidence query. See ballet-classes.md for the data
+flow and transaction boundaries.

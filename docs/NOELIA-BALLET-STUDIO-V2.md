@@ -65,27 +65,42 @@ to stage terminology.
 
 ## Training and preparation
 
-**Implemented (existing):** class, barre, center practice, stretching,
-technique, pointe practice, rehearsal, choreography, performance, audition,
-recital, and showcase. Existing practice transactions atomically record XP,
-stats, wallet reward, and cooldown under the Discord interaction ID.
+**Implemented:** existing Ballet activities and /ballet practice remain
+unchanged. /ballet class starts or resumes a persistent session whose
+versioned curriculum snapshot depends on the user's derived Academy stage and
+selected class type. Barre, Centre, Technique, Conditioning, Turns, Allegro,
+Adagio, and original fictional Repertoire sections are filtered by centralized
+stage gates.
 
-**Planned:** expanded exercise catalog (including gymnastics/conditioning),
-preparation steps, and an attempt flow where incomplete preparation affects
-the chance of an outcome but never prevents an attempt by itself. Conditioning
-is intended as core gameplay, not a guild-disableable feature.
+Preparation is saved per session and remains optional. Missing preparation
+never blocks class; its relation to an exercise is part of the saved attempt
+calculation. The class stores its stage snapshot, type, status, current section
+and index, marked preparation, completed attempts, correction history, and
+final review. A unique active-class constraint and user row lock prevent
+concurrent sessions from branching.
 
-## Performance and RNG
+## Class performance outcomes
 
-**Implemented (existing):** deterministic weighted Ballet-stat scoring, fixed
-tiers/rewards, cooldowns, immutable history, and transaction-safe replay. Reads
-never reroll a completion.
+**Implemented for classes:** each new exercise attempt gets one injected
+random roll. A centralized engine combines it with the exercise difficulty,
+weighted values from the existing six Ballet stats, and the session's
+preparation. PERFECT/SUCCESS/SHAKY/FAIL, score, roll, stat snapshot,
+preparation snapshot, and any structured correction are saved transactionally
+with the Discord interaction idempotency record. Retries, reads, class resume,
+and review never roll again. A stale button cannot attempt a different
+exercise.
 
-**Planned:** an auditable, bounded and testable RNG performance engine with
-PERFECT/SUCCESS/SHAKY/FAIL outcomes and preparation, stamina, difficulty, and
-exercise-specific skill weights. Outcome snapshot and RNG evidence must be
-persisted atomically before this replaces deterministic scoring. No pay-to-win
-equipment effect or persona-controlled roll is allowed.
+The existing /performance command remains deterministic and retains its fixed
+stat score and reward rules. Class RNG is separate and awards no XP, currency,
+or stat gains. Its initial calibration lives centrally in
+src/ballet/class/performance.ts and is provisional game tuning, not real
+training guidance.
+
+**Class review:** the final review is derived from persisted attempts and
+summarizes sections, scores, and repeated correction categories. It adds
+training evidence to the existing Academy query; it does not create another
+progression or replace Knowledge/activity/performance evidence. Assessment
+Preparation is a class type, not a formal stage assessment.
 
 ## Stamina and training cycles
 
@@ -122,26 +137,23 @@ reward and lesson content are initial defaults, not final curriculum balance.
 fictional Academy-history chapters. It is separate from gameplay rules and is
 not yet exposed as a lesson/command workflow.
 
-## Madame Noélia: mood, patience, corrective training
+## Madame Noélia: class feedback
 
-**Implemented (existing):** bounded persona presentation with a safe fallback;
-the persona receives allowlisted facts only.
+**Implemented:** exercise outcome and correction are domain facts; the Ballet
+presentation layer supplies concise class tone after the transaction. The
+review draws only from saved session context. Persona text cannot choose an
+exercise, change a score, or alter progression.
 
-**Planned:** persisted teacher Mood and per-session Patience, neutral domain
-events, correction tracking and bounded corrective-training plans. Mood may
-affect dialogue/session choices but never the already-defined performance
-roll. Corrective work must be bounded and must never multiply normal cycle or
-Academy requirements. Critique targets execution, not a player’s worth.
+**Planned:** persistent teacher Mood/Patience and bounded corrective-training
+plans. Corrections are structured session records now, but no Injury or
+Rehabilitation system is implemented. Critique targets an exercise result,
+not a player's worth.
 
-## Academy Character Age and settings
+## Character age boundary
 
-**Planned/Not implemented:** optional, explicitly fictional
-`academy_character_age`/age-band setting only. It is not a Discord user’s age;
-the bot must not request, infer, or import real age. Disabled or private means
-the value is omitted from display and persona context. Academy gameplay must
-not depend on it. No centralized Global Default → Guild Override → User
-Preference SettingsManager exists yet; core Academy/training rules are not
-feature flags.
+There is no Academy Character Age system. No age field, age progression,
+age-based shop rule, or age-dependent Persona exists. Academy stages are
+progression labels only and do not express a real or fictional numeric age.
 
 ## Wardrobe and economy
 
@@ -185,24 +197,25 @@ no level-999 continuation.
 - Production databases are never used for development tests or migration runs.
 
 The canonical derived curriculum and fictional-history content needed no
-database migration. Knowledge V1 adds only migration 021; migrations 001–020
-remain immutable.
+database migration. Knowledge V1 added migration 021. The persistent class
+engine adds only the forward-only migration 022; migrations 001–021 remain
+immutable.
 
 ## Testing strategy
 
-Unit tests cover stage ordering, combined evidence requirements, entry-stage
-semantics, advanced pointe gating, Solo Seal’s terminal boundary, fictional
-history content, lesson validation, and command rendering. PostgreSQL
-integration tests cover query-backed progression, concurrent duplicate lesson
-completion, incorrect answers, and replay; they run only with an explicitly
-isolated test database. The full quality gate is `npm run check`; in constrained
-Windows workers the equivalent Vitest invocation may disable isolate/file
-parallelism without changing test assertions.
+Unit tests cover stage ordering, class gating, preparation scoring, fixed
+outcome boundaries, correction aggregation, component IDs, and the /ballet
+class command path. PostgreSQL integration tests cover class creation/resume,
+partial preparation, concurrent duplicate attempts, restart/replay without
+rerolling, completion review, and Academy evidence. They run only with an
+explicitly isolated test database. The full quality gate is npm run check; in
+constrained Windows workers Vitest may disable isolate/file parallelism without
+changing test assertions.
 
 ## TBD balancing and follow-up blocks
 
 - Final promotion thresholds, assessment structure, XP/Knowledge rewards.
-- Preparation penalties and performance probability curves.
+- Further balance review of the centralized class score calibration.
 - Stamina cycle workload/deadline bands and caps.
 - Teacher mood durations, patience changes, corrective caps.
 - Pet needs/decay and optional social encouragement parameters.
