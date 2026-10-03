@@ -6,7 +6,7 @@ import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import { AcademyUniformAlreadyClaimedError } from './errors.js';
 import type { PerformanceTier } from '../performance/types.js';
-import { getBalletAcademyProgress } from './academy.js';
+import { getBalletAcademyProgress, getBalletAcademyProgressAtStage } from './academy.js';
 import type { BalletAcademyProgress, BalletAcademyEvidence } from './academy.js';
 import { createAcademyUniformStatus, readAcademyUniformItems } from './uniform.js';
 import type {
@@ -16,6 +16,7 @@ import type {
 } from './uniform.js';
 
 interface AcademyEvidenceRow extends QueryResultRow {
+  readonly persisted_stage_id?: string | null;
   readonly level: number;
   readonly completed_activity_codes: string[];
   readonly best_performance_tiers: string[];
@@ -217,8 +218,19 @@ export async function loadBalletAcademyProgress(
   queryable: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
   discordUserId: string,
 ): Promise<BalletAcademyProgress> {
+  const { evidence, persistedStageId } = await loadBalletAcademyEvidence(queryable, discordUserId);
+  return persistedStageId === null
+    ? getBalletAcademyProgress(evidence)
+    : getBalletAcademyProgressAtStage(evidence, persistedStageId);
+}
+
+export async function loadBalletAcademyEvidence(
+  queryable: Pick<Pool, 'query'> | Pick<PoolClient, 'query'>,
+  discordUserId: string,
+): Promise<{ readonly evidence: BalletAcademyEvidence; readonly persistedStageId: string | null }> {
   const result = await queryable.query<AcademyEvidenceRow>(
     `SELECT
+         (SELECT current_stage_id FROM academy_stage_progress WHERE discord_user_id = $1) AS persisted_stage_id,
          COALESCE((SELECT level FROM ballet_progress WHERE discord_user_id = $1), 1) AS level,
          COALESCE((
            SELECT array_agg(activity_code ORDER BY activity_code)
@@ -290,7 +302,57 @@ export async function loadBalletAcademyProgress(
     pointe: row.pointe,
     stamina: row.stamina,
   };
-  return getBalletAcademyProgress(evidence);
+  return { evidence, persistedStageId: row.persisted_stage_id ?? null };
+}
+
+/**
+ * Record the stage a user had reached under the pre-assessment, evidence-only
+ * progression. The baseline is captured once and is never rewritten, so adding
+ * formal assessment gates cannot demote an existing user.
+ * The caller must already hold the Discord user's row lock.
+ */
+export async function ensureAcademyStageBaseline(
+  client: PoolClient,
+  discordUserId: string,
+): Promise<string> {
+  const existing = await client.query<{ readonly current_stage_id: string }>(
+    'SELECT current_stage_id FROM academy_stage_progress WHERE discord_user_id = $1 FOR UPDATE',
+    [discordUserId],
+  );
+  const existingStage = existing.rows[0]?.current_stage_id;
+  if (existingStage !== undefined) return existingStage;
+
+  const { evidence } = await loadBalletAcademyEvidence(client, discordUserId);
+  const legacyStage = getBalletAcademyProgress(evidence).currentRank.id;
+  await client.query(
+    `INSERT INTO academy_stage_progress (
+       discord_user_id, legacy_baseline_stage_id, current_stage_id
+     ) VALUES ($1, $2, $2)
+     ON CONFLICT (discord_user_id) DO NOTHING`,
+    [discordUserId, legacyStage],
+  );
+  const inserted = await client.query<{ readonly current_stage_id: string }>(
+    'SELECT current_stage_id FROM academy_stage_progress WHERE discord_user_id = $1 FOR UPDATE',
+    [discordUserId],
+  );
+  const stage = inserted.rows[0]?.current_stage_id;
+  if (stage === undefined) throw new Error('Academy stage baseline could not be recorded.');
+  return stage;
+}
+
+export async function ensureAndLockAcademyUser(
+  client: PoolClient,
+  discordUserId: string,
+): Promise<void> {
+  await client.query(
+    'INSERT INTO discord_users (discord_user_id) VALUES ($1) ON CONFLICT (discord_user_id) DO NOTHING',
+    [discordUserId],
+  );
+  const locked = await client.query(
+    'SELECT discord_user_id FROM discord_users WHERE discord_user_id = $1 FOR UPDATE',
+    [discordUserId],
+  );
+  if (locked.rows.length === 0) throw new Error('Discord user row could not be locked.');
 }
 
 export async function loadAcademyUniformStatus(

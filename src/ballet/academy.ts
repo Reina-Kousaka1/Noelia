@@ -36,7 +36,7 @@ export interface BalletAcademyProgress {
 type AcademyStat =
   'technique' | 'flexibility' | 'musicality' | 'performance' | 'pointe' | 'stamina';
 
-interface AcademyStageDefinition {
+export interface AcademyStageDefinition {
   readonly id: string;
   readonly title: string;
   readonly description: string;
@@ -246,6 +246,66 @@ export function getBalletAcademyProgress(evidence: BalletAcademyEvidence): Balle
   }
 
   return { currentRank, nextRank, completedRankCount };
+}
+
+/** Return the canonical definition for a persisted Academy stage identifier. */
+export function getAcademyStageDefinition(stageId: string): AcademyStageDefinition | undefined {
+  return ACADEMY_CURRICULUM.find((stage) => stage.id === stageId);
+}
+
+export function getAcademyStageIndex(stageId: string): number {
+  return ACADEMY_CURRICULUM.findIndex((stage) => stage.id === stageId);
+}
+
+/** The ordered Knowledge domains used by an assessment for this canonical target stage. */
+export function getAssessmentKnowledgeDomains(stageId: string): readonly KnowledgeDomain[] {
+  const stage = getAcademyStageDefinition(stageId);
+  if (stage === undefined) return [];
+  const domains = Object.keys(stage.knowledgeLessons ?? {}) as KnowledgeDomain[];
+  return domains.length > 0 ? domains.sort() : ['ballet_theory'];
+}
+
+/** Evaluate the same canonical requirements used by the legacy stage derivation. */
+export function evaluateAcademyStageRequirements(
+  stageId: string,
+  evidence: BalletAcademyEvidence,
+): readonly AcademyRequirementProgress[] {
+  const stage = getAcademyStageDefinition(stageId);
+  if (stage === undefined) throw new Error(`Unknown Academy stage: ${stageId}`);
+  return evaluateRequirements(stage, evidence);
+}
+
+/**
+ * Render progress from an assessment-controlled persisted stage. This does not
+ * change the legacy evidence-only derivation above; callers opt into this view
+ * only after the user's pre-assessment stage has been recorded as a baseline.
+ */
+export function getBalletAcademyProgressAtStage(
+  evidence: BalletAcademyEvidence,
+  currentStageId: string,
+): BalletAcademyProgress {
+  const currentIndex = getAcademyStageIndex(currentStageId);
+  const currentStage = ACADEMY_CURRICULUM[currentIndex];
+  if (currentStage === undefined) throw new Error(`Unknown Academy stage: ${currentStageId}`);
+
+  const currentRank = toRank(
+    currentStage,
+    currentIndex === 0 ? [] : evaluateRequirements(currentStage, evidence),
+  );
+  const nextStage = ACADEMY_CURRICULUM[currentIndex + 1];
+  if (nextStage === undefined) {
+    return { currentRank, nextRank: null, completedRankCount: currentIndex };
+  }
+
+  const requirements = [
+    ...evaluateRequirements(nextStage, evidence),
+    { label: `Pass the ${nextStage.title} Academy assessment`, met: false },
+  ];
+  return {
+    currentRank,
+    nextRank: toRank(nextStage, requirements),
+    completedRankCount: currentIndex,
+  };
 }
 
 function evaluateRequirements(

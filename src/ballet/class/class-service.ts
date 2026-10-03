@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient, QueryResultRow } from 'pg';
 
-import { loadBalletAcademyProgress } from '../academy-service.js';
+import { ensureAcademyStageBaseline, loadBalletAcademyProgress } from '../academy-service.js';
 import { IdempotencyConflictError } from '../../economy/errors.js';
 import { assertDiscordSnowflake } from '../../utils/discord-snowflake.js';
 import { withTransaction } from '../../database/transaction.js';
@@ -96,6 +96,7 @@ export class BalletClassService implements BalletClassPort {
     const requestFingerprint = fingerprint(discordUserId, 'START', classType);
     return withTransaction(this.pool, async (client) => {
       await ensureAndLockUser(client, discordUserId);
+      await ensureAcademyStageBaseline(client, discordUserId);
       const replay = await findAction(client, interactionId);
       if (replay !== undefined) {
         assertActionReplay(replay, discordUserId, 'START', requestFingerprint);

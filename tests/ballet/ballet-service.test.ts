@@ -124,16 +124,21 @@ function createBalletService(options?: {
         rows: options?.existingCompletion === undefined ? [] : [options.existingCompletion],
       };
     }
-    if (sql.startsWith('SELECT COALESCE((SELECT level FROM ballet_progress')) {
+    if (sql.startsWith('SELECT (SELECT current_stage_id FROM academy_stage_progress')) {
       return {
         rows: [
           {
+            persisted_stage_id: null,
             level: progress.level,
             completed_activity_codes: [],
             best_performance_tiers: [],
+            knowledge_lesson_counts: {},
             technique: 0,
+            flexibility: 0,
             musicality: 0,
             performance: 0,
+            pointe: 0,
+            stamina: 0,
           },
         ],
       };
@@ -157,6 +162,9 @@ function createBalletService(options?: {
           active: true,
         })),
       };
+    }
+    if (sql.startsWith('SELECT COALESCE((SELECT level FROM ballet_progress')) {
+      return { rows: [{ level: progress.level }] };
     }
     if (sql.startsWith('SELECT activity_code, display_name, description, category')) {
       const selected = activities.find((item) => item.activity_code === String(values[0]));

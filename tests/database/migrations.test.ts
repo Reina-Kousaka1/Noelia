@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(22);
+    expect(migrations).toHaveLength(23);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -139,6 +139,18 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[21]?.sql).toContain('CREATE TABLE ballet_class_attempts');
     expect(migrations[21]?.sql).toContain('CREATE TABLE academy_training_evidence');
     expect(migrations[21]?.sql).toContain('ballet_class_attempts_append_only');
+    expect(migrations[22]).toMatchObject({
+      version: 23,
+      name: 'academy_assessments_v1',
+    });
+    expect(migrations[22]?.sql).toContain('CREATE TABLE academy_stage_progress');
+    expect(migrations[22]?.sql).toContain('CREATE TABLE academy_assessment_attempts');
+    expect(migrations[22]?.sql).toContain('CREATE TABLE academy_assessment_responses');
+    expect(migrations[22]?.sql).toContain('CREATE TABLE academy_assessment_promotions');
+    expect(migrations[22]?.sql).toContain('academy_assessment_one_active_per_user_idx');
+    expect(migrations[22]?.sql).toContain('academy_assessment_attempts_no_delete');
+    expect(migrations[22]?.sql).toContain('academy_stage_progress_no_delete');
+    expect(migrations[22]?.sql).not.toMatch(/\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i);
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -154,8 +166,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 22,
-      currentVersion: 22,
+      appliedCount: 23,
+      currentVersion: 23,
     });
 
     expect(statements).toContain('BEGIN');
