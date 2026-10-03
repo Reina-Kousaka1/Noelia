@@ -69,6 +69,24 @@ const rankMinimumLevels: Readonly<Record<string, number>> = {
   'repertoire-artist': 12,
   soloist: 20,
   'principal-artist': 35,
+  'minis-bambinis': 1,
+  'pre-primary': 2,
+  primary: 3,
+  'grade-1': 4,
+  'grade-2': 5,
+  'grade-3': 6,
+  'grade-4': 7,
+  'grade-5': 8,
+  'grade-6': 9,
+  'grade-7': 10,
+  'grade-8': 11,
+  'discovering-repertoire': 12,
+  'intermediate-foundation': 15,
+  intermediate: 20,
+  'advanced-foundation': 25,
+  'advanced-1': 30,
+  'advanced-2': 35,
+  'solo-seal': 40,
 };
 
 export function createAcademyUniformStatus(
@@ -112,9 +130,16 @@ export function createAcademyUniformStatus(
     Record<string, { readonly role: string; readonly label: string }>
   > = {
     apprentice: { role: 'academy-apprentice-accent', label: 'Apprentice wrap' },
+    primary: { role: 'academy-apprentice-accent', label: 'Primary class wrap' },
     'repertoire-artist': { role: 'academy-repertoire-accent', label: 'Repertoire skirt' },
+    'discovering-repertoire': {
+      role: 'academy-repertoire-accent',
+      label: 'Repertoire skirt',
+    },
     soloist: { role: 'academy-soloist-accent', label: 'Soloist stage skirt' },
+    intermediate: { role: 'academy-soloist-accent', label: 'Intermediate stage skirt' },
     'principal-artist': { role: 'academy-principal-accent', label: 'Principal presentation skirt' },
+    'solo-seal': { role: 'academy-principal-accent', label: 'Solo Seal presentation skirt' },
   };
   const accent = accentDefinition[rank.id];
   const accentItems =

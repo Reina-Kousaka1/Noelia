@@ -8,37 +8,53 @@ interface EvidenceRow extends QueryResultRow {
   readonly completed_activity_codes: string[];
   readonly best_performance_tiers: string[];
   readonly technique: number;
+  readonly flexibility: number;
   readonly musicality: number;
   readonly performance: number;
+  readonly pointe: number;
+  readonly stamina: number;
 }
 
 describe('BalletAcademyService', () => {
-  it('derives the rank from existing PostgreSQL progress records', async () => {
+  it('derives the canonical stage from existing PostgreSQL progress records', async () => {
     const query = vi.fn().mockResolvedValue({
       rows: [
         {
-          level: 20,
+          level: 40,
           completed_activity_codes: [
             'audition',
             'barre',
             'choreography',
             'class',
+            'center-practice',
+            'stretching',
+            'technique',
+            'pointe-practice',
+            'performance',
             'recital',
             'rehearsal',
+            'showcase',
           ],
-          best_performance_tiers: ['spring-recital:SILVER'],
-          technique: 22,
-          musicality: 18,
-          performance: 14,
+          best_performance_tiers: [
+            'spring-recital:PRIMA',
+            'moonlit-showcase:PRIMA',
+            'prima-audition:GOLD',
+          ],
+          technique: 80,
+          flexibility: 80,
+          musicality: 80,
+          performance: 80,
+          pointe: 80,
+          stamina: 80,
         } satisfies EvidenceRow,
       ],
     });
     const service = new BalletAcademyService({ query } as unknown as Pool);
 
     await expect(service.getProgress('222222222222222222')).resolves.toMatchObject({
-      currentRank: { id: 'soloist', title: 'Soloist' },
-      nextRank: { id: 'principal-artist' },
-      completedRankCount: 3,
+      currentRank: { id: 'advanced-2', title: 'Advanced 2' },
+      nextRank: { id: 'solo-seal' },
+      completedRankCount: 16,
     });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('ballet_performance_completions'), [
       '222222222222222222',

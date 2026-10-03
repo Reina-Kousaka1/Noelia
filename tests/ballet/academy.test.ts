@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getBalletAcademyProgress } from '../../src/ballet/academy.js';
+import { ACADEMY_CURRICULUM, getBalletAcademyProgress } from '../../src/ballet/academy.js';
 import type { BalletAcademyEvidence } from '../../src/ballet/academy.js';
 
 const startingEvidence: BalletAcademyEvidence = {
@@ -8,71 +8,137 @@ const startingEvidence: BalletAcademyEvidence = {
   completedActivityCodes: [],
   bestPerformanceTiers: {},
   technique: 0,
+  flexibility: 0,
   musicality: 0,
   performance: 0,
+  stamina: 0,
 };
 
-describe('Ballet Academy progression', () => {
-  it('starts at Studio Student and explains the next rank requirements', () => {
+const completeEvidence: BalletAcademyEvidence = {
+  level: 100,
+  completedActivityCodes: [
+    'class',
+    'barre',
+    'center-practice',
+    'stretching',
+    'technique',
+    'pointe-practice',
+    'rehearsal',
+    'choreography',
+    'performance',
+    'audition',
+    'recital',
+    'showcase',
+  ],
+  bestPerformanceTiers: {
+    'spring-recital': 'PRIMA',
+    'moonlit-showcase': 'PRIMA',
+    'prima-audition': 'PRIMA',
+  },
+  technique: 100,
+  flexibility: 100,
+  musicality: 100,
+  performance: 100,
+  pointe: 100,
+  stamina: 100,
+};
+
+describe('Maison Noélia Academy progression', () => {
+  it('defines the canonical 18-stage curriculum in the requested order', () => {
+    expect(ACADEMY_CURRICULUM.map((stage) => stage.title)).toEqual([
+      'Minis & Bambinis',
+      'Pre-Primary',
+      'Primary',
+      'Grade 1',
+      'Grade 2',
+      'Grade 3',
+      'Grade 4',
+      'Grade 5',
+      'Grade 6',
+      'Grade 7',
+      'Grade 8',
+      'Discovering Repertoire',
+      'Intermediate Foundation',
+      'Intermediate',
+      'Advanced Foundation',
+      'Advanced 1',
+      'Advanced 2',
+      'Solo Seal',
+    ]);
+    expect(ACADEMY_CURRICULUM[0]?.id).toBe('minis-bambinis');
+    expect(ACADEMY_CURRICULUM.filter((stage) => stage.id === 'minis')).toHaveLength(0);
+    expect(ACADEMY_CURRICULUM.filter((stage) => stage.id === 'bambinis')).toHaveLength(0);
+  });
+
+  it('starts in Minis & Bambinis and reports Pre-Primary requirements', () => {
     const result = getBalletAcademyProgress(startingEvidence);
 
-    expect(result.currentRank.title).toBe('Studio Student');
-    expect(result.nextRank?.title).toBe('Academy Apprentice');
-    expect(result.nextRank?.requirements.every((requirement) => !requirement.met)).toBe(true);
+    expect(result.currentRank).toMatchObject({
+      id: 'minis-bambinis',
+      title: 'Minis & Bambinis',
+      requirements: [],
+    });
+    expect(result.nextRank?.title).toBe('Pre-Primary');
+    expect(result.nextRank?.requirements.map((requirement) => requirement.label)).toEqual([
+      'Reach Ballet level 2',
+      'Complete Class',
+      'Complete Stretching',
+    ]);
   });
 
-  it('derives ranks from existing Ballet level, activity, stat, and performance evidence', () => {
+  it('does not advance on Ballet XP level alone', () => {
+    const result = getBalletAcademyProgress({ ...startingEvidence, level: 100 });
+
+    expect(result.currentRank.id).toBe('minis-bambinis');
+    expect(result.nextRank?.requirements.some((requirement) => !requirement.met)).toBe(true);
+  });
+
+  it('requires pointe practice only at the advanced foundation stage', () => {
     const result = getBalletAcademyProgress({
-      level: 35,
-      completedActivityCodes: [
-        'class',
-        'barre',
-        'center-practice',
-        'stretching',
-        'rehearsal',
-        'choreography',
-        'audition',
-        'recital',
-        'showcase',
-      ],
-      bestPerformanceTiers: { 'spring-recital': 'SILVER', 'prima-audition': 'GOLD' },
-      technique: 80,
-      musicality: 40,
-      performance: 50,
+      ...completeEvidence,
+      level: 24,
+      completedActivityCodes: completeEvidence.completedActivityCodes.filter(
+        (code) => code !== 'pointe-practice',
+      ),
     });
 
-    expect(result).toMatchObject({
-      currentRank: { id: 'principal-artist', title: 'Principal Artist' },
-      nextRank: null,
-      completedRankCount: 4,
+    expect(result.currentRank.id).toBe('intermediate');
+    expect(result.nextRank).toMatchObject({
+      id: 'advanced-foundation',
+      requirements: expect.arrayContaining([{ label: 'Complete Pointe Practice', met: false }]),
     });
   });
 
-  it('does not promote on levels alone or treat a low stage tier as a pass', () => {
-    const result = getBalletAcademyProgress({
-      ...startingEvidence,
-      level: 20,
-      completedActivityCodes: [
-        'class',
-        'barre',
-        'center-practice',
-        'stretching',
-        'rehearsal',
-        'choreography',
-        'audition',
-        'recital',
-      ],
-      bestPerformanceTiers: { 'spring-recital': 'BRONZE' },
-      technique: 9,
-      musicality: 15,
-      performance: 10,
+  it('requires the top audition tier for Solo Seal and then stops Academy progression', () => {
+    const goldResult = getBalletAcademyProgress({
+      ...completeEvidence,
+      bestPerformanceTiers: { ...completeEvidence.bestPerformanceTiers, 'prima-audition': 'GOLD' },
     });
-
-    expect(result.currentRank.id).toBe('repertoire-artist');
+    expect(goldResult.currentRank.id).toBe('advanced-2');
+    expect(goldResult.nextRank?.title).toBe('Solo Seal');
     expect(
-      result.nextRank?.requirements.find((requirement) =>
-        requirement.label.includes('Silver or higher'),
-      )?.met,
+      goldResult.nextRank?.requirements.find((requirement) => requirement.label.includes('PRIMA'))
+        ?.met,
     ).toBe(false);
+
+    const primaResult = getBalletAcademyProgress(completeEvidence);
+    expect(primaResult).toMatchObject({
+      currentRank: { id: 'solo-seal', title: 'Solo Seal' },
+      nextRank: null,
+      completedRankCount: 17,
+    });
+  });
+
+  it('requires more than a minimum level at every stage after the entry stage', () => {
+    expect(
+      ACADEMY_CURRICULUM.slice(1).every((stage) =>
+        Boolean(
+          stage.requiredActivities?.length ||
+          stage.minimumDistinctActivities !== undefined ||
+          Object.keys(stage.stats ?? {}).length ||
+          stage.performance,
+        ),
+      ),
+    ).toBe(true);
   });
 });

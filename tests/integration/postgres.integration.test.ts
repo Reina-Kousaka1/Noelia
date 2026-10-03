@@ -918,9 +918,9 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     }
 
     await expect(academy.getProgress(discordUserId)).resolves.toMatchObject({
-      currentRank: { id: 'apprentice', title: 'Academy Apprentice' },
-      nextRank: { id: 'repertoire-artist' },
-      completedRankCount: 1,
+      currentRank: { id: 'grade-1', title: 'Grade 1' },
+      nextRank: { id: 'grade-2' },
+      completedRankCount: 3,
     });
   });
 

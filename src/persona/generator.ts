@@ -1,3 +1,4 @@
+import { ACADEMY_CURRICULUM } from '../ballet/academy.js';
 import { BALLET_ACTIVITY_CODES } from '../ballet/activity-codes.js';
 import { BALLET_STAT_KEYS } from '../ballet/types.js';
 import { SHOP_CATEGORIES } from '../shop/types.js';
@@ -43,13 +44,7 @@ export interface PersonaTextPort {
 const factKeyPattern = /^[a-z][a-zA-Z0-9_]{0,39}$/;
 const integerFactPattern = /^\d{1,24}$/;
 const safeEnumFacts: Readonly<Record<string, ReadonlySet<string>>> = {
-  academy_rank: new Set([
-    'student',
-    'apprentice',
-    'repertoire-artist',
-    'soloist',
-    'principal-artist',
-  ]),
+  academy_stage: new Set(ACADEMY_CURRICULUM.map((stage) => stage.id)),
   activity: new Set(BALLET_ACTIVITY_CODES.map((code) => code.replaceAll('-', '_'))),
   category: new Set([...SHOP_CATEGORIES, 'all']),
   rarity: new Set(SHOP_RARITIES),

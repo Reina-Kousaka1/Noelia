@@ -24,12 +24,17 @@ Recital, and Showcase. The activity browser shows current and required values;
 the practice transaction checks the same requirements while holding the user's
 progression lock. These gates use the existing six Ballet stats.
 
-`/ballet academy` derives Studio Student, Academy Apprentice, Repertoire Artist,
-Soloist, and Principal Artist standing from the existing Ballet level, unique
-activity completions, stats, and best recorded event tiers. It does not write a
-second rank or XP record. `/profile` includes the current standing. Stage and
-repertoire milestones remain deterministic and visible in the existing
-activity and performance commands.
+`/ballet academy` derives the canonical 18-stage Maison Noélia curriculum from
+existing Ballet level, activity completions, stats, and best performance tiers.
+The ordered stages run from Minis & Bambinis through Solo Seal; Minis &
+Bambinis is one starting stage. Every later stage requires evidence beyond
+level alone. Pointe practice is first required at Advanced Foundation, not for
+beginners. The curriculum is centralized in `src/ballet/academy.ts`; current
+thresholds are provisional gameplay defaults, not certification standards.
+No separate Academy XP/rank table is created. `/profile` remains a read-only
+aggregator. The seven fictional Academy-history chapters are content data in
+`src/ballet/academy-history.ts`, separate from gameplay rules and not yet a
+lesson workflow.
 
 ## Stats
 

@@ -20,8 +20,11 @@ interface AcademyEvidenceRow extends QueryResultRow {
   readonly completed_activity_codes: string[];
   readonly best_performance_tiers: string[];
   readonly technique: number;
+  readonly flexibility: number;
   readonly musicality: number;
   readonly performance: number;
+  readonly pointe: number;
+  readonly stamina: number;
 }
 
 export interface BalletAcademyPort {
@@ -236,9 +239,15 @@ export async function loadBalletAcademyProgress(
          COALESCE((SELECT stat_value FROM ballet_stats
                    WHERE discord_user_id = $1 AND stat_key = 'technique'), 0) AS technique,
          COALESCE((SELECT stat_value FROM ballet_stats
+                   WHERE discord_user_id = $1 AND stat_key = 'flexibility'), 0) AS flexibility,
+         COALESCE((SELECT stat_value FROM ballet_stats
                    WHERE discord_user_id = $1 AND stat_key = 'musicality'), 0) AS musicality,
          COALESCE((SELECT stat_value FROM ballet_stats
-                   WHERE discord_user_id = $1 AND stat_key = 'performance'), 0) AS performance`,
+                   WHERE discord_user_id = $1 AND stat_key = 'performance'), 0) AS performance,
+         COALESCE((SELECT stat_value FROM ballet_stats
+                   WHERE discord_user_id = $1 AND stat_key = 'pointe'), 0) AS pointe,
+         COALESCE((SELECT stat_value FROM ballet_stats
+                   WHERE discord_user_id = $1 AND stat_key = 'stamina'), 0) AS stamina`,
     [discordUserId],
   );
   const row = result.rows[0];
@@ -260,8 +269,11 @@ export async function loadBalletAcademyProgress(
     completedActivityCodes: row.completed_activity_codes,
     bestPerformanceTiers,
     technique: row.technique,
+    flexibility: row.flexibility,
     musicality: row.musicality,
     performance: row.performance,
+    pointe: row.pointe,
+    stamina: row.stamina,
   };
   return getBalletAcademyProgress(evidence);
 }

@@ -128,8 +128,8 @@ export const balletCommand: SlashCommand = {
           await personaEmbed(
             'academy_view',
             {
-              academy_rank: progress.currentRank.id,
-              completed_ranks: progress.completedRankCount,
+              academy_stage: progress.currentRank.id,
+              academy_stages_completed: progress.completedRankCount,
               pending_requirements: pending.length,
             },
             {

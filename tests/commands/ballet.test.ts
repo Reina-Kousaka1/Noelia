@@ -50,37 +50,37 @@ describe('ballet command', () => {
     ]);
   });
 
-  it('shows deterministic rank milestones and sends allowlisted persona facts', async () => {
+  it('shows canonical Academy stage milestones and sends allowlisted persona facts', async () => {
     const { interaction, editOriginalMessage } = createInteraction([
       { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'academy' },
     ]);
     const services = createServices();
     services.academy.getProgress.mockResolvedValue({
       currentRank: {
-        id: 'apprentice',
-        title: 'Academy Apprentice',
-        description: 'Build a steady studio foundation.',
-        requirements: [{ label: 'Reach Ballet level 5', met: true }],
+        id: 'grade-1',
+        title: 'Grade 1',
+        description: 'Develop steady barre and foundational technique.',
+        requirements: [{ label: 'Reach Ballet level 4', met: true }],
       },
       nextRank: {
-        id: 'repertoire-artist',
-        title: 'Repertoire Artist',
-        description: 'Connect repertoire work.',
+        id: 'grade-2',
+        title: 'Grade 2',
+        description: 'Bring balance and musical phrasing into practice.',
         requirements: [
-          { label: 'Reach Ballet level 12', met: false },
-          { label: 'Complete Rehearsal, Choreography, and Audition', met: false },
+          { label: 'Reach Ballet level 5', met: false },
+          { label: 'Complete Center Practice', met: false },
         ],
       },
-      completedRankCount: 1,
+      completedRankCount: 3,
     });
     services.academy.getUniformStatus.mockResolvedValue({
-      rank: { id: 'apprentice', title: 'Academy Apprentice', description: '', requirements: [] },
+      rank: { id: 'grade-1', title: 'Grade 1', description: '', requirements: [] },
       ready: false,
       pointeRequired: false,
       pieces: [],
       look: [],
       optionalRankAccent: {
-        label: 'Apprentice wrap',
+        label: 'Primary class wrap',
         equippedItemName: null,
         ownedAlternatives: [],
         availableAlternatives: [],
@@ -94,7 +94,7 @@ describe('ballet command', () => {
       expect.objectContaining({
         domain: 'ballet',
         action: 'academy_view',
-        facts: expect.objectContaining({ academy_rank: 'apprentice', completed_ranks: 1 }),
+        facts: expect.objectContaining({ academy_stage: 'grade-1', academy_stages_completed: 3 }),
       }),
       '222222222222222222',
       undefined,
@@ -102,8 +102,8 @@ describe('ballet command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: 'Ballet Academy · Academy Apprentice',
-          description: expect.stringContaining('○ Reach Ballet level 12'),
+          title: 'Maison Noélia · Grade 1',
+          description: expect.stringContaining('○ Reach Ballet level 5'),
         }),
       ],
     });
