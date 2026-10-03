@@ -7,6 +7,7 @@ import { DailyService } from '../economy/daily-service.js';
 import { BalletService } from '../ballet/ballet-service.js';
 import { BalletAcademyService } from '../ballet/academy-service.js';
 import { BalletClassService } from '../ballet/class/class-service.js';
+import { AcademyAssessmentService } from '../ballet/assessment/assessment-service.js';
 import { ShopService } from '../shop/shop-service.js';
 import { InventoryService } from '../inventory/inventory-service.js';
 import { WardrobeService } from '../wardrobe/wardrobe-service.js';
@@ -14,6 +15,7 @@ import { ProfileService } from '../profile/profile-service.js';
 import { PersonaPresenceRotator } from '../persona/presence-rotator.js';
 import { balanceCommand } from '../commands/balance/balance.command.js';
 import { balletCommand } from '../commands/ballet/ballet.command.js';
+import { academyCommand } from '../commands/academy/academy.command.js';
 import { dailyCommand } from '../commands/daily/daily.command.js';
 import { shopCommand } from '../commands/shop/shop.command.js';
 import { inventoryCommand } from '../commands/inventory/inventory.command.js';
@@ -81,6 +83,7 @@ export function createDiscordRuntime(
   const ballet = new BalletService(pool, economy);
   const academy = new BalletAcademyService(pool);
   const balletClass = new BalletClassService(pool);
+  const academyAssessment = new AcademyAssessmentService(pool);
   const shop = new ShopService(pool, economy);
   const inventory = new InventoryService(pool);
   const wardrobe = new WardrobeService(pool);
@@ -132,6 +135,7 @@ export function createDiscordRuntime(
     balanceCommand,
     dailyCommand,
     balletCommand,
+    academyCommand,
     shopCommand,
     inventoryCommand,
     wardrobeCommand,
@@ -152,6 +156,7 @@ export function createDiscordRuntime(
     daily,
     ballet,
     balletClass,
+    academyAssessment,
     academy,
     shop,
     inventory,

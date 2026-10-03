@@ -351,4 +351,84 @@ describe('InteractionRouter', () => {
       flags: Eris.Constants.MessageFlags.EPHEMERAL,
     });
   });
+
+  it('routes Academy assessment buttons through the persisted assessment service', async () => {
+    const editParent = vi.fn().mockResolvedValue(undefined);
+    const assessment = {
+      start: vi.fn().mockResolvedValue({ attemptId: '250aad21-50a6-4d43-a450-b2c8f8825070' }),
+      answer: vi.fn(),
+      getOverview: vi.fn().mockResolvedValue({
+        currentStageId: 'pre-primary',
+        currentStageName: 'Pre-Primary',
+        targetStageId: 'primary',
+        targetStageName: 'Primary',
+        eligibility: {
+          sourceStageId: 'pre-primary',
+          sourceStageName: 'Pre-Primary',
+          targetStageId: 'primary',
+          targetStageName: 'Primary',
+          requirements: [{ label: 'Complete a class', met: true }],
+          eligible: true,
+          retakeRequiresNewClass: false,
+        },
+        activeAttempt: {
+          attemptId: '250aad21-50a6-4d43-a450-b2c8f8825070',
+          sourceStageId: 'pre-primary',
+          sourceStageName: 'Pre-Primary',
+          targetStageId: 'primary',
+          targetStageName: 'Primary',
+          attemptNumber: 1,
+          status: 'IN_PROGRESS',
+          startedAt: new Date('2026-10-03T12:00:00.000Z'),
+          completedAt: null,
+          currentQuestionIndex: 0,
+          totalQuestions: 1,
+          currentQuestion: {
+            id: 'ballet-theory-barre-01',
+            domain: 'ballet_theory',
+            domainName: 'Ballet Theory',
+            title: 'The barre as support',
+            question: 'How should the barre be used in class?',
+            answers: [{ id: 'a', label: 'As light support while maintaining one’s own control' }],
+          },
+          result: null,
+        },
+        latestAttempt: null,
+      }),
+    };
+    const interaction = {
+      id: '555555555555555555',
+      data: { custom_id: 'noelia:academy-assessment:start' },
+      guildID: '333333333333333333',
+      member: { id: '444444444444444444' },
+      acknowledged: false,
+      deferUpdate: vi.fn().mockResolvedValue(undefined),
+      editParent,
+      createMessage: vi.fn().mockResolvedValue(undefined),
+      createFollowup: vi.fn().mockResolvedValue(undefined),
+    } as unknown as Eris.ComponentInteraction;
+    const router = new InteractionRouter(new CommandRegistry([]), new StructuredLogger(), {
+      economy: { getBalance: vi.fn() },
+      daily: { claimDaily: vi.fn() },
+      ballet: { getProgress: vi.fn(), listActivities: vi.fn(), practice: vi.fn() },
+      shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
+      inventory: { listInventory: vi.fn() },
+      wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
+      profile: { getProfile: vi.fn() },
+      academyAssessment: assessment,
+    });
+
+    await router.dispatchComponent(interaction);
+
+    expect(assessment.start).toHaveBeenCalledWith('555555555555555555', '444444444444444444');
+    expect(assessment.getOverview).toHaveBeenCalledWith('444444444444444444');
+    expect(editParent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({ description: expect.stringContaining('How should the barre') }),
+        ],
+        components: expect.any(Array),
+      }),
+    );
+  });
 });

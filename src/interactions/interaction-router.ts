@@ -15,6 +15,13 @@ import {
 } from '../ballet/class/components.js';
 import { renderBalletClassMessage } from '../commands/ballet/class-presentation.js';
 import type { BalletClassAttempt, BalletClassView } from '../ballet/class/types.js';
+import {
+  createAcademyAssessmentComponents,
+  isAcademyAssessmentComponentId,
+  parseAcademyAssessmentComponentId,
+} from '../ballet/assessment/components.js';
+import { renderAcademyAssessment } from '../commands/academy/academy.command.js';
+import { createPersonaEmbedRenderer } from '../persona/presentation.js';
 
 export class InteractionRouter {
   public constructor(
@@ -77,6 +84,10 @@ export class InteractionRouter {
   }
 
   public async dispatchComponent(interaction: Eris.ComponentInteraction): Promise<void> {
+    if (isAcademyAssessmentComponentId(interaction.data.custom_id)) {
+      await this.dispatchAcademyAssessmentComponent(interaction);
+      return;
+    }
     if (isBalletClassComponentId(interaction.data.custom_id)) {
       await this.dispatchBalletClassComponent(interaction);
       return;
@@ -145,6 +156,71 @@ export class InteractionRouter {
       await this.respondComponent(
         interaction,
         'Noélia could not complete that action. Please try again in a moment.',
+      );
+    }
+  }
+
+  private async dispatchAcademyAssessmentComponent(
+    interaction: Eris.ComponentInteraction,
+  ): Promise<void> {
+    const parsed = parseAcademyAssessmentComponentId(interaction.data.custom_id);
+    const discordUserId = interaction.member?.id;
+    const assessment = this.services.academyAssessment;
+    if (parsed === null || interaction.guildID === undefined) {
+      await interaction.createMessage({
+        content: 'That Academy assessment control is no longer available.',
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      });
+      return;
+    }
+    if (discordUserId === undefined || assessment === undefined) {
+      await interaction.createMessage({
+        content: 'Academy assessments are available from a server member session.',
+        flags: Eris.Constants.MessageFlags.EPHEMERAL,
+      });
+      return;
+    }
+
+    try {
+      await interaction.deferUpdate();
+      if (parsed.action === 'start') {
+        await assessment.start(interaction.id, discordUserId);
+      } else {
+        await assessment.answer(
+          interaction.id,
+          discordUserId,
+          parsed.attemptId,
+          parsed.questionId,
+          parsed.answerId,
+        );
+      }
+      const overview = await assessment.getOverview(discordUserId);
+      const personaEmbed = createPersonaEmbedRenderer(
+        this.services.persona,
+        'ballet',
+        discordUserId,
+      );
+      await interaction.editParent({
+        embeds: [await renderAcademyAssessment(overview, personaEmbed)],
+        components: createAcademyAssessmentComponents(overview),
+      });
+    } catch (error) {
+      if (error instanceof ExpectedDomainError) {
+        this.logger.info('discord.component_rejected', {
+          component: 'academy_assessment',
+          errorType: error.name,
+          interactionId: interaction.id,
+        });
+        await this.respondComponent(interaction, error.userMessage);
+        return;
+      }
+      this.logger.error('discord.component_failed', error, {
+        component: 'academy_assessment',
+        interactionId: interaction.id,
+      });
+      await this.respondComponent(
+        interaction,
+        'Noélia could not update this Academy assessment. Please try again in a moment.',
       );
     }
   }
