@@ -63,7 +63,7 @@ describe('inventory command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.inventoryTitle,
+          title: expect.stringContaining(NOELIA_COPY.inventoryTitle),
           description:
             'Your inventory · Page 2/2\n**Satin Ribbon Bow** (`satin-ribbon-bow`) · Common · hair accessory · ×2',
         }),
@@ -97,7 +97,7 @@ describe('inventory command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.inventoryTitle,
+          title: expect.stringContaining(NOELIA_COPY.inventoryTitle),
           description: NOELIA_COPY.inventoryEmpty,
         }),
       ],

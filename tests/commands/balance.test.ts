@@ -36,7 +36,7 @@ describe('balance command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: 'Your Ballet Slippers',
+          title: expect.stringContaining('Your Ballet Slippers'),
           description: formatBalance(1_240n),
         }),
       ],

@@ -166,7 +166,7 @@ describe('wardrobe command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.wardrobeTitle,
+          title: expect.stringContaining(NOELIA_COPY.wardrobeTitle),
           description: 'Current outfit\n• **Satin Ribbon Bow** — hair accessory',
         }),
       ],
@@ -204,7 +204,7 @@ describe('wardrobe command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.wardrobeTitle,
+          title: expect.stringContaining(NOELIA_COPY.wardrobeTitle),
           description:
             '**Ivory Wrap Cardigan** is now equipped in wrap, outerwear. Replaced: Old Wrap.',
         }),
@@ -240,7 +240,7 @@ describe('wardrobe command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.wardrobeTitle,
+          title: expect.stringContaining(NOELIA_COPY.wardrobeTitle),
           description: 'Removed **Ivory Wrap Cardigan** from outerwear, wrap.',
         }),
       ],
@@ -266,7 +266,7 @@ describe('wardrobe command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.wardrobeCleared,
+          title: expect.stringContaining(NOELIA_COPY.wardrobeCleared),
           description: 'Removed 2 equipped pieces.',
         }),
       ],
@@ -311,7 +311,7 @@ describe('wardrobe command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.wardrobePresetSaved,
+          title: expect.stringContaining(NOELIA_COPY.wardrobePresetSaved),
           description: expect.stringContaining('#7 **Training**'),
         }),
       ],

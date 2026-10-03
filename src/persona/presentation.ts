@@ -3,6 +3,7 @@ import type { EmbedOptions } from 'eris';
 import type { NoeliaEmbedInput } from '../ui/embed.js';
 import { createNoeliaEmbed } from '../ui/embed.js';
 import type { StructuredLogger } from '../infrastructure/logging/logger.js';
+import { NOELIA_PERSONA_FALLBACKS } from './copy.js';
 import type {
   PersonaContext,
   PersonaDomain,
@@ -130,11 +131,39 @@ export interface PersonaEmbedRequest {
   readonly embed: NoeliaEmbedInput;
 }
 
+export class DeterministicPersonaFallback {
+  private readonly nextByContext = new Map<string, number>();
+
+  public render(context: PersonaContext, originalTitle: string): string {
+    const poolKey =
+      context.domain === 'wardrobe' && context.action === 'academy_uniform'
+        ? context.facts.ready === true
+          ? 'wardrobe:academy_uniform:ready'
+          : 'wardrobe:academy_uniform:missing'
+        : `${context.domain}:${context.action}`;
+    const phrases = NOELIA_PERSONA_FALLBACKS[poolKey] ?? NOELIA_PERSONA_FALLBACKS[context.domain];
+
+    if (phrases === undefined || phrases.length === 0) return originalTitle;
+
+    const index = this.nextByContext.get(poolKey) ?? 0;
+    this.nextByContext.set(poolKey, index + 1);
+    const phrase = phrases[index % phrases.length];
+    if (phrase === undefined) return originalTitle;
+
+    const phraseWithoutEnding = phrase.replace(/[.!?…]+$/u, '');
+    const personalizedTitle = validatePersonaText(`${phraseWithoutEnding} · ${originalTitle}`);
+    return personalizedTitle ?? validatePersonaText(phrase) ?? originalTitle;
+  }
+}
+
+const defaultPersonaFallback = new DeterministicPersonaFallback();
+
 export async function createPersonaEmbed(
   presenter: PersonaTextPort | undefined,
   request: PersonaEmbedRequest,
+  fallback: DeterministicPersonaFallback = defaultPersonaFallback,
 ): Promise<EmbedOptions> {
-  let title = request.embed.title;
+  let title: string | undefined;
 
   if (presenter !== undefined) {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -147,7 +176,7 @@ export async function createPersonaEmbed(
         presenter.generate(request.context, request.rateLimitKey, request.timeoutMs),
         timeout,
       ]);
-      title = validatePersonaText(candidate) ?? title;
+      title = validatePersonaText(candidate);
     } catch {
       // Keep command rendering independent from any injected or configured text provider.
     } finally {
@@ -155,7 +184,10 @@ export async function createPersonaEmbed(
     }
   }
 
-  return createNoeliaEmbed({ ...request.embed, title });
+  return createNoeliaEmbed({
+    ...request.embed,
+    title: title ?? fallback.render(request.context, request.embed.title),
+  });
 }
 
 export async function renderPersonaEmbed(

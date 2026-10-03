@@ -2,7 +2,7 @@ import * as Eris from 'eris';
 
 import { NOELIA_PRESENCE } from './copy.js';
 
-const ROTATION_INTERVAL_MS = 15 * 60 * 1_000;
+export const PERSONA_PRESENCE_ROTATION_INTERVAL_MS = 2 * 60 * 1_000;
 
 export class PersonaPresenceRotator {
   private interval: ReturnType<typeof setInterval> | undefined;
@@ -11,7 +11,7 @@ export class PersonaPresenceRotator {
   public constructor(
     private readonly client: Pick<Eris.Client, 'editStatus'>,
     private readonly onError: (error: unknown) => void,
-    private readonly intervalMs = ROTATION_INTERVAL_MS,
+    private readonly intervalMs = PERSONA_PRESENCE_ROTATION_INTERVAL_MS,
   ) {}
 
   public start(): void {

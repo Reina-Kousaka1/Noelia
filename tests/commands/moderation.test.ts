@@ -180,6 +180,28 @@ describe('moderation commands', () => {
     );
   });
 
+  it('keeps moderation responses factual and never invokes persona generation', async () => {
+    const { context, interaction } = makeContext();
+    const generate = vi.fn().mockResolvedValue(undefined);
+
+    await warnCommand.execute({
+      ...context,
+      services: { ...context.services, persona: { generate } },
+    });
+
+    expect(generate).not.toHaveBeenCalled();
+    expect(interaction.editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('warn recorded as case #1'),
+      }),
+    );
+    expect(interaction.editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.not.stringMatching(/ma chérie|magnifique|très bien|bonjour/i),
+      }),
+    );
+  });
+
   it('denies an unauthorized actor before case creation or Discord mutation', async () => {
     const { context, moderation, interaction, guild } = makeContext(false);
 

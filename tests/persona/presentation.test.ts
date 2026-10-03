@@ -4,9 +4,15 @@ import {
   createPersonaContext,
   type PersonaContext,
   type PersonaDomain,
+  validatePersonaText,
 } from '../../src/persona/generator.js';
-import { createPersonaEmbed, SafePersonaPresenter } from '../../src/persona/presentation.js';
+import {
+  createPersonaEmbed,
+  DeterministicPersonaFallback,
+  SafePersonaPresenter,
+} from '../../src/persona/presentation.js';
 import type { PersonaGenerator, PersonaTextPort } from '../../src/persona/generator.js';
+import { NOELIA_COPY } from '../../src/persona/copy.js';
 
 const context = createPersonaContext('ballet', 'practice_complete', {
   activity: 'class',
@@ -87,15 +93,19 @@ describe('persona presentation', () => {
   it('falls back after provider failure and logs no provider details or credentials', async () => {
     const apiKey = 'provider-secret-value';
     const warn = vi.fn();
+    const fallback = new DeterministicPersonaFallback();
     const presenter = createPresenter(
       { generate: vi.fn().mockRejectedValue(new Error(`failed with ${apiKey}`)) },
       {},
       { warn } as never,
     );
 
-    const result = await createPersonaEmbed(presenter, { context, embed });
+    const result = await createPersonaEmbed(presenter, { context, embed }, fallback);
 
-    expect(result.title).toBe(embed.title);
+    expect(result.title).toContain('Practice complete');
+    expect(result.title).toContain('Très bien');
+    expect(result.description).toBe(embed.description);
+    expect(result.fields).toEqual(embed.fields);
     expect(warn).toHaveBeenCalledWith('persona.generation_failed', {
       domain: 'ballet',
       action: 'practice_complete',
@@ -106,15 +116,18 @@ describe('persona presentation', () => {
   it('returns the deterministic title when generation is disabled', async () => {
     const generate = vi.fn();
     const presenter = createPresenter({ generate }, { enabled: false });
+    const fallback = new DeterministicPersonaFallback();
 
-    const result = await createPersonaEmbed(presenter, { context, embed });
+    const result = await createPersonaEmbed(presenter, { context, embed }, fallback);
 
-    expect(result.title).toBe(embed.title);
+    expect(result.title).toContain(embed.title);
+    expect(result.title).toContain('Très bien');
     expect(generate).not.toHaveBeenCalled();
   });
 
   it('times out quickly, aborts the provider request, and uses the normal embed', async () => {
     let signal: AbortSignal | undefined;
+    const fallback = new DeterministicPersonaFallback();
     const presenter = createPresenter({
       generate: vi.fn((_context: PersonaContext, requestSignal: AbortSignal) => {
         signal = requestSignal;
@@ -122,10 +135,52 @@ describe('persona presentation', () => {
       }),
     });
 
-    const result = await createPersonaEmbed(presenter, { context, embed });
+    const result = await createPersonaEmbed(presenter, { context, embed }, fallback);
 
-    expect(result.title).toBe(embed.title);
+    expect(result.title).toContain(embed.title);
+    expect(result.title).toContain('Très bien');
     expect(signal?.aborted).toBe(true);
+  });
+
+  it('varies fallback phrases in a repeatable cycle for the same gameplay context', () => {
+    const firstRun = new DeterministicPersonaFallback();
+    const secondRun = new DeterministicPersonaFallback();
+    const first = firstRun.render(context, embed.title);
+    const second = firstRun.render(context, embed.title);
+
+    expect(first).not.toBe(second);
+    expect(secondRun.render(context, embed.title)).toBe(first);
+  });
+
+  it('keeps the shop fallback from repeating the boutique heading', () => {
+    const shopContext = createPersonaContext('shop', 'browse', { category: 'all' });
+    const title = new DeterministicPersonaFallback().render(shopContext, NOELIA_COPY.shopTitle);
+
+    expect(title).toContain(NOELIA_COPY.shopTitle);
+    expect(title.match(/The studio boutique/g)).toHaveLength(1);
+  });
+
+  it('uses a gentle uniform reminder without needing persona generation', async () => {
+    const uniformContext = createPersonaContext('wardrobe', 'academy_uniform', {
+      ready: false,
+    });
+    const result = await createPersonaEmbed(
+      undefined,
+      {
+        context: uniformContext,
+        embed: { title: 'Ballet Academy uniform', description: 'Leotard, tights, and flats.' },
+      },
+      new DeterministicPersonaFallback(),
+    );
+
+    expect(result.title).toContain('Doucement, ma chérie');
+    expect(result.description).toBe('Leotard, tights, and flats.');
+  });
+
+  it('keeps valid French accents and punctuation during text validation', () => {
+    const frenchText = 'Très bien, ma chérie — l’arabesque est magnifique.';
+
+    expect(validatePersonaText(frenchText)).toBe(frenchText);
   });
 
   it.each([
@@ -137,9 +192,14 @@ describe('persona presentation', () => {
   ])('rejects unsafe or oversized text: %s', async (unsafeText) => {
     const presenter: PersonaTextPort = { generate: vi.fn().mockResolvedValue(unsafeText) };
 
-    const result = await createPersonaEmbed(presenter, { context, embed });
+    const result = await createPersonaEmbed(
+      presenter,
+      { context, embed },
+      new DeterministicPersonaFallback(),
+    );
 
-    expect(result.title).toBe(embed.title);
+    expect(result.title).toContain(embed.title);
+    expect(result.title).not.toBe(unsafeText);
     expect(result.description).toBe(embed.description);
   });
 

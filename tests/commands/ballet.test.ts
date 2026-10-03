@@ -102,7 +102,7 @@ describe('ballet command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: 'Maison Noélia · Grade 1',
+          title: expect.stringContaining('Maison Noélia · Grade 1'),
           description: expect.stringContaining('○ Reach Ballet level 5'),
         }),
       ],
@@ -139,7 +139,7 @@ describe('ballet command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.balletStatusTitle,
+          title: expect.stringContaining(NOELIA_COPY.balletStatusTitle),
           description: 'Ballet Level 1 · 98 XP\n2 XP to the next level.',
         }),
       ],
@@ -181,7 +181,7 @@ describe('ballet command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.balletActivitiesTitle,
+          title: expect.stringContaining(NOELIA_COPY.balletActivitiesTitle),
           description: `• **Stretching** — 8 XP, ${formatBalance(10n)} · Ready now`,
         }),
       ],
@@ -231,7 +231,7 @@ describe('ballet command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: NOELIA_COPY.balletPracticeComplete,
+          title: expect.stringContaining(NOELIA_COPY.balletPracticeComplete),
           fields: [{ name: 'flexibility · +2', value: '12/100', inline: true }],
           description: `Stretching · +15 Ballet XP · +${formatBalance(20n)}\nLevel 2 · 105 XP · 95 XP to the next level.`,
         }),

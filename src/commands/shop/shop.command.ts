@@ -4,7 +4,7 @@ import { completeCommand, deferCommand } from '../../interactions/response-polic
 import { ShopItemUnavailableError } from '../../shop/errors.js';
 import { SHOP_CATEGORIES } from '../../shop/types.js';
 import { SHOP_RARITY_LABELS } from '../../shop/rarity.js';
-import type { ShopCategory } from '../../shop/types.js';
+import type { ShopCategory, ShopItem } from '../../shop/types.js';
 import type { SlashCommand } from '../command.js';
 import { formatBalance } from '../balance/format-balance.js';
 import { NOELIA_COPY } from '../../persona/copy.js';
@@ -17,6 +17,24 @@ const categoryChoices = SHOP_CATEGORIES.map((category) => ({
     .join(' '),
   value: category,
 }));
+
+function formatShopCategory(category: ShopCategory): string {
+  return category
+    .split('_')
+    .map((word) => `${word[0]?.toUpperCase() ?? ''}${word.slice(1)}`)
+    .join(' ');
+}
+
+function formatBrowseItem(item: ShopItem): string {
+  const metadata = [
+    formatShopCategory(item.category),
+    SHOP_RARITY_LABELS[item.rarity],
+    item.minimumBalletLevel === null ? undefined : `Lv. ${item.minimumBalletLevel}+`,
+    item.collection?.trim(),
+  ].filter((value): value is string => value !== undefined && value.trim().length > 0);
+
+  return `**${item.displayName}** · ${formatBalance(item.price)}\n${metadata.join(' · ')}`;
+}
 
 export const shopCommand: SlashCommand = {
   definition: {
@@ -123,10 +141,7 @@ export const shopCommand: SlashCommand = {
         ? Math.max(1, Math.min(totalPages, requestedPage))
         : 1;
       const pageItems = items.slice((page - 1) * pageSize, page * pageSize);
-      const lines = pageItems.map(
-        (item) =>
-          `**${item.displayName}** (\`${item.itemId}\`) — ${item.category.replaceAll('_', ' ')} · ${SHOP_RARITY_LABELS[item.rarity]} · ${formatBalance(item.price)}${item.minimumBalletLevel === null ? '' : ` · Ballet level ${item.minimumBalletLevel}+`}${item.collection === null ? '' : ` · ${item.collection}`}`,
-      );
+      const lines = pageItems.map(formatBrowseItem);
       await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
