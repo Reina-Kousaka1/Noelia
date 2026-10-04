@@ -186,7 +186,10 @@ exercise, change a score, or alter progression.
 review an auditable boundary between the performance result and a separate
 fictional condition/setback result. Madame's presentation remains downstream
 of these domain results. Corrections target an exercise result, not a player's
-worth. Persistent teacher Mood/Patience remains planned.
+worth. Academy report tone is derived from the five most recent relevant
+persisted attendance events; excused and system-cancelled sessions do not make
+it stricter. This presentation is bounded by recent history and never changes
+class outcomes, grades, or moderation.
 
 ## Character age boundary
 
@@ -239,8 +242,11 @@ The canonical derived curriculum and fictional-history content needed no
 database migration. Knowledge V1 added migration 021. The persistent class
 engine added migration 022, Academy Assessments added migration 023, and the
 separate V3 skill/condition/cycle/setback/action history adds forward-only
-migration 024. Migrations 001–023 remain immutable. Migration 024 is not
-verified against PostgreSQL and has not been applied to Production.
+migration 024. Migration 025 adds the early Academy enrollment, foundations,
+scheduled classes, attendance, report cards, scheduler continuity, and
+non-tradeable starter wear. Migrations 001–024 remain immutable. Migrations
+024–025 have not been validated against PostgreSQL on this host and neither
+has been applied to Production.
 
 ## Testing strategy
 
@@ -250,9 +256,11 @@ fixed outcome boundaries, correction aggregation, V3 condition recovery,
 workload and skill rules, and the Ballet/wardrobe command paths. PostgreSQL
 integration tests also cover class-result replay across service restart, one
 set of V3 effects per interaction, persisted cycle/skill/condition state,
-recovery cooldown/replay, and the fictional shoe profile. They run only with an
-explicitly isolated test database; those database tests still require the
-repository's guarded PostgreSQL test setup. The full quality gate is
+recovery cooldown/replay, the fictional shoe profile, early Academy enrollment
+and starter wear, stage-gated foundations, schedule/check-in/cancellation,
+attendance recovery, and report persistence. They run only with an explicitly
+isolated test database; no PostgreSQL service was available for those guarded
+tests on this host. The full quality gate is
 `npm run check`; in constrained Windows workers Vitest may disable isolate/file
 parallelism without changing test assertions.
 
@@ -265,8 +273,9 @@ parallelism without changing test assertions.
   and recovery cooldowns; all current numbers are centralized provisional
   game tuning.
 - Isolated PostgreSQL execution of migration 024 and its integration tests.
+- Isolated PostgreSQL execution of migration 025, fresh/upgrade migration
+  paths, and early Academy integration tests.
 - Safe player-facing UI for longer-term setback history and equipment cosmetics.
-- Teacher mood durations, patience changes, corrective caps.
 - Pet needs/decay and optional social encouragement parameters.
 - Settings hierarchy and privacy defaults.
 - More lesson content, course unlocks, and deeper Knowledge course progression.

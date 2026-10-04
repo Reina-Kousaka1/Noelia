@@ -55,6 +55,18 @@ assessment migration and command have not been deployed or applied to
 Production. See [Academy Assessments V1](docs/architecture/academy-assessments.md)
 for eligibility, result, promotion, and retake details.
 
+The early Academy loop now starts with an explicit `/academy enroll`, one-time
+non-tradeable hand-me-down studio wear, rhythm/listening/movement foundations,
+and scheduled, timezone-aware classes. Attendance, deterministic 1–6 report
+cards, stage-specific evidence gates, and a recent-history Madame tone are
+stored or derived from the same persistent Academy history. `/academy practice`,
+`/academy schedule`, `/academy checkin`, `/academy cancel`, and `/academy report`
+provide the entry flow; `/ballet class` remains the guided exercise session.
+Migration 025 is additive and is not applied to Production. Guarded PostgreSQL
+validation has not run on this host. See
+[Early Academy Gameplay](docs/architecture/early-academy-gameplay.md) for the
+implementation and fairness rules.
+
 The Academy curriculum has 19 canonical education-inspired stages, from
 Pre-School Dance and Preparatory Dance through Solo Seal. The old persisted ID
 `minis-bambinis` is read as Pre-School Dance; stored baselines and historical
@@ -190,8 +202,10 @@ exercise attempts, corrections, and Academy training evidence; V23 adds
 assessment attempts, saved Knowledge answers, an assessment-managed stage
 pointer with legacy baseline, and promotion audit records. V24 adds separate
 fictional Ballet Training V3 skills, condition, workload cycles, setback and
-recovery audit state, and a display-only shoe preference. These are additive
-migrations and have not been applied to Production as part of this work. Rarity controls
+recovery audit state, and a display-only shoe preference. V25 adds early
+Academy enrollment, beginner evidence, scheduled classes, attendance, report
+cards, and starter-item tradeability. These are additive migrations and have
+not been applied to Production as part of this work. Rarity controls
 presentation only; collections grant no automatic currency or gameplay
 bonuses. Purchases atomically check eligibility and balance, debit the wallet,
 add inventory, and record the purchase. `/inventory` reads owned items in pages

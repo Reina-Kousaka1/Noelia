@@ -28,3 +28,12 @@ The legacy ID `minis-bambinis` resolves to canonical `pre-school-dance` when
 read. The canonical `preparatory-dance` stage remains distinct. Stored IDs and
 audit history are retained; no database migration or data rewrite is needed.
 No user age is stored or inferred from these education-inspired RPG stages.
+
+New students can explicitly enroll in `/academy enroll`, practice stage-gated
+rhythm and Ballet foundations, schedule timezone-aware Academy classes, and
+review persisted attendance/report cards through `/academy report`. These
+early evidence requirements supplement saved Ballet level, activity, stat,
+class, and Knowledge evidence; time played or XP alone does not promote a
+student. See [Early Academy Gameplay](../architecture/early-academy-gameplay.md)
+for the starter wardrobe, attendance fairness, grading, and Migration 025
+details. PostgreSQL verification of Migration 025 is still pending.

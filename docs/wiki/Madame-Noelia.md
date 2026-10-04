@@ -1,9 +1,11 @@
 # Madame Noélia
 
-**Status: Safe presentation implemented; persistent teacher Mood/Patience planned.**
+**Status: Safe presentation and attendance-derived Academy tone implemented.**
 
 The current bounded persona layer renders dialogue from allowlisted facts and
-falls back safely. Future Mood and per-session Patience are domain state; they
-may affect reaction/correction choices but never secretly modify a performance
-roll. Criticism should address technique and execution, never a player's
+falls back safely. In Academy reports, Madame's tone is derived from recent
+persisted attendance; excused and system-cancelled sessions do not make it
+stricter, and steady attendance can restore a warmer tone. It changes
+presentation only, never performance rolls, grades, permissions, or Discord
+moderation. Criticism should address technique and execution, never a player's
 intrinsic worth.
