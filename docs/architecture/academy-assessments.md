@@ -1,6 +1,6 @@
 # Academy Assessments V1
 
-Academy Assessments connect the canonical 18-stage curriculum to the existing
+Academy Assessments connect the canonical 19-stage curriculum to the existing
 Ballet Class and Knowledge systems. This is an implementation milestone; it is
 not a claim that the migration or command has been deployed.
 

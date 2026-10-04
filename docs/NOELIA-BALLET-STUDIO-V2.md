@@ -30,31 +30,32 @@ remain idempotency keys for mutations. SQL remains parameterized.
 
 ## Academy progression
 
-**Implemented:** a canonical ordered 18-stage curriculum is derived from the
+**Implemented:** a canonical ordered 19-stage curriculum is derived from the
 existing Ballet level, activity completion history, six Ballet stats, best
 performance tiers, and selected completed Knowledge lessons. It does not
 create a second XP or rank store. Knowledge gates read immutable completions
 from the Knowledge domain and show missing lesson requirements explicitly.
 Every stage after the entry stage requires evidence beyond level alone. The order is:
 
-1. Minis & Bambinis
-2. Pre-Primary
-3. Primary
-4. Grade 1
-5. Grade 2
-6. Grade 3
-7. Grade 4
-8. Grade 5
-9. Grade 6
-10. Grade 7
-11. Grade 8
-12. Discovering Repertoire
-13. Intermediate Foundation
-14. Intermediate
-15. Advanced Foundation
-16. Advanced 1
-17. Advanced 2
-18. Solo Seal
+1. Pre-School Dance
+2. Preparatory Dance
+3. Pre-Primary
+4. Primary
+5. Grade 1
+6. Grade 2
+7. Grade 3
+8. Grade 4
+9. Grade 5
+10. Grade 6
+11. Grade 7
+12. Grade 8
+13. Discovering Repertoire
+14. Intermediate Foundation
+15. Intermediate
+16. Advanced Foundation
+17. Advanced 1
+18. Advanced 2
+19. Solo Seal
 
 `src/ballet/academy.ts` is the centralized curriculum and contains the current
 initial gameplay thresholds, including Knowledge lesson counts. These are

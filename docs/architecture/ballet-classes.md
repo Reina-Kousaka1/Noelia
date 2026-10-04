@@ -1,7 +1,7 @@
 # Ballet class domain
 
 The class system extends the existing Ballet and Academy domains. It reuses
-the canonical 18-stage curriculum and the six rows in ballet_stats; it does
+the canonical 19-stage curriculum and the six rows in ballet_stats; it does
 not create a second skill, XP, wallet, or Academy rank store.
 
 ```mermaid
