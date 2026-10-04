@@ -85,34 +85,23 @@ export async function renderAcademyAssessment(
 
   if (resultAttempt?.result !== null && resultAttempt?.result !== undefined) {
     const result = resultAttempt.result;
-    const replacedEntryAssessment =
-      resultAttempt.sourceStageId === 'minis-bambinis' &&
-      resultAttempt.targetStageId === 'pre-primary' &&
-      result.status === 'RETAKE_REQUIRED' &&
-      overview.currentStageId === 'pre-school-dance';
     lines.push(
       '',
-      replacedEntryAssessment
-        ? '**Previous curriculum assessment:** Saved without promotion after the Academy stage update.'
-        : `**Latest result:** ${result.status.replaceAll('_', ' ')} · Knowledge ${result.correctAnswers}/${result.totalQuestions}`,
+      `**Latest result:** ${result.status.replaceAll('_', ' ')} · Knowledge ${result.correctAnswers}/${result.totalQuestions}`,
     );
-    const sections = replacedEntryAssessment
-      ? []
-      : result.practicalSections.map(
-          (section) => `${section.displayName}: ${section.rating.replaceAll('_', ' ')}`,
-        );
+    const sections = result.practicalSections.map(
+      (section) => `${section.displayName}: ${section.rating.replaceAll('_', ' ')}`,
+    );
     if (sections.length > 0) lines.push(sections.join(' · '));
-    if (result.primaryCorrection !== null && !replacedEntryAssessment) {
+    if (result.primaryCorrection !== null) {
       lines.push(
         `Primary correction: ${result.primaryCorrection.category.replaceAll('_', ' ').toLowerCase()}.`,
       );
     }
     lines.push(
-      replacedEntryAssessment
-        ? 'Preparatory Dance is now the next stage. Your earlier class evidence is still available for eligibility.'
-        : result.promoted
-          ? 'The result and stage promotion were saved together.'
-          : 'Your stage is unchanged. Complete a new current-stage Ballet class before a retake.',
+      result.promoted
+        ? 'The result and stage promotion were saved together.'
+        : 'Your stage is unchanged. Complete a new current-stage Ballet class before a retake.',
     );
   }
 

@@ -1,12 +1,15 @@
 # Academy Assessments V1
 
-Academy Assessments connect the canonical 19-stage curriculum to the existing
+Academy Assessments connect the canonical 18-stage curriculum to the existing
 Ballet Class and Knowledge systems. This is an implementation milestone; it is
 not a claim that the migration or command has been deployed.
 
 ## Stage ownership and legacy compatibility
 
 `src/ballet/academy.ts` remains the only stage catalog and requirement source.
+The prior 19-stage draft IDs remain readable aliases: `pre-school-dance` maps
+to `minis-bambinis`, and `preparatory-dance` maps to `pre-primary`. Stored
+snapshots and audit history are not rewritten.
 The evidence-only resolver remains available for users whose assessment-stage
 baseline has not yet been captured. On the first guided class or assessment
 start after migration 023, the application stores that user's then-current

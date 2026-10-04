@@ -42,6 +42,17 @@ describe('Ballet Academy class engine', () => {
     expect(curriculum.exercises.some((exercise) => exercise.section === 'REPERTOIRE')).toBe(false);
   });
 
+  it('normalizes historical stage aliases and uses canonical 18-stage class gates', () => {
+    const aliasedPrePrimary = buildBalletClassCurriculum('preparatory-dance', 'REGULAR', classId);
+    expect(aliasedPrePrimary.academyStageId).toBe('pre-primary');
+    expect(aliasedPrePrimary.academyStageName).toBe('Pre-Primary');
+
+    const gradeTwo = buildBalletClassCurriculum('grade-2', 'REGULAR', classId);
+    const gradeThree = buildBalletClassCurriculum('grade-3', 'REGULAR', classId);
+    expect(gradeTwo.sections.map((section) => section.id)).not.toContain('TURNS');
+    expect(gradeThree.sections.map((section) => section.id)).toContain('TURNS');
+  });
+
   it('unlocks complex sections and fictional repertoire only at their configured stages', () => {
     expect(() => buildBalletClassCurriculum('grade-8', 'REPERTOIRE', classId)).toThrow(
       'Repertoire Class unlocks',

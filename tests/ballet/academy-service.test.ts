@@ -65,7 +65,7 @@ describe('BalletAcademyService', () => {
     await expect(service.getProgress('222222222222222222')).resolves.toMatchObject({
       currentRank: { id: 'advanced-2', title: 'Advanced 2' },
       nextRank: { id: 'solo-seal' },
-      completedRankCount: 17,
+      completedRankCount: 16,
     });
     expect(query).toHaveBeenCalledWith(expect.stringContaining('academy_lesson_completions'), [
       '222222222222222222',

@@ -42,7 +42,10 @@ async function addCompletedClass(
     classType: 'REGULAR',
     classTypeName: 'Regular Ballet Class',
     academyStageId: stageId,
-    academyStageName: stageId === 'minis-bambinis' ? 'Minis & Bambinis' : 'Pre-Primary',
+    academyStageName:
+      stageId === 'minis-bambinis' || stageId === 'pre-school-dance'
+        ? 'Minis & Bambinis'
+        : 'Pre-Primary',
     sections: [],
     exercises: [],
   };
@@ -239,49 +242,40 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
     });
   });
 
-  it('preserves a saved Minis baseline and retires an old in-flight skip before promotion', async () => {
+  it('maps persisted 19-stage aliases to the 18-stage track without losing class evidence', async () => {
     const userId = testSnowflake();
     await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [userId]);
-    await pool.query('INSERT INTO ballet_progress (discord_user_id, level) VALUES ($1, 3)', [
-      userId,
-    ]);
-    const classId = await addCompletedClass(pool, userId, 'minis-bambinis');
+    await pool.query(
+      `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
+       VALUES ($1, 0, 3)`,
+      [userId],
+    );
+    await pool.query(
+      `INSERT INTO ballet_stats (discord_user_id, stat_key, stat_value)
+       VALUES ($1, 'technique', 2)`,
+      [userId],
+    );
     await pool.query(
       `INSERT INTO academy_stage_progress
          (discord_user_id, legacy_baseline_stage_id, current_stage_id)
-       VALUES ($1, 'minis-bambinis', 'minis-bambinis')`,
+       VALUES ($1, 'minis-bambinis', 'preparatory-dance')`,
       [userId],
     );
-    const obsoleteId = randomUUID();
-    const classReview = await pool.query<{ review_snapshot: unknown }>(
-      'SELECT review_snapshot FROM ballet_classes WHERE class_id = $1::uuid',
-      [classId],
-    );
-    await pool.query(
-      `INSERT INTO academy_assessment_attempts
-         (attempt_id, discord_user_id, source_stage_id, target_stage_id, attempt_number,
-          practical_class_id, practical_review_snapshot, questions_snapshot, status,
-          start_interaction_id)
-       VALUES ($1::uuid, $2, 'minis-bambinis', 'pre-primary', 1, $3::uuid,
-               $4::jsonb, $5::jsonb, 'IN_PROGRESS', $6)`,
-      [
-        obsoleteId,
-        userId,
-        classId,
-        JSON.stringify(classReview.rows[0]!.review_snapshot),
-        JSON.stringify(buildAssessmentQuestions('pre-primary', 1)),
-        testSnowflake(),
-      ],
-    );
+    await addCompletedClass(pool, userId, 'preparatory-dance');
     const service = new AcademyAssessmentService(pool);
+    expect(await service.getOverview(userId)).toMatchObject({
+      currentStageId: 'pre-primary',
+      targetStageId: 'primary',
+      eligibility: { eligible: true },
+    });
     const [first, concurrent] = await Promise.all([
       service.start(testSnowflake(), userId),
       service.start(testSnowflake(), userId),
     ]);
     expect(first.attemptId).toBe(concurrent.attemptId);
-    expect(first.sourceStageId).toBe('pre-school-dance');
-    expect(first.targetStageId).toBe('preparatory-dance');
-    const question = buildAssessmentQuestions('preparatory-dance', 1)[0]!;
+    expect(first.sourceStageId).toBe('pre-primary');
+    expect(first.targetStageId).toBe('primary');
+    const question = buildAssessmentQuestions('primary', 1)[0]!;
     const passed = await service.answer(
       testSnowflake(),
       userId,
@@ -297,17 +291,8 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
     );
     expect(persisted.rows[0]).toEqual({
       legacy_baseline_stage_id: 'minis-bambinis',
-      current_stage_id: 'preparatory-dance',
+      current_stage_id: 'primary',
     });
-    const history = await pool.query(
-      `SELECT target_stage_id, status FROM academy_assessment_attempts
-       WHERE discord_user_id = $1 ORDER BY started_at, attempt_id`,
-      [userId],
-    );
-    expect(history.rows).toEqual([
-      { target_stage_id: 'pre-primary', status: 'RETAKE_REQUIRED' },
-      { target_stage_id: 'preparatory-dance', status: 'PASS' },
-    ]);
-    expect((await service.getOverview(userId)).targetStageId).toBe('pre-primary');
+    expect((await service.getOverview(userId)).targetStageId).toBe('grade-1');
   });
 });

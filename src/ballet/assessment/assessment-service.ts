@@ -6,6 +6,7 @@ import { IdempotencyConflictError } from '../../economy/errors.js';
 import { assertDiscordSnowflake } from '../../utils/discord-snowflake.js';
 import { ExpectedDomainError } from '../../utils/expected-domain-error.js';
 import {
+  academyStageStorageIds,
   canonicalAcademyStageId,
   getAcademyStageDefinition,
   getAcademyStageIndex,
@@ -402,14 +403,13 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
 
     const updated = await client.query(
       `UPDATE academy_stage_progress
-       SET current_stage_id = $3, updated_at = $4
-       WHERE discord_user_id = $1 AND current_stage_id IN ($2, $5)`,
+       SET current_stage_id = $2, updated_at = $3
+       WHERE discord_user_id = $1 AND current_stage_id = ANY($4::text[])`,
       [
         attempt.discord_user_id,
-        attempt.source_stage_id,
-        attempt.target_stage_id,
+        canonicalAcademyStageId(attempt.target_stage_id),
         completedAt,
-        attempt.source_stage_id === 'pre-school-dance' ? 'minis-bambinis' : attempt.source_stage_id,
+        academyStageStorageIds(attempt.source_stage_id),
       ],
     );
     if (updated.rowCount !== 1)
@@ -519,8 +519,7 @@ async function loadAttemptView(
   return {
     attemptId: row.attempt_id,
     sourceStageId: row.source_stage_id,
-    sourceStageName:
-      row.source_stage_id === 'minis-bambinis' ? 'Minis & Bambinis' : sourceStage.title,
+    sourceStageName: sourceStage.title,
     targetStageId: row.target_stage_id,
     targetStageName: targetStage.title,
     attemptNumber: row.attempt_number,
@@ -553,10 +552,10 @@ async function loadLatestFailureAt(
 ): Promise<Date | null> {
   const result = await client.query<FailureTimestampRow>(
     `SELECT completed_at FROM academy_assessment_attempts
-     WHERE discord_user_id = $1 AND target_stage_id = $2 AND status = 'RETAKE_REQUIRED'
-       AND NOT (source_stage_id = 'minis-bambinis' AND target_stage_id = 'pre-primary')
+     WHERE discord_user_id = $1 AND target_stage_id = ANY($2::text[])
+       AND status = 'RETAKE_REQUIRED'
      ORDER BY completed_at DESC, attempt_id DESC LIMIT 1`,
-    [discordUserId, targetStageId],
+    [discordUserId, academyStageStorageIds(targetStageId)],
   );
   return result.rows[0]?.completed_at ?? null;
 }
@@ -570,16 +569,11 @@ async function loadPracticalClass(
   const result = await client.query<PracticalClassRow>(
     `SELECT class_id::text, review_snapshot, completed_at
      FROM ballet_classes
-     WHERE discord_user_id = $1 AND academy_stage_id IN ($2, $4)
+     WHERE discord_user_id = $1 AND academy_stage_id = ANY($2::text[])
        AND status = 'COMPLETED' AND review_snapshot IS NOT NULL
        AND ($3::timestamptz IS NULL OR completed_at > $3)
      ORDER BY completed_at DESC, class_id DESC LIMIT 1 FOR SHARE`,
-    [
-      discordUserId,
-      sourceStageId,
-      after,
-      sourceStageId === 'pre-school-dance' ? 'minis-bambinis' : sourceStageId,
-    ],
+    [discordUserId, academyStageStorageIds(sourceStageId), after],
   );
   return result.rows[0];
 }
@@ -630,8 +624,9 @@ async function nextAttemptNumber(
 ): Promise<number> {
   const result = await client.query<{ readonly next_number: number }>(
     `SELECT (COALESCE(max(attempt_number), 0) + 1)::integer AS next_number
-     FROM academy_assessment_attempts WHERE discord_user_id = $1 AND target_stage_id = $2`,
-    [discordUserId, targetStageId],
+     FROM academy_assessment_attempts
+     WHERE discord_user_id = $1 AND target_stage_id = ANY($2::text[])`,
+    [discordUserId, academyStageStorageIds(targetStageId)],
   );
   const number = result.rows[0]?.next_number;
   if (number === undefined) throw new Error('Assessment attempt sequence could not be calculated.');

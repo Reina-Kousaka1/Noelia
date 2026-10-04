@@ -28,12 +28,10 @@ export function buildBalletClassCurriculum(
   const type = BALLET_CLASS_TYPE_CATALOG.find((definition) => definition.id === classType);
   if (type === undefined)
     throw new BalletClassRequirementError('That class type is not available.');
-  // The class catalog's numeric gates were authored for the original 18 stages.
-  // Keep their named unlock points stable after inserting Preparatory Dance.
-  const classStageIndex = stageIndex > 1 ? stageIndex - 1 : 0;
+  const classStageIndex = stageIndex;
   if (classStageIndex < type.minimumStageIndex) {
     throw new BalletClassRequirementError(
-      `${type.displayName} unlocks at ${ACADEMY_CURRICULUM[type.minimumStageIndex + (type.minimumStageIndex > 0 ? 1 : 0)]?.title ?? 'a later Academy stage'}.`,
+      `${type.displayName} unlocks at ${ACADEMY_CURRICULUM[type.minimumStageIndex]?.title ?? 'a later Academy stage'}.`,
     );
   }
 
@@ -65,8 +63,8 @@ export function buildBalletClassCurriculum(
     version: 1,
     classType: type.id,
     classTypeName: type.displayName,
-    academyStageId,
-    academyStageName: academyStageId === 'minis-bambinis' ? 'Minis & Bambinis' : stage.title,
+    academyStageId: stage.id,
+    academyStageName: stage.title,
     sections,
     exercises,
   };
