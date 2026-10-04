@@ -120,17 +120,16 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
           : await loadBalletAcademyProgress(client, discordUserId);
       const currentStageId = progress.currentRank.id;
       const targetStageId = progress.nextRank?.id ?? null;
-      const [activeRow, latestRow, failureAt] = await Promise.all([
-        loadAttemptRow(client, discordUserId, 'IN_PROGRESS'),
-        loadLatestAttemptRow(client, discordUserId),
+      const activeRow = await loadAttemptRow(client, discordUserId, 'IN_PROGRESS');
+      const latestRow = await loadLatestAttemptRow(client, discordUserId);
+      const failureAt =
         targetStageId === null
-          ? Promise.resolve(null)
-          : loadLatestFailureAt(client, discordUserId, targetStageId),
-      ]);
+          ? null
+          : await loadLatestFailureAt(client, discordUserId, targetStageId);
       const practicalClass =
         targetStageId === null
           ? undefined
-          : await loadPracticalClass(client, discordUserId, currentStageId, failureAt);
+          : await loadPracticalClass(client, discordUserId, currentStageId, failureAt, false);
       const eligibility = this.eligibility(
         currentStageId,
         evidence,
@@ -196,6 +195,7 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
         discordUserId,
         progress.currentRank.id,
         failureAt,
+        true,
       );
       const eligibility = this.eligibility(
         progress.currentRank.id,
@@ -565,6 +565,7 @@ async function loadPracticalClass(
   discordUserId: string,
   sourceStageId: string,
   after: Date | null,
+  lock: boolean,
 ): Promise<PracticalClassRow | undefined> {
   const result = await client.query<PracticalClassRow>(
     `SELECT class_id::text, review_snapshot, completed_at
@@ -572,7 +573,7 @@ async function loadPracticalClass(
      WHERE discord_user_id = $1 AND academy_stage_id = ANY($2::text[])
        AND status = 'COMPLETED' AND review_snapshot IS NOT NULL
        AND ($3::timestamptz IS NULL OR completed_at > $3)
-     ORDER BY completed_at DESC, class_id DESC LIMIT 1 FOR SHARE`,
+     ORDER BY completed_at DESC, class_id DESC LIMIT 1${lock ? ' FOR SHARE' : ''}`,
     [discordUserId, academyStageStorageIds(sourceStageId), after],
   );
   return result.rows[0];
