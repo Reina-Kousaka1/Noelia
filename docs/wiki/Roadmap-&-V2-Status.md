@@ -12,10 +12,13 @@
 - **Implemented in application code / validation pending:** persistent Academy
   assessment attempts, eligibility from canonical requirements, existing
   Knowledge questions and saved class reviews, deterministic results, and
-  one-stage promotions. Migration 023 is additive and is not deployed.
-- **Follow-up:** expanded Knowledge courses, Stamina cycles, persistent Madame Mood/Patience,
-  corrective training, central settings, broader wardrobe categories, and
-  optional pets. Existing /ballet practice remains supported alongside class.
+  one-stage promotions; additive migration 023 is not deployed. A separate
+  Training V3 block adds exercise skills, condition, cycles, fictional
+  setbacks/recovery, and shoe-profile preference; migration 024 and its
+  PostgreSQL integration tests are still pending.
+- **Follow-up:** expanded Knowledge courses, persistent Madame Mood/Patience,
+  broader wardrobe categories, and optional pets. Existing `/ballet practice`
+  remains supported alongside class.
 - **No character-age system:** Academy stage represents progression only.
 - **Not released:** no production deployment or production migration is part
   of this implementation work.

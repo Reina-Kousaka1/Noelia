@@ -84,6 +84,8 @@ rewrite old activity, Knowledge, or Ballet Class records. Do not apply it to a
 production database as part of this implementation review; use the repository's
 isolated PostgreSQL integration-test guard for database verification.
 
-Stamina Cycles, V3 Training Stats, Nutrition, Energy, Sleep/Fatigue, Injury,
-Rehabilitation, Equipment Fit, Shoe Sizes, and V3 visual banners are outside
-Assessment V1.
+The separate Ballet Training V3 domain (migration 024) is outside Assessment
+V1. Its skills, game-only condition, workload cycles, fictional setbacks and
+recovery audit, and display-only shoe preference do not satisfy assessment
+requirements unless a future additive evidence rule explicitly says so. V3
+visual banners remain a later presentation task.

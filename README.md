@@ -188,7 +188,9 @@ Academy progression and uniform rules, and starter-uniform claims. V21 adds the
 Knowledge lesson system; V22 adds persistent stage-aware Ballet classes,
 exercise attempts, corrections, and Academy training evidence; V23 adds
 assessment attempts, saved Knowledge answers, an assessment-managed stage
-pointer with legacy baseline, and promotion audit records. These are additive
+pointer with legacy baseline, and promotion audit records. V24 adds separate
+fictional Ballet Training V3 skills, condition, workload cycles, setback and
+recovery audit state, and a display-only shoe preference. These are additive
 migrations and have not been applied to Production as part of this work. Rarity controls
 presentation only; collections grant no automatic currency or gameplay
 bonuses. Purchases atomically check eligibility and balance, debit the wallet,

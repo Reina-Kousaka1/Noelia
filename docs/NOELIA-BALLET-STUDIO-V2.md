@@ -106,17 +106,40 @@ training evidence to the existing Academy query; it does not create another
 progression or replace Knowledge/activity/performance evidence. Assessment
 Preparation is a class type, not a formal stage assessment.
 
-## Stamina and training cycles
+## Training skills, condition, cycles, and setbacks
 
-**Implemented (existing):** Stamina is one of the six persistent Ballet stats,
-capped at 100 and raised through existing activities.
+**Implemented in application code; migration 024 and PostgreSQL verification
+are pending.** The original six persistent Ballet stats remain unchanged. A
+separate set of eight gameplay skills (balance, core control, footwork,
+coordination, turn control, jump control, placement, and musicality) uses
+centralized exercise-family weights. Perfect/successful class attempts and
+successful `/ballet practice` completions may grant bounded skill evidence;
+failed or shaky class attempts do not grant skill points. A five-event rolling
+24-hour limit prevents rapid farming. Skill snapshots, class results, skill
+events, and stamina workload events share the surrounding interaction
+transaction and replay boundary.
 
-**Planned:** initial permanent Stamina value 100 for the new cycle model, cycle
-workload, completion, deadline, outcome, next-cycle generation and audit data.
-This is not a rolling seven-day window. The normal next-workload floor is
-`ceil(previous completed workload * 0.5)`. Going below it is a separate exact
-1-in-1,000,000 exception. Workload/deadline bands and caps remain TBD and must
-be centralized. No cycle state or migration is implemented in this block.
+Stamina cycles are separate from the existing Stamina stat. The first target
+is six completed exercise/practice workloads with a seven-day deadline.
+Subsequent targets are centrally generated from the prior completed workload,
+with a normal `ceil(previous workload * 0.5)` floor, a maximum of 20, and the
+existing named `0.0001%` below-floor exception. Expired cycles are displayed as
+expired on reads without writes; the next valid training mutation records the
+expiry and opens the next cycle atomically. This is not a rolling seven-day
+window.
+
+The separate fictional condition snapshot tracks energy, nutrition, fatigue,
+and sleep debt. It recovers deterministically on elapsed whole hours when read
+or used; REST, SLEEP, NOURISH, and REHABILITATE are idempotent recovery actions
+with a configured cooldown. A rare, game-only training setback can occur after
+a failed attempt at high fictional fatigue and records its triggering attempt
+and required recovery sessions. These labels and numbers are game mechanics,
+not health, nutrition, sleep, injury, or professional training guidance.
+No medical condition, real injury, or individual readiness is assessed.
+
+The optional `/wardrobe fit` profile stores a fictional EU shoe-size and
+catalog-fit preference for display only. It does not validate, recommend, or
+claim physical shoe fit and does not affect equipping or Academy requirements.
 
 ## Knowledge and courses
 
@@ -154,10 +177,11 @@ presentation layer supplies concise class tone after the transaction. The
 review draws only from saved session context. Persona text cannot choose an
 exercise, change a score, or alter progression.
 
-**Planned:** persistent teacher Mood/Patience and bounded corrective-training
-plans. Corrections are structured session records now, but no Injury or
-Rehabilitation system is implemented. Critique targets an exercise result,
-not a player's worth.
+**Implemented in application code:** saved V3 attempt effects give the class
+review an auditable boundary between the performance result and a separate
+fictional condition/setback result. Madame's presentation remains downstream
+of these domain results. Corrections target an exercise result, not a player's
+worth. Persistent teacher Mood/Patience remains planned.
 
 ## Character age boundary
 
@@ -208,29 +232,35 @@ no level-999 continuation.
 
 The canonical derived curriculum and fictional-history content needed no
 database migration. Knowledge V1 added migration 021. The persistent class
-engine added migration 022, and Academy Assessments add only forward-only
-migration 023; migrations 001–022 remain immutable. No Production migration was
-performed here.
+engine added migration 022, Academy Assessments added migration 023, and the
+separate V3 skill/condition/cycle/setback/action history adds forward-only
+migration 024. Migrations 001–023 remain immutable. Migration 024 is not
+verified against PostgreSQL and has not been applied to Production.
 
 ## Testing strategy
 
 Unit tests cover stage ordering, assessment eligibility/results/components,
-class gating, preparation scoring, fixed outcome boundaries, correction
-aggregation, component IDs, and the /ballet class command path. PostgreSQL
-integration tests cover assessment start/resume, eligibility, retakes,
-concurrent idempotent promotion, class creation/resume,
-partial preparation, concurrent duplicate attempts, restart/replay without
-rerolling, completion review, and Academy evidence. They run only with an
-explicitly isolated test database. The full quality gate is npm run check; in
-constrained Windows workers Vitest may disable isolate/file parallelism without
-changing test assertions.
+class gating, preparation scoring, difficulty and skill-score direction,
+fixed outcome boundaries, correction aggregation, V3 condition recovery,
+workload and skill rules, and the Ballet/wardrobe command paths. PostgreSQL
+integration tests also cover class-result replay across service restart, one
+set of V3 effects per interaction, persisted cycle/skill/condition state,
+recovery cooldown/replay, and the fictional shoe profile. They run only with an
+explicitly isolated test database; those database tests still require the
+repository's guarded PostgreSQL test setup. The full quality gate is
+`npm run check`; in constrained Windows workers Vitest may disable isolate/file
+parallelism without changing test assertions.
 
 ## TBD balancing and follow-up blocks
 
 - Further review of provisional promotion thresholds; Assessment V1 adds no
   XP, Knowledge-point, wallet, or training-stat rewards.
 - Further balance review of the centralized class score calibration.
-- Stamina cycle workload/deadline bands and caps.
+- Further balance review of V3 skill weights, condition costs, cycle targets,
+  and recovery cooldowns; all current numbers are centralized provisional
+  game tuning.
+- Isolated PostgreSQL execution of migration 024 and its integration tests.
+- Safe player-facing UI for longer-term setback history and equipment cosmetics.
 - Teacher mood durations, patience changes, corrective caps.
 - Pet needs/decay and optional social encouragement parameters.
 - Settings hierarchy and privacy defaults.
