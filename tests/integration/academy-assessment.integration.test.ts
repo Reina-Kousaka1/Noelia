@@ -2,7 +2,10 @@ import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { AcademyAssessmentService } from '../../src/ballet/assessment/assessment-service.js';
+import {
+  AcademyAssessmentService,
+  AcademyAssessmentNotEligibleError,
+} from '../../src/ballet/assessment/assessment-service.js';
 import { buildAssessmentQuestions } from '../../src/ballet/assessment/assessment-content.js';
 import { BalletClassService } from '../../src/ballet/class/class-service.js';
 import { getAcademyStageDefinition } from '../../src/ballet/academy.js';
@@ -204,7 +207,9 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
       currentStageId: 'pre-primary',
       eligibility: { eligible: false, retakeRequiresNewClass: true },
     });
-    await expect(service.start(testSnowflake(), userId)).rejects.toThrow(/not ready/i);
+    await expect(service.start(testSnowflake(), userId)).rejects.toBeInstanceOf(
+      AcademyAssessmentNotEligibleError,
+    );
 
     await addCompletedClass(pool, userId);
     const retake = await service.start(testSnowflake(), userId);

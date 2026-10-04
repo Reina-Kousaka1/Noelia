@@ -174,7 +174,7 @@ export class BalletTrainingV3Service {
           `UPDATE ballet_training_setbacks
            SET completed_rehab_sessions = completed_rehab_sessions + 1,
                status = CASE WHEN completed_rehab_sessions + 1 >= required_rehab_sessions THEN 'RECOVERED' ELSE 'ACTIVE' END,
-               recovered_at = CASE WHEN completed_rehab_sessions + 1 >= required_rehab_sessions THEN $2 ELSE NULL END
+               recovered_at = CASE WHEN completed_rehab_sessions + 1 >= required_rehab_sessions THEN $2::timestamptz ELSE NULL END
            WHERE discord_user_id = $1 AND status = 'ACTIVE'
            RETURNING setback_id`,
           [discordUserId, now],
@@ -405,13 +405,11 @@ async function loadSnapshot(
   discordUserId: string,
   now: Date,
 ): Promise<BalletTrainingV3Snapshot> {
-  const [skills, condition, cycle, setback, fit] = await Promise.all([
-    loadSkills(client, discordUserId, false),
-    loadCondition(client, discordUserId, now, false),
-    loadLatestCycle(client, discordUserId, now),
-    loadLatestSetback(client, discordUserId, false),
-    loadFit(client, discordUserId),
-  ]);
+  const skills = await loadSkills(client, discordUserId, false);
+  const condition = await loadCondition(client, discordUserId, now, false);
+  const cycle = await loadLatestCycle(client, discordUserId, now);
+  const setback = await loadLatestSetback(client, discordUserId, false);
+  const fit = await loadFit(client, discordUserId);
   return {
     skills,
     condition: recoverConditionOverTime(condition, now),
@@ -711,7 +709,7 @@ async function recordWorkload(
     `UPDATE ballet_stamina_cycles
      SET completed_workload = completed_workload + 1,
          status = CASE WHEN completed_workload + 1 >= target_workload THEN 'COMPLETED' ELSE 'ACTIVE' END,
-         completed_at = CASE WHEN completed_workload + 1 >= target_workload THEN $2 ELSE NULL END
+         completed_at = CASE WHEN completed_workload + 1 >= target_workload THEN $2::timestamptz ELSE NULL END
      WHERE discord_user_id = $1 AND cycle_number = $3 AND status = 'ACTIVE'`,
     [input.discordUserId, input.now, cycle.cycle_number],
   );

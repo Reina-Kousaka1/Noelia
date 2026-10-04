@@ -390,10 +390,9 @@ export async function loadAcademyUniformStatus(
   discordUserId: string,
   requiredItemId?: string | null,
 ): Promise<AcademyUniformStatus> {
-  const [rankProgress, catalogResult, progressResult] = await Promise.all([
-    loadBalletAcademyProgress(queryable, discordUserId),
-    queryable.query<AcademyUniformCatalogRow>(
-      `SELECT item.item_id, item.display_name, item.category,
+  const rankProgress = await loadBalletAcademyProgress(queryable, discordUserId);
+  const catalogResult = await queryable.query<AcademyUniformCatalogRow>(
+    `SELECT item.item_id, item.display_name, item.category,
               item.minimum_ballet_level,
               item.cosmetic_metadata -> 'academy_uniform_roles' AS academy_uniform_roles,
               inventory.quantity,
@@ -407,13 +406,12 @@ export async function loadAcademyUniformStatus(
          ON inventory.discord_user_id = $1 AND inventory.item_id = item.item_id
        WHERE item.cosmetic_metadata ? 'academy_uniform_roles'
        ORDER BY item.category, item.minimum_ballet_level, item.display_name`,
-      [discordUserId],
-    ),
-    queryable.query<{ readonly level: number }>(
-      `SELECT COALESCE((SELECT level FROM ballet_progress WHERE discord_user_id = $1), 1) AS level`,
-      [discordUserId],
-    ),
-  ]);
+    [discordUserId],
+  );
+  const progressResult = await queryable.query<{ readonly level: number }>(
+    `SELECT COALESCE((SELECT level FROM ballet_progress WHERE discord_user_id = $1), 1) AS level`,
+    [discordUserId],
+  );
   const items = readAcademyUniformItems(catalogResult.rows);
   const requiredItem =
     requiredItemId === undefined || requiredItemId === null
