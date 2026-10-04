@@ -1288,7 +1288,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await expect(academy.getProgress(discordUserId)).resolves.toMatchObject({
       currentRank: { id: 'grade-1', title: 'Grade 1' },
       nextRank: { id: 'grade-2' },
-      completedRankCount: 3,
+      completedRankCount: 4,
     });
   });
 
@@ -1323,33 +1323,35 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     ]);
     expect(concurrentResults.reduce((total, result) => total + result.pointsAwarded, 0)).toBe(5);
 
-    const firstCompletionId = completionIds[0];
-    if (firstCompletionId === undefined) throw new Error('The lesson completion ID is missing.');
-    const replay = await knowledge.answer(
-      firstCompletionId,
-      discordUserId,
-      'ballet-french-plie-01',
-      'b',
-    );
-    expect(replay).toMatchObject({
-      outcome: 'CORRECT',
-      pointsAwarded: 5,
-      pointsAfter: 5,
-      replayed: true,
-    });
+    for (const [index, completionId] of completionIds.entries()) {
+      const original = concurrentResults[index];
+      if (original === undefined) throw new Error('Missing concurrent result.');
+      const replay = await knowledge.answer(
+        completionId,
+        discordUserId,
+        'ballet-french-plie-01',
+        'b',
+      );
+      expect(replay).toEqual({ ...original, replayed: true });
+    }
     await expect(knowledge.getProgress(discordUserId)).resolves.toMatchObject({
       domains: expect.arrayContaining([
         expect.objectContaining({
           domain: 'ballet_french',
           points: 5,
           completedLessons: 1,
-          totalLessons: 1,
+          totalLessons: 3,
         }),
       ]),
     });
-    await expect(knowledge.listLessons(discordUserId, 'ballet_french')).resolves.toMatchObject([
-      { lessonId: 'ballet-french-plie-01', completed: true },
-    ]);
+    const frenchLessons = await knowledge.listLessons(discordUserId, 'ballet_french');
+    expect(frenchLessons).toHaveLength(3);
+    expect(frenchLessons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ lessonId: 'ballet-french-plie-01', completed: true }),
+      ]),
+    );
+    expect(frenchLessons.filter((lesson) => lesson.completed)).toHaveLength(1);
   });
 
   it('requires equipped permanent Academy basics before a practice reward or cooldown is recorded', async () => {
@@ -1362,7 +1364,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await grantAcademyBasics(pool, discordUserId, false);
 
     const before = await academy.getUniformStatus(discordUserId);
-    expect(before).toMatchObject({ ready: false, rank: { id: 'student' } });
+    expect(before).toMatchObject({ ready: false, rank: { id: 'pre-school-dance' } });
     expect(before.pieces.filter((piece) => !piece.satisfied)).toHaveLength(3);
     await expect(
       ballet.practice(testSnowflake(), discordUserId, 'stretching'),
