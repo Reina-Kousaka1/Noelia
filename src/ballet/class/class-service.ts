@@ -511,13 +511,11 @@ async function loadClassView(
   if (!isBalletClassStatus(row.status) || !isBalletClassTypeValue(row.class_type)) {
     throw new Error('Stored Ballet class contains an invalid state.');
   }
-  const [preparationResult, attempts] = await Promise.all([
-    client.query<{ readonly area: string }>(
-      'SELECT area FROM ballet_class_preparation WHERE class_id = $1::uuid ORDER BY area',
-      [classId],
-    ),
-    loadAttempts(client, classId),
-  ]);
+  const preparationResult = await client.query<{ readonly area: string }>(
+    'SELECT area FROM ballet_class_preparation WHERE class_id = $1::uuid ORDER BY area',
+    [classId],
+  );
+  const attempts = await loadAttempts(client, classId);
   return {
     classId: row.class_id,
     discordUserId,
