@@ -7,11 +7,16 @@ import { assertDiscordSnowflake } from '../../utils/discord-snowflake.js';
 import { withTransaction } from '../../database/transaction.js';
 import { BALLET_STAT_KEYS } from '../types.js';
 import type { BalletStats } from '../types.js';
+import { isStructuredTrainingUnlocked } from '../academy-gameplay.js';
 import { buildBalletClassCurriculum, isBalletClassType } from './curriculum.js';
 import { BalletClassNotFoundError, BalletClassStateError } from './errors.js';
 import { evaluateBalletExercise } from './performance.js';
 import type { BalletTrainingV3Service } from '../training-v3/training-v3-service.js';
 import { buildBalletClassReview } from './review.js';
+import {
+  attachScheduledClassToBalletClass,
+  recordAcademyClassReport,
+} from '../academy-gameplay-service.js';
 import type {
   BalletClassAttempt,
   BalletClassAttemptResult,
@@ -106,7 +111,17 @@ export class BalletClassService implements BalletClassPort {
       const replay = await findAction(client, interactionId);
       if (replay !== undefined) {
         assertActionReplay(replay, discordUserId, 'START', requestFingerprint);
-        return loadClassView(client, discordUserId, replay.class_id, true);
+        const saved = await loadClassView(client, discordUserId, replay.class_id, true);
+        if (saved.status === 'PREPARING' || saved.status === 'IN_PROGRESS') {
+          await attachScheduledClassToBalletClass(
+            client,
+            discordUserId,
+            saved.classId,
+            saved.classType,
+            saved.curriculum.academyStageId,
+          );
+        }
+        return saved;
       }
 
       const active = await client.query<{ readonly class_id: string }>(
@@ -115,6 +130,7 @@ export class BalletClassService implements BalletClassPort {
       );
       const activeClass = active.rows[0];
       if (activeClass !== undefined) {
+        const saved = await loadClassView(client, discordUserId, activeClass.class_id, false);
         await recordAction(
           client,
           interactionId,
@@ -123,7 +139,14 @@ export class BalletClassService implements BalletClassPort {
           'START',
           requestFingerprint,
         );
-        return loadClassView(client, discordUserId, activeClass.class_id, false);
+        await attachScheduledClassToBalletClass(
+          client,
+          discordUserId,
+          saved.classId,
+          saved.classType,
+          saved.curriculum.academyStageId,
+        );
+        return saved;
       }
 
       await client.query(
@@ -151,6 +174,13 @@ export class BalletClassService implements BalletClassPort {
           curriculum.academyStageName,
           JSON.stringify(curriculum),
         ],
+      );
+      await attachScheduledClassToBalletClass(
+        client,
+        discordUserId,
+        classId,
+        classType,
+        curriculum.academyStageId,
       );
       await recordAction(
         client,
@@ -291,7 +321,7 @@ export class BalletClassService implements BalletClassPort {
         preparationResult.rows.map((row) => parsePreparationArea(row.area)),
       );
       const trainingContext =
-        this.trainingV3 === undefined
+        this.trainingV3 === undefined || !isStructuredTrainingUnlocked(curriculum.academyStageId)
           ? undefined
           : await this.trainingV3.prepareClassAttempt(client, discordUserId);
       const evaluation = evaluateBalletExercise(
@@ -364,6 +394,14 @@ export class BalletClassService implements BalletClassPort {
           [classId, JSON.stringify(review)],
         );
         await recordTrainingEvidence(client, discordUserId, classId, curriculum, attempts);
+        await recordAcademyClassReport(
+          client,
+          discordUserId,
+          classId,
+          curriculum.academyStageId,
+          review,
+          preparation.size,
+        );
       } else if (evaluation.outcome === 'PERFECT' || evaluation.outcome === 'SUCCESS') {
         await insertTrainingEvidence(
           client,

@@ -12,6 +12,7 @@ import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import {
   MarketplaceBuyerOwnsUniqueItemError,
   MarketplaceItemEquippedError,
+  MarketplaceItemNotTradeableError,
   MarketplaceItemNotOwnedError,
   MarketplaceListingNotFoundError,
   MarketplaceListingUnavailableError,
@@ -78,6 +79,7 @@ interface InventoryQuantityRow extends QueryResultRow {
 interface SellerInventoryRow extends InventoryQuantityRow {
   readonly source: string;
   readonly acquired_at: Date;
+  readonly tradeable: boolean;
 }
 
 interface EscrowRow extends QueryResultRow {
@@ -180,7 +182,7 @@ export class MarketplaceService implements MarketplacePort {
       }
 
       const inventoryResult = await client.query<SellerInventoryRow>(
-        `SELECT quantity, source, acquired_at
+        `SELECT quantity, source, acquired_at, tradeable
          FROM user_inventory
          WHERE discord_user_id = $1 AND item_id = $2
          FOR UPDATE`,
@@ -189,6 +191,13 @@ export class MarketplaceService implements MarketplacePort {
       const inventory = inventoryResult.rows[0];
       if (inventory === undefined || inventory.quantity < quantity) {
         throw new MarketplaceItemNotOwnedError();
+      }
+      if (
+        !inventory.tradeable ||
+        (inventory.source === 'EVENT_REWARD' &&
+          (await this.isLegacyAcademyStarterWear(client, sellerUserId, itemId)))
+      ) {
+        throw new MarketplaceItemNotTradeableError();
       }
 
       const equippedResult = await client.query<{ readonly item_id: string }>(
@@ -548,6 +557,24 @@ export class MarketplaceService implements MarketplacePort {
     if (result.rowCount !== 1) {
       throw new Error('Marketplace idempotency record could not be completed.');
     }
+  }
+
+  private async isLegacyAcademyStarterWear(
+    client: PoolClient,
+    discordUserId: string,
+    itemId: string,
+  ): Promise<boolean> {
+    const result = await client.query<{ readonly starter_wear: boolean }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM ballet_academy_uniform_claims AS claim
+         WHERE claim.discord_user_id = $1
+           AND $2 = ANY(ARRAY[
+             claim.leotard_item_id, claim.tights_item_id, claim.shoes_item_id
+           ]::text[])
+       ) AS starter_wear`,
+      [discordUserId, itemId],
+    );
+    return result.rows[0]?.starter_wear ?? false;
   }
 
   private async ensureAndLockUsers(

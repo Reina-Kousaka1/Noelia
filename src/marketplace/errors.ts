@@ -48,6 +48,16 @@ export class MarketplaceItemEquippedError extends ExpectedDomainError {
   }
 }
 
+export class MarketplaceItemNotTradeableError extends ExpectedDomainError {
+  public constructor() {
+    super(
+      'An Academy starter item was offered to the marketplace.',
+      'Academy starter hand-me-downs are for your own first studio days and cannot be sold or traded.',
+    );
+    this.name = 'MarketplaceItemNotTradeableError';
+  }
+}
+
 export class MarketplaceQuantityError extends ExpectedDomainError {
   public constructor() {
     super(

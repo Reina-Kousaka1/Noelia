@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(24);
+    expect(migrations).toHaveLength(25);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -165,6 +165,22 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[23]?.sql).toContain('ballet_training_skill_events_no_truncate');
     expect(migrations[23]?.sql).toContain('ballet_training_attempt_effects_no_truncate');
     expect(migrations[23]?.sql).not.toMatch(/\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i);
+    expect(migrations[24]).toMatchObject({
+      version: 25,
+      name: 'academy_early_sessions_v1',
+    });
+    expect(migrations[24]?.sql).toContain('CREATE TABLE ballet_academy_enrollments');
+    expect(migrations[24]?.sql).toContain('CREATE TABLE ballet_academy_beginner_actions');
+    expect(migrations[24]?.sql).toContain('CREATE TABLE ballet_academy_scheduled_classes');
+    expect(migrations[24]?.sql).toContain('CREATE TABLE ballet_academy_attendance');
+    expect(migrations[24]?.sql).toContain('CREATE TABLE ballet_academy_report_cards');
+    expect(migrations[24]?.sql).toContain('academy_comfort_gain smallint NOT NULL DEFAULT 0');
+    expect(migrations[24]?.sql).toContain('ballet_academy_scheduler_state');
+    expect(migrations[24]?.sql).toContain('ballet_academy_report_cards_no_truncate');
+    expect(migrations[24]?.sql).toContain('ADD COLUMN tradeable boolean NOT NULL DEFAULT true');
+    expect(migrations[24]?.sql).toContain('FOREIGN KEY (scheduled_class_id, discord_user_id)');
+    expect(migrations[24]?.sql).toContain("'academy-hand-me-down-leotard'");
+    expect(migrations[24]?.sql).not.toMatch(/\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i);
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -180,8 +196,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 24,
-      currentVersion: 24,
+      appliedCount: 25,
+      currentVersion: 25,
     });
 
     expect(statements).toContain('BEGIN');
@@ -226,6 +242,9 @@ describe('PostgreSQL migrations', () => {
       true,
     );
     expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_training_skills'))).toBe(
+      true,
+    );
+    expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_academy_enrollments'))).toBe(
       true,
     );
     expect(statements.some((sql) => sql.includes('CREATE TABLE ballet_training_condition'))).toBe(
@@ -318,6 +337,10 @@ describe('PostgreSQL migrations', () => {
     expect(query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO noelia_schema_migrations'),
       [24, 'ballet_training_v3', expect.stringMatching(/^[a-f0-9]{64}$/)],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [25, 'academy_early_sessions_v1', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

@@ -9,6 +9,7 @@ import { BalletClassStateError } from '../../src/ballet/class/errors.js';
 import { BalletTrainingV3Service } from '../../src/ballet/training-v3/training-v3-service.js';
 import { BalletTrainingCooldownError } from '../../src/ballet/training-v3/errors.js';
 import { BalletAcademyService } from '../../src/ballet/academy-service.js';
+import { BalletAcademyGameplayService } from '../../src/ballet/academy-gameplay-service.js';
 import {
   AcademyUniformAlreadyClaimedError,
   AcademyUniformRequirementError,
@@ -170,6 +171,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         legacyUserId,
       ]);
       await upgradePool.query(
+        `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source)
+         VALUES ($1, 'satin-ribbon-bow', 2, 'SHOP_PURCHASE')`,
+        [legacyUserId],
+      );
+      await upgradePool.query(
         `INSERT INTO ballet_progress (discord_user_id, total_xp, level)
          VALUES ($1, 42, 1)`,
         [legacyUserId],
@@ -190,9 +196,24 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 18,
-        currentVersion: 24,
+        appliedCount: 19,
+        currentVersion: 25,
       });
+      await expect(
+        upgradePool.query(
+          `SELECT quantity, source, tradeable FROM user_inventory
+           WHERE discord_user_id = $1 AND item_id = 'satin-ribbon-bow'`,
+          [legacyUserId],
+        ),
+      ).resolves.toMatchObject({
+        rows: [{ quantity: 2, source: 'SHOP_PURCHASE', tradeable: true }],
+      });
+      await expect(
+        upgradePool.query(
+          `SELECT count(*)::integer AS item_count FROM shop_catalog
+           WHERE item_id LIKE 'academy-hand-me-down-%' AND purchasable = false`,
+        ),
+      ).resolves.toMatchObject({ rows: [{ item_count: 3 }] });
       await expect(
         upgradePool.query(
           `SELECT stat_value FROM ballet_stats
@@ -219,7 +240,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 24 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 25 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -1375,11 +1396,25 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       ),
     ).resolves.toMatchObject({ rowCount: 0 });
 
-    const claimInteractionId = testSnowflake();
+    const enrollmentInteractionId = testSnowflake();
+    const enrollment = await new BalletAcademyGameplayService(pool, academy).enroll(
+      enrollmentInteractionId,
+      discordUserId,
+    );
+    expect(enrollment).toMatchObject({
+      stageId: 'pre-school-dance',
+      replayed: false,
+      starterWear: [
+        'Academy Hand-Me-Down Leotard',
+        'Academy Hand-Me-Down Tights',
+        'Academy Hand-Me-Down Soft Ballet Slippers',
+      ],
+    });
+    const claimInteractionId = enrollmentInteractionId;
     const claim = await academy.claimStarterUniform(claimInteractionId, discordUserId);
     expect(claim).toMatchObject({
-      items: ['Sunday Cotton Leotard', 'Cream Studio Tights', 'Classic Ballet Flats'],
-      replayed: false,
+      items: enrollment.starterWear,
+      replayed: true,
     });
     await expect(
       academy.claimStarterUniform(claimInteractionId, discordUserId),
@@ -1411,9 +1446,9 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(uniformAfterPreset.look).toHaveLength(3);
     expect(uniformAfterPreset.look).toEqual(
       expect.arrayContaining([
-        'Sunday Cotton Leotard',
-        'Cream Studio Tights',
-        'Classic Ballet Flats',
+        'Academy Hand-Me-Down Leotard',
+        'Academy Hand-Me-Down Tights',
+        'Academy Hand-Me-Down Soft Ballet Slippers',
       ]),
     );
   });

@@ -2,6 +2,16 @@ import { ExpectedDomainError } from '../utils/expected-domain-error.js';
 import { formatUniformRequirement } from './uniform.js';
 import type { AcademyUniformStatus } from './uniform.js';
 
+export class AcademyEnrollmentRequiredError extends ExpectedDomainError {
+  public constructor() {
+    super(
+      'Academy enrollment is required before claiming starter wear.',
+      'Begin your Academy journey with `/academy enroll` first.',
+    );
+    this.name = 'AcademyEnrollmentRequiredError';
+  }
+}
+
 export class AcademyUniformRequirementError extends ExpectedDomainError {
   public constructor(public readonly status: AcademyUniformStatus) {
     const userMessage = formatUniformRequirement(status);

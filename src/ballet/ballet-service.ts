@@ -27,7 +27,8 @@ import type {
 } from './types.js';
 import { BALLET_ACTIVITY_CODES } from './activity-codes.js';
 import { BALLET_STAT_KEYS } from './types.js';
-import { loadAcademyUniformStatus } from './academy-service.js';
+import { loadAcademyUniformStatus, loadBalletAcademyProgress } from './academy-service.js';
+import { isStructuredTrainingUnlocked } from './academy-gameplay.js';
 import { AcademyUniformRequirementError } from './errors.js';
 import type { BalletTrainingV3Service } from './training-v3/training-v3-service.js';
 
@@ -275,6 +276,10 @@ export class BalletService implements BalletProgressPort {
 
     return withTransaction(this.pool, async (client) => {
       await this.ensureAndLockUser(client, discordUserId);
+      const academyProgress = await loadBalletAcademyProgress(client, discordUserId);
+      const structuredTrainingUnlocked = isStructuredTrainingUnlocked(
+        academyProgress.currentRank.id,
+      );
       await client.query(
         `INSERT INTO ballet_progress (discord_user_id)
          VALUES ($1)
@@ -465,11 +470,13 @@ export class BalletService implements BalletProgressPort {
       }
 
       if (this.trainingV3 !== undefined) {
-        await this.trainingV3.recordPracticeWithinTransaction(client, {
-          interactionId,
-          discordUserId,
-          activityCode,
-        });
+        if (structuredTrainingUnlocked) {
+          await this.trainingV3.recordPracticeWithinTransaction(client, {
+            interactionId,
+            discordUserId,
+            activityCode,
+          });
+        }
       }
 
       await unlockAchievement(

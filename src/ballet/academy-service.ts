@@ -4,7 +4,7 @@ import { assertDiscordSnowflake } from '../utils/discord-snowflake.js';
 import { withTransaction } from '../database/transaction.js';
 import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
-import { AcademyUniformAlreadyClaimedError } from './errors.js';
+import { AcademyEnrollmentRequiredError, AcademyUniformAlreadyClaimedError } from './errors.js';
 import type { PerformanceTier } from '../performance/types.js';
 import {
   canonicalAcademyStageId,
@@ -40,11 +40,17 @@ export interface BalletAcademyPort {
     interactionId: string,
     discordUserId: string,
   ): Promise<AcademyUniformClaimResult>;
+  claimStarterUniformInTransaction?(
+    client: PoolClient,
+    interactionId: string,
+    discordUserId: string,
+  ): Promise<AcademyUniformClaimResult>;
 }
 
 interface StarterUniformItemRow extends QueryResultRow {
   readonly item_id: string;
   readonly display_name: string;
+  readonly academy_starter: boolean;
 }
 
 interface StarterUniformClaimRow extends QueryResultRow {
@@ -74,20 +80,37 @@ export class BalletAcademyService implements BalletAcademyPort {
   ): Promise<AcademyUniformClaimResult> {
     assertDiscordSnowflake(interactionId, 'Discord interaction ID');
     assertDiscordSnowflake(discordUserId, 'Discord user ID');
-    return withTransaction(this.pool, async (client) => {
-      await client.query(
-        `INSERT INTO discord_users (discord_user_id) VALUES ($1)
-         ON CONFLICT (discord_user_id) DO NOTHING`,
-        [discordUserId],
-      );
-      const locked = await client.query(
-        'SELECT discord_user_id FROM discord_users WHERE discord_user_id = $1 FOR UPDATE',
-        [discordUserId],
-      );
-      if (locked.rows.length === 0) throw new Error('Discord user row could not be locked.');
+    return withTransaction(this.pool, (client) =>
+      this.claimStarterUniformInTransaction(client, interactionId, discordUserId),
+    );
+  }
 
-      const replay = await client.query<StarterUniformClaimRow>(
-        `SELECT claim.discord_user_id,
+  public async claimStarterUniformInTransaction(
+    client: PoolClient,
+    interactionId: string,
+    discordUserId: string,
+  ): Promise<AcademyUniformClaimResult> {
+    assertDiscordSnowflake(interactionId, 'Discord interaction ID');
+    assertDiscordSnowflake(discordUserId, 'Discord user ID');
+    await client.query(
+      `INSERT INTO discord_users (discord_user_id) VALUES ($1)
+         ON CONFLICT (discord_user_id) DO NOTHING`,
+      [discordUserId],
+    );
+    const locked = await client.query(
+      'SELECT discord_user_id FROM discord_users WHERE discord_user_id = $1 FOR UPDATE',
+      [discordUserId],
+    );
+    if (locked.rows.length === 0) throw new Error('Discord user row could not be locked.');
+
+    const enrollment = await client.query(
+      'SELECT 1 FROM ballet_academy_enrollments WHERE discord_user_id = $1 FOR SHARE',
+      [discordUserId],
+    );
+    if (enrollment.rows.length === 0) throw new AcademyEnrollmentRequiredError();
+
+    const replay = await client.query<StarterUniformClaimRow>(
+      `SELECT claim.discord_user_id,
                 claim.leotard_display_name,
                 claim.tights_display_name,
                 claim.shoes_display_name,
@@ -95,126 +118,129 @@ export class BalletAcademyService implements BalletAcademyPort {
          FROM ballet_academy_uniform_claims AS claim
          WHERE claim.interaction_id = $1
          FOR UPDATE OF claim`,
-        [interactionId],
-      );
-      const replayRow = replay.rows[0];
-      if (replayRow !== undefined) {
-        if (replayRow.discord_user_id !== discordUserId) throw new IdempotencyConflictError();
-        return {
-          items: [
-            replayRow.leotard_display_name,
-            replayRow.tights_display_name,
-            replayRow.shoes_display_name,
-          ],
-          replacedItems: replayRow.replaced_item_names,
-          replayed: true,
-        };
-      }
+      [interactionId],
+    );
+    const replayRow = replay.rows[0];
+    if (replayRow !== undefined) {
+      if (replayRow.discord_user_id !== discordUserId) throw new IdempotencyConflictError();
+      return {
+        items: [
+          replayRow.leotard_display_name,
+          replayRow.tights_display_name,
+          replayRow.shoes_display_name,
+        ],
+        replacedItems: replayRow.replaced_item_names,
+        replayed: true,
+      };
+    }
 
-      const priorClaim = await client.query(
-        'SELECT 1 FROM ballet_academy_uniform_claims WHERE discord_user_id = $1',
-        [discordUserId],
-      );
-      if (priorClaim.rows.length > 0) throw new AcademyUniformAlreadyClaimedError();
+    const priorClaim = await client.query(
+      'SELECT 1 FROM ballet_academy_uniform_claims WHERE discord_user_id = $1',
+      [discordUserId],
+    );
+    if (priorClaim.rows.length > 0) throw new AcademyUniformAlreadyClaimedError();
 
-      const selected: StarterUniformItemRow[] = [];
-      for (const [role, slot] of [
-        ['academy-leotard', 'leotard'],
-        ['academy-tights', 'tights'],
-        ['academy-flat', 'shoes'],
-      ] as const) {
-        const item = await client.query<StarterUniformItemRow>(
-          `SELECT item.item_id, item.display_name
+    const selected: StarterUniformItemRow[] = [];
+    for (const [role, slot] of [
+      ['academy-leotard', 'leotard'],
+      ['academy-tights', 'tights'],
+      ['academy-flat', 'shoes'],
+    ] as const) {
+      const item = await client.query<StarterUniformItemRow>(
+        `SELECT item.item_id, item.display_name,
+                  (item.cosmetic_metadata ->> 'academy_starter' = 'true') AS academy_starter
            FROM shop_catalog AS item
-           WHERE item.active = true AND item.purchasable = true
+           WHERE item.active = true
+             AND (item.purchasable = true OR item.cosmetic_metadata ->> 'academy_starter' = 'true')
              AND item.minimum_ballet_level <= 1
              AND item.category NOT IN ('seasonal', 'event_item')
              AND item.cosmetic_metadata -> 'academy_uniform_roles' ? $1
              AND item.cosmetic_metadata -> 'slots' @> $2::jsonb
-           ORDER BY item.price, item.item_id
+           ORDER BY (item.cosmetic_metadata ->> 'academy_starter' = 'true') DESC,
+                    item.price, item.item_id
            LIMIT 1
            FOR SHARE`,
-          [role, JSON.stringify([slot])],
-        );
-        const row = item.rows[0];
-        if (row === undefined) {
-          throw new Error(`No permanent level-one catalog item is configured for ${role}.`);
-        }
-        selected.push(row);
+        [role, JSON.stringify([slot])],
+      );
+      const row = item.rows[0];
+      if (row === undefined) {
+        throw new Error(`No permanent level-one catalog item is configured for ${role}.`);
       }
-      const leotard = selected[0];
-      const tights = selected[1];
-      const shoes = selected[2];
-      if (leotard === undefined || tights === undefined || shoes === undefined) {
-        throw new Error('The Academy starter uniform catalog selection is incomplete.');
-      }
+      selected.push(row);
+    }
+    const leotard = selected[0];
+    const tights = selected[1];
+    const shoes = selected[2];
+    if (leotard === undefined || tights === undefined || shoes === undefined) {
+      throw new Error('The Academy starter uniform catalog selection is incomplete.');
+    }
 
-      const displaced = await client.query<{ readonly display_name: string }>(
-        `SELECT item.display_name
+    const displaced = await client.query<{ readonly display_name: string }>(
+      `SELECT item.display_name
          FROM wardrobe_equipment AS equipment
          INNER JOIN shop_catalog AS item ON item.item_id = equipment.item_id
          WHERE equipment.discord_user_id = $1
            AND equipment.slot = ANY(ARRAY['leotard', 'tights', 'shoes']::text[])
          ORDER BY item.display_name
          FOR UPDATE OF equipment`,
-        [discordUserId],
-      );
-      await client.query(
-        `INSERT INTO ballet_academy_uniform_claims (
+      [discordUserId],
+    );
+    await client.query(
+      `INSERT INTO ballet_academy_uniform_claims (
            interaction_id, discord_user_id,
            leotard_item_id, leotard_display_name,
            tights_item_id, tights_display_name,
            shoes_item_id, shoes_display_name, replaced_item_names
          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          interactionId,
-          discordUserId,
-          leotard.item_id,
-          leotard.display_name,
-          tights.item_id,
-          tights.display_name,
-          shoes.item_id,
-          shoes.display_name,
-          displaced.rows.map((row) => row.display_name),
-        ],
-      );
-      for (const item of selected) {
-        await client.query(
-          `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source)
-           VALUES ($1, $2, 1, 'EVENT_REWARD')
-           ON CONFLICT (discord_user_id, item_id) DO NOTHING`,
-          [discordUserId, item.item_id],
-        );
-      }
-      await client.query(
-        `DELETE FROM wardrobe_equipment
-         WHERE discord_user_id = $1 AND slot = ANY(ARRAY['leotard', 'tights', 'shoes']::text[])`,
-        [discordUserId],
-      );
-      for (const [item, slot] of [
-        [leotard, 'leotard'],
-        [tights, 'tights'],
-        [shoes, 'shoes'],
-      ] as const) {
-        await client.query(
-          `INSERT INTO wardrobe_equipment (discord_user_id, slot, item_id)
-           VALUES ($1, $2, $3)`,
-          [discordUserId, slot, item.item_id],
-        );
-      }
-      await unlockAchievement(
-        client,
-        discordUserId,
-        'first-studio-look',
-        'WARDROBE_EQUIPPED',
+      [
         interactionId,
+        discordUserId,
+        leotard.item_id,
+        leotard.display_name,
+        tights.item_id,
+        tights.display_name,
+        shoes.item_id,
+        shoes.display_name,
+        displaced.rows.map((row) => row.display_name),
+      ],
+    );
+    for (const item of selected) {
+      await client.query(
+        `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source, tradeable)
+           VALUES ($1, $2, 1, 'EVENT_REWARD', $3)
+           ON CONFLICT (discord_user_id, item_id) DO UPDATE
+           SET tradeable = user_inventory.tradeable AND EXCLUDED.tradeable`,
+        [discordUserId, item.item_id, !item.academy_starter],
       );
-      return {
-        items: selected.map((item) => item.display_name),
-        replacedItems: displaced.rows.map((row) => row.display_name),
-        replayed: false,
-      };
-    });
+    }
+    await client.query(
+      `DELETE FROM wardrobe_equipment
+         WHERE discord_user_id = $1 AND slot = ANY(ARRAY['leotard', 'tights', 'shoes']::text[])`,
+      [discordUserId],
+    );
+    for (const [item, slot] of [
+      [leotard, 'leotard'],
+      [tights, 'tights'],
+      [shoes, 'shoes'],
+    ] as const) {
+      await client.query(
+        `INSERT INTO wardrobe_equipment (discord_user_id, slot, item_id)
+           VALUES ($1, $2, $3)`,
+        [discordUserId, slot, item.item_id],
+      );
+    }
+    await unlockAchievement(
+      client,
+      discordUserId,
+      'first-studio-look',
+      'WARDROBE_EQUIPPED',
+      interactionId,
+    );
+    return {
+      items: selected.map((item) => item.display_name),
+      replacedItems: displaced.rows.map((row) => row.display_name),
+      replayed: false,
+    };
   }
 }
 

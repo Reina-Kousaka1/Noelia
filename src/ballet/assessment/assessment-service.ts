@@ -28,6 +28,8 @@ import type {
 } from '../class/types.js';
 import { buildAssessmentQuestions } from './assessment-content.js';
 import { evaluateAcademyAssessmentEligibility } from './eligibility.js';
+import { evaluateEarlyAcademyRequirements } from '../academy-gameplay.js';
+import { loadEarlyAcademyEvidence } from '../academy-gameplay-service.js';
 import { evaluateAcademyAssessmentResult } from './result.js';
 import type {
   AcademyAssessmentAttemptView,
@@ -131,7 +133,9 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
         targetStageId === null
           ? undefined
           : await loadPracticalClass(client, discordUserId, currentStageId, failureAt);
-      const eligibility = this.eligibility(
+      const eligibility = await this.eligibility(
+        client,
+        discordUserId,
         currentStageId,
         evidence,
         practicalClass !== undefined,
@@ -197,7 +201,9 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
         progress.currentRank.id,
         failureAt,
       );
-      const eligibility = this.eligibility(
+      const eligibility = await this.eligibility(
+        client,
+        discordUserId,
         progress.currentRank.id,
         evidence,
         practicalClass !== undefined,
@@ -354,18 +360,34 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
     });
   }
 
-  private eligibility(
+  private async eligibility(
+    client: PoolClient,
+    discordUserId: string,
     currentStageId: string,
     evidence: BalletAcademyEvidence,
     hasPracticalClass: boolean,
     retakeRequiresNewClass: boolean,
-  ): AcademyAssessmentEligibility {
-    return evaluateAcademyAssessmentEligibility(
+  ): Promise<AcademyAssessmentEligibility> {
+    const base = evaluateAcademyAssessmentEligibility(
       currentStageId,
       evidence,
       hasPracticalClass,
       retakeRequiresNewClass,
     );
+    const targetStageId = base.targetStageId;
+    if (targetStageId !== 'preparatory-dance' && targetStageId !== 'pre-primary') {
+      return base;
+    }
+    const earlyEvidence = await loadEarlyAcademyEvidence(client, discordUserId, targetStageId);
+    const requirements = [
+      ...base.requirements,
+      ...evaluateEarlyAcademyRequirements(targetStageId, earlyEvidence),
+    ];
+    return {
+      ...base,
+      requirements,
+      eligible: requirements.every((requirement) => requirement.met),
+    };
   }
 
   private async completeAttempt(
