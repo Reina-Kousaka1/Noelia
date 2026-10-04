@@ -6,7 +6,11 @@ import { unlockAchievement } from '../achievements/unlock.js';
 import { IdempotencyConflictError } from '../economy/errors.js';
 import { AcademyUniformAlreadyClaimedError } from './errors.js';
 import type { PerformanceTier } from '../performance/types.js';
-import { getBalletAcademyProgress, getBalletAcademyProgressAtStage } from './academy.js';
+import {
+  canonicalAcademyStageId,
+  getBalletAcademyProgress,
+  getBalletAcademyProgressAtStage,
+} from './academy.js';
 import type { BalletAcademyProgress, BalletAcademyEvidence } from './academy.js';
 import { createAcademyUniformStatus, readAcademyUniformItems } from './uniform.js';
 import type {
@@ -320,7 +324,7 @@ export async function ensureAcademyStageBaseline(
     [discordUserId],
   );
   const existingStage = existing.rows[0]?.current_stage_id;
-  if (existingStage !== undefined) return existingStage;
+  if (existingStage !== undefined) return canonicalAcademyStageId(existingStage);
 
   const { evidence } = await loadBalletAcademyEvidence(client, discordUserId);
   const legacyStage = getBalletAcademyProgress(evidence).currentRank.id;
@@ -337,7 +341,7 @@ export async function ensureAcademyStageBaseline(
   );
   const stage = inserted.rows[0]?.current_stage_id;
   if (stage === undefined) throw new Error('Academy stage baseline could not be recorded.');
-  return stage;
+  return canonicalAcademyStageId(stage);
 }
 
 export async function ensureAndLockAcademyUser(

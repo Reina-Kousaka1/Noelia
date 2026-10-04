@@ -59,10 +59,17 @@ export interface AcademyStageDefinition {
  */
 export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
   {
-    id: 'minis-bambinis',
-    title: 'Minis & Bambinis',
+    id: 'pre-school-dance',
+    title: 'Pre-School Dance',
     description: 'A welcoming first studio for ballet foundations.',
     minimumLevel: 1,
+  },
+  {
+    id: 'preparatory-dance',
+    title: 'Preparatory Dance',
+    description: 'Begin structured class practice and studio rhythm.',
+    minimumLevel: 2,
+    requiredActivities: ['class'],
   },
   {
     id: 'pre-primary',
@@ -250,11 +257,16 @@ export function getBalletAcademyProgress(evidence: BalletAcademyEvidence): Balle
 
 /** Return the canonical definition for a persisted Academy stage identifier. */
 export function getAcademyStageDefinition(stageId: string): AcademyStageDefinition | undefined {
-  return ACADEMY_CURRICULUM.find((stage) => stage.id === stageId);
+  return ACADEMY_CURRICULUM.find((stage) => stage.id === canonicalAcademyStageId(stageId));
 }
 
 export function getAcademyStageIndex(stageId: string): number {
-  return ACADEMY_CURRICULUM.findIndex((stage) => stage.id === stageId);
+  return ACADEMY_CURRICULUM.findIndex((stage) => stage.id === canonicalAcademyStageId(stageId));
+}
+
+/** Historical stage IDs remain valid in immutable snapshots and baseline rows. */
+export function canonicalAcademyStageId(stageId: string): string {
+  return stageId === 'minis-bambinis' ? 'pre-school-dance' : stageId;
 }
 
 /** The ordered Knowledge domains used by an assessment for this canonical target stage. */

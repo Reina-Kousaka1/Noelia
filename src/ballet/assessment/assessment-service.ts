@@ -5,7 +5,12 @@ import { withTransaction } from '../../database/transaction.js';
 import { IdempotencyConflictError } from '../../economy/errors.js';
 import { assertDiscordSnowflake } from '../../utils/discord-snowflake.js';
 import { ExpectedDomainError } from '../../utils/expected-domain-error.js';
-import { getAcademyStageDefinition, getBalletAcademyProgress } from '../academy.js';
+import {
+  canonicalAcademyStageId,
+  getAcademyStageDefinition,
+  getAcademyStageIndex,
+  getBalletAcademyProgress,
+} from '../academy.js';
 import type { BalletAcademyEvidence } from '../academy.js';
 import {
   ensureAcademyStageBaseline,
@@ -138,7 +143,10 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
         targetStageId,
         targetStageName: progress.nextRank?.title ?? null,
         eligibility,
-        activeAttempt: activeRow === undefined ? null : await loadAttemptView(client, activeRow),
+        activeAttempt:
+          activeRow === undefined || (await isObsoleteAttempt(client, activeRow))
+            ? null
+            : await loadAttemptView(client, activeRow),
         latestAttempt: latestRow === undefined ? null : await loadAttemptView(client, latestRow),
       };
     });
@@ -161,15 +169,19 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
       await ensureAcademyStageBaseline(client, discordUserId);
       const active = await loadAttemptRow(client, discordUserId, 'IN_PROGRESS', true);
       if (active !== undefined) {
-        await recordAction(
-          client,
-          interactionId,
-          discordUserId,
-          active.attempt_id,
-          'START',
-          requestFingerprint,
-        );
-        return loadAttemptView(client, active);
+        if (await isObsoleteAttempt(client, active)) {
+          await retireObsoleteAttempt(client, active);
+        } else {
+          await recordAction(
+            client,
+            interactionId,
+            discordUserId,
+            active.attempt_id,
+            'START',
+            requestFingerprint,
+          );
+          return loadAttemptView(client, active);
+        }
       }
 
       const { evidence } = await loadBalletAcademyEvidence(client, discordUserId);
@@ -266,6 +278,18 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
 
       const attempt = await loadAttemptRowById(client, attemptId, discordUserId, true);
       if (attempt.status !== 'IN_PROGRESS') return loadAttemptView(client, attempt);
+      if (await isObsoleteAttempt(client, attempt)) {
+        await recordAction(
+          client,
+          interactionId,
+          discordUserId,
+          attemptId,
+          'ANSWER',
+          requestFingerprint,
+        );
+        await retireObsoleteAttempt(client, attempt);
+        return loadAttemptViewById(client, attemptId, discordUserId);
+      }
       const questions = readQuestionSnapshot(attempt.questions_snapshot);
       const responses = await loadResponses(client, attemptId);
       const answered = responses.find((response) => response.question_id === questionId);
@@ -361,6 +385,10 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
       questions.length,
       completedAt,
     );
+    if (await isObsoleteAttempt(client, attempt)) {
+      await retireObsoleteAttempt(client, attempt);
+      return;
+    }
     const status = result.status;
 
     await client.query(
@@ -375,8 +403,14 @@ export class AcademyAssessmentService implements AcademyAssessmentPort {
     const updated = await client.query(
       `UPDATE academy_stage_progress
        SET current_stage_id = $3, updated_at = $4
-       WHERE discord_user_id = $1 AND current_stage_id = $2`,
-      [attempt.discord_user_id, attempt.source_stage_id, attempt.target_stage_id, completedAt],
+       WHERE discord_user_id = $1 AND current_stage_id IN ($2, $5)`,
+      [
+        attempt.discord_user_id,
+        attempt.source_stage_id,
+        attempt.target_stage_id,
+        completedAt,
+        attempt.source_stage_id === 'pre-school-dance' ? 'minis-bambinis' : attempt.source_stage_id,
+      ],
     );
     if (updated.rowCount !== 1)
       throw new Error('Academy stage changed before assessment promotion.');
@@ -485,7 +519,8 @@ async function loadAttemptView(
   return {
     attemptId: row.attempt_id,
     sourceStageId: row.source_stage_id,
-    sourceStageName: sourceStage.title,
+    sourceStageName:
+      row.source_stage_id === 'minis-bambinis' ? 'Minis & Bambinis' : sourceStage.title,
     targetStageId: row.target_stage_id,
     targetStageName: targetStage.title,
     attemptNumber: row.attempt_number,
@@ -519,6 +554,7 @@ async function loadLatestFailureAt(
   const result = await client.query<FailureTimestampRow>(
     `SELECT completed_at FROM academy_assessment_attempts
      WHERE discord_user_id = $1 AND target_stage_id = $2 AND status = 'RETAKE_REQUIRED'
+       AND NOT (source_stage_id = 'minis-bambinis' AND target_stage_id = 'pre-primary')
      ORDER BY completed_at DESC, attempt_id DESC LIMIT 1`,
     [discordUserId, targetStageId],
   );
@@ -534,13 +570,57 @@ async function loadPracticalClass(
   const result = await client.query<PracticalClassRow>(
     `SELECT class_id::text, review_snapshot, completed_at
      FROM ballet_classes
-     WHERE discord_user_id = $1 AND academy_stage_id = $2
+     WHERE discord_user_id = $1 AND academy_stage_id IN ($2, $4)
        AND status = 'COMPLETED' AND review_snapshot IS NOT NULL
        AND ($3::timestamptz IS NULL OR completed_at > $3)
      ORDER BY completed_at DESC, class_id DESC LIMIT 1 FOR SHARE`,
-    [discordUserId, sourceStageId, after],
+    [
+      discordUserId,
+      sourceStageId,
+      after,
+      sourceStageId === 'pre-school-dance' ? 'minis-bambinis' : sourceStageId,
+    ],
   );
   return result.rows[0];
+}
+
+/** A saved attempt cannot promote across a stage inserted after it was started. */
+async function isObsoleteAttempt(
+  client: PoolClient,
+  attempt: AssessmentAttemptRow,
+): Promise<boolean> {
+  const progress = await client.query<{ readonly current_stage_id: string }>(
+    'SELECT current_stage_id FROM academy_stage_progress WHERE discord_user_id = $1',
+    [attempt.discord_user_id],
+  );
+  const currentStageId = progress.rows[0]?.current_stage_id;
+  if (currentStageId === undefined) throw new Error('Academy assessment has no stage baseline.');
+  const source = canonicalAcademyStageId(attempt.source_stage_id);
+  return (
+    canonicalAcademyStageId(currentStageId) !== source ||
+    getAcademyStageIndex(attempt.target_stage_id) !== getAcademyStageIndex(source) + 1
+  );
+}
+
+/** Complete the saved attempt as a retake; its questions and responses remain intact. */
+async function retireObsoleteAttempt(
+  client: PoolClient,
+  attempt: AssessmentAttemptRow,
+): Promise<void> {
+  const questions = readQuestionSnapshot(attempt.questions_snapshot);
+  const review = readBalletClassReview(attempt.practical_review_snapshot);
+  const timestamp = await client.query<{ readonly completed_at: Date }>(
+    'SELECT clock_timestamp() AS completed_at',
+  );
+  const completedAt = timestamp.rows[0]?.completed_at;
+  if (completedAt === undefined) throw new Error('Assessment completion time is unavailable.');
+  const result = evaluateAcademyAssessmentResult(review, 0, questions.length, completedAt);
+  await client.query(
+    `UPDATE academy_assessment_attempts
+     SET status = 'RETAKE_REQUIRED', result_snapshot = $2::jsonb, completed_at = $3
+     WHERE attempt_id = $1::uuid AND status = 'IN_PROGRESS'`,
+    [attempt.attempt_id, JSON.stringify(result), result.completedAt],
+  );
 }
 
 async function nextAttemptNumber(

@@ -70,6 +70,8 @@ const rankMinimumLevels: Readonly<Record<string, number>> = {
   soloist: 20,
   'principal-artist': 35,
   'minis-bambinis': 1,
+  'pre-school-dance': 1,
+  'preparatory-dance': 2,
   'pre-primary': 2,
   primary: 3,
   'grade-1': 4,

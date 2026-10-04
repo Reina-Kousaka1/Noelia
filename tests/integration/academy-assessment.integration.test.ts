@@ -15,7 +15,11 @@ function testSnowflake(): string {
   return (BigInt(`0x${randomHex}`) + 1_000_000_000_000_000_000n).toString();
 }
 
-async function addCompletedClass(pool: Pool, discordUserId: string): Promise<string> {
+async function addCompletedClass(
+  pool: Pool,
+  discordUserId: string,
+  stageId = 'pre-primary',
+): Promise<string> {
   const classId = randomUUID();
   const review = {
     sections: [
@@ -37,8 +41,8 @@ async function addCompletedClass(pool: Pool, discordUserId: string): Promise<str
     version: 1,
     classType: 'REGULAR',
     classTypeName: 'Regular Ballet Class',
-    academyStageId: 'pre-primary',
-    academyStageName: 'Pre-Primary',
+    academyStageId: stageId,
+    academyStageName: stageId === 'minis-bambinis' ? 'Minis & Bambinis' : 'Pre-Primary',
     sections: [],
     exercises: [],
   };
@@ -47,9 +51,17 @@ async function addCompletedClass(pool: Pool, discordUserId: string): Promise<str
        class_id, discord_user_id, start_interaction_id, class_type,
        academy_stage_id, academy_stage_name, status, current_exercise_index,
        curriculum_snapshot, review_snapshot, completed_at
-     ) VALUES ($1::uuid, $2, $3, 'REGULAR', 'pre-primary', 'Pre-Primary',
-               'COMPLETED', 0, $4::jsonb, $5::jsonb, clock_timestamp())`,
-    [classId, discordUserId, testSnowflake(), JSON.stringify(curriculum), JSON.stringify(review)],
+     ) VALUES ($1::uuid, $2, $3, 'REGULAR', $4, $5,
+               'COMPLETED', 0, $6::jsonb, $7::jsonb, clock_timestamp())`,
+    [
+      classId,
+      discordUserId,
+      testSnowflake(),
+      stageId,
+      curriculum.academyStageName,
+      JSON.stringify(curriculum),
+      JSON.stringify(review),
+    ],
   );
   for (const activity of ['class', 'stretching', 'barre']) {
     await pool.query(
@@ -225,5 +237,77 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
       legacy_baseline_stage_id: 'primary',
       current_stage_id: 'primary',
     });
+  });
+
+  it('preserves a saved Minis baseline and retires an old in-flight skip before promotion', async () => {
+    const userId = testSnowflake();
+    await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [userId]);
+    await pool.query('INSERT INTO ballet_progress (discord_user_id, level) VALUES ($1, 3)', [
+      userId,
+    ]);
+    const classId = await addCompletedClass(pool, userId, 'minis-bambinis');
+    await pool.query(
+      `INSERT INTO academy_stage_progress
+         (discord_user_id, legacy_baseline_stage_id, current_stage_id)
+       VALUES ($1, 'minis-bambinis', 'minis-bambinis')`,
+      [userId],
+    );
+    const obsoleteId = randomUUID();
+    const classReview = await pool.query<{ review_snapshot: unknown }>(
+      'SELECT review_snapshot FROM ballet_classes WHERE class_id = $1::uuid',
+      [classId],
+    );
+    await pool.query(
+      `INSERT INTO academy_assessment_attempts
+         (attempt_id, discord_user_id, source_stage_id, target_stage_id, attempt_number,
+          practical_class_id, practical_review_snapshot, questions_snapshot, status,
+          start_interaction_id)
+       VALUES ($1::uuid, $2, 'minis-bambinis', 'pre-primary', 1, $3::uuid,
+               $4::jsonb, $5::jsonb, 'IN_PROGRESS', $6)`,
+      [
+        obsoleteId,
+        userId,
+        classId,
+        JSON.stringify(classReview.rows[0]!.review_snapshot),
+        JSON.stringify(buildAssessmentQuestions('pre-primary', 1)),
+        testSnowflake(),
+      ],
+    );
+    const service = new AcademyAssessmentService(pool);
+    const [first, concurrent] = await Promise.all([
+      service.start(testSnowflake(), userId),
+      service.start(testSnowflake(), userId),
+    ]);
+    expect(first.attemptId).toBe(concurrent.attemptId);
+    expect(first.sourceStageId).toBe('pre-school-dance');
+    expect(first.targetStageId).toBe('preparatory-dance');
+    const question = buildAssessmentQuestions('preparatory-dance', 1)[0]!;
+    const passed = await service.answer(
+      testSnowflake(),
+      userId,
+      first.attemptId,
+      question.id,
+      question.correctAnswerId,
+    );
+    expect(passed).toMatchObject({ status: 'PASS', result: { promoted: true } });
+    const persisted = await pool.query(
+      `SELECT legacy_baseline_stage_id, current_stage_id FROM academy_stage_progress
+       WHERE discord_user_id = $1`,
+      [userId],
+    );
+    expect(persisted.rows[0]).toEqual({
+      legacy_baseline_stage_id: 'minis-bambinis',
+      current_stage_id: 'preparatory-dance',
+    });
+    const history = await pool.query(
+      `SELECT target_stage_id, status FROM academy_assessment_attempts
+       WHERE discord_user_id = $1 ORDER BY started_at, attempt_id`,
+      [userId],
+    );
+    expect(history.rows).toEqual([
+      { target_stage_id: 'pre-primary', status: 'RETAKE_REQUIRED' },
+      { target_stage_id: 'preparatory-dance', status: 'PASS' },
+    ]);
+    expect((await service.getOverview(userId)).targetStageId).toBe('pre-primary');
   });
 });

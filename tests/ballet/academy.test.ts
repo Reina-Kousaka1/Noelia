@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { ACADEMY_CURRICULUM, getBalletAcademyProgress } from '../../src/ballet/academy.js';
+import {
+  ACADEMY_CURRICULUM,
+  getBalletAcademyProgress,
+  getBalletAcademyProgressAtStage,
+} from '../../src/ballet/academy.js';
 import type { BalletAcademyEvidence } from '../../src/ballet/academy.js';
 
 const startingEvidence: BalletAcademyEvidence = {
@@ -54,9 +58,10 @@ const completeEvidence: BalletAcademyEvidence = {
 };
 
 describe('Maison Noélia Academy progression', () => {
-  it('defines the canonical 18-stage curriculum in the requested order', () => {
+  it('defines the canonical 19-stage curriculum in the requested order', () => {
     expect(ACADEMY_CURRICULUM.map((stage) => stage.title)).toEqual([
-      'Minis & Bambinis',
+      'Pre-School Dance',
+      'Preparatory Dance',
       'Pre-Primary',
       'Primary',
       'Grade 1',
@@ -75,32 +80,45 @@ describe('Maison Noélia Academy progression', () => {
       'Advanced 2',
       'Solo Seal',
     ]);
-    expect(ACADEMY_CURRICULUM[0]?.id).toBe('minis-bambinis');
+    expect(ACADEMY_CURRICULUM[0]?.id).toBe('pre-school-dance');
+    expect(ACADEMY_CURRICULUM).toHaveLength(19);
+    expect(ACADEMY_CURRICULUM.some((stage) => stage.id === 'minis-bambinis')).toBe(false);
     expect(ACADEMY_CURRICULUM.filter((stage) => stage.id === 'minis')).toHaveLength(0);
     expect(ACADEMY_CURRICULUM.filter((stage) => stage.id === 'bambinis')).toHaveLength(0);
   });
 
-  it('starts in Minis & Bambinis and reports Pre-Primary requirements', () => {
+  it('starts in Pre-School Dance and reports Preparatory Dance requirements', () => {
     const result = getBalletAcademyProgress(startingEvidence);
 
     expect(result.currentRank).toMatchObject({
-      id: 'minis-bambinis',
-      title: 'Minis & Bambinis',
+      id: 'pre-school-dance',
+      title: 'Pre-School Dance',
       requirements: [],
     });
-    expect(result.nextRank?.title).toBe('Pre-Primary');
+    expect(result.nextRank?.title).toBe('Preparatory Dance');
     expect(result.nextRank?.requirements.map((requirement) => requirement.label)).toEqual([
       'Reach Ballet level 2',
       'Complete Class',
-      'Complete Stretching',
     ]);
   });
 
   it('does not advance on Ballet XP level alone', () => {
     const result = getBalletAcademyProgress({ ...startingEvidence, level: 100 });
 
-    expect(result.currentRank.id).toBe('minis-bambinis');
+    expect(result.currentRank.id).toBe('pre-school-dance');
     expect(result.nextRank?.requirements.some((requirement) => !requirement.met)).toBe(true);
+  });
+
+  it('maps the saved Minis baseline to the new first stage without moving later stages', () => {
+    const legacy = getBalletAcademyProgressAtStage(startingEvidence, 'minis-bambinis');
+    expect(legacy.currentRank.id).toBe('pre-school-dance');
+    expect(legacy.nextRank?.id).toBe('preparatory-dance');
+    expect(getBalletAcademyProgressAtStage(completeEvidence, 'pre-primary').currentRank.id).toBe(
+      'pre-primary',
+    );
+    expect(getBalletAcademyProgressAtStage(completeEvidence, 'pre-primary').nextRank?.id).toBe(
+      'primary',
+    );
   });
 
   it('uses completed Knowledge lessons as explicit, non-XP Academy requirements', () => {
@@ -154,7 +172,7 @@ describe('Maison Noélia Academy progression', () => {
     expect(primaResult).toMatchObject({
       currentRank: { id: 'solo-seal', title: 'Solo Seal' },
       nextRank: null,
-      completedRankCount: 17,
+      completedRankCount: 18,
     });
   });
 

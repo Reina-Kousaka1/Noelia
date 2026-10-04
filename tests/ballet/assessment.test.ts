@@ -48,7 +48,21 @@ describe('Academy assessment domain', () => {
       met: false,
     });
     expect(getBalletAcademyProgressAtStage(evidence, 'solo-seal').nextRank).toBeNull();
-    expect(ACADEMY_CURRICULUM).toHaveLength(18);
+    expect(ACADEMY_CURRICULUM).toHaveLength(19);
+  });
+
+  it('requires exactly the inserted stage after a legacy Minis baseline', () => {
+    const current = getBalletAcademyProgressAtStage(evidence, 'minis-bambinis');
+    expect(current.currentRank.id).toBe('pre-school-dance');
+    expect(current.nextRank?.id).toBe('preparatory-dance');
+    const eligibility = evaluateAcademyAssessmentEligibility(
+      'minis-bambinis',
+      evidence,
+      true,
+      false,
+    );
+    expect(eligibility.sourceStageId).toBe('pre-school-dance');
+    expect(eligibility.targetStageId).toBe('preparatory-dance');
   });
 
   it('reports every canonical and practical requirement and does not unlock on level alone', () => {
