@@ -19,6 +19,7 @@ import type { KnowledgePort } from '../knowledge/types.js';
 import type { BalletClassPort } from '../ballet/class/types.js';
 import type { AcademyAssessmentPort } from '../ballet/assessment/types.js';
 import type { BalletTrainingV3Port } from '../ballet/training-v3/types.js';
+import type { AcademyGameplayPort } from '../ballet/academy-gameplay-service.js';
 
 export interface CommandContext {
   readonly client: Eris.Client;
@@ -42,6 +43,7 @@ export interface CommandServices {
   readonly academyAssessment?: AcademyAssessmentPort;
   readonly balletTrainingV3?: BalletTrainingV3Port;
   readonly academy?: BalletAcademyPort;
+  readonly academyGameplay?: AcademyGameplayPort;
   readonly shop: ShopPort;
   readonly inventory: InventoryPort;
   readonly wardrobe: WardrobePort;

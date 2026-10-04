@@ -29,6 +29,15 @@ function createServices() {
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
     academy: { getProgress: vi.fn(), getUniformStatus: vi.fn() },
+    academyGameplay: {
+      enroll: vi.fn(),
+      completeBeginnerAction: vi.fn(),
+      scheduleClass: vi.fn(),
+      cancelClass: vi.fn(),
+      checkIn: vi.fn(),
+      getReportBook: vi.fn(),
+      reconcileDueClasses: vi.fn(),
+    },
     wardrobePresets: {
       clear: vi.fn(),
       listPresets: vi.fn(),
@@ -196,6 +205,42 @@ describe('wardrobe command', () => {
         }),
       ],
     });
+  });
+
+  it('keeps the legacy uniform claim button on the same explicit enrollment transaction', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND_GROUP,
+        name: 'uniform',
+        options: [
+          { type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND, name: 'claim' },
+        ],
+      },
+    ]);
+    const services = createServices();
+    services.academyGameplay.enroll.mockResolvedValue({
+      stageId: 'pre-school-dance',
+      stageName: 'Pre-School Dance',
+      enrolledAt: new Date('2026-10-05T10:00:00.000Z'),
+      starterWear: ['Academy Hand-Me-Down Leotard'],
+      replayed: false,
+    });
+
+    await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.academyGameplay.enroll).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            description: expect.stringContaining('cannot be sold or traded'),
+          }),
+        ],
+      }),
+    );
   });
 
   it('shows the current outfit publicly', async () => {

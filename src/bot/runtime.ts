@@ -6,6 +6,8 @@ import { EconomyService } from '../economy/economy-service.js';
 import { DailyService } from '../economy/daily-service.js';
 import { BalletService } from '../ballet/ballet-service.js';
 import { BalletAcademyService } from '../ballet/academy-service.js';
+import { BalletAcademyGameplayService } from '../ballet/academy-gameplay-service.js';
+import { AcademyScheduleWorker } from '../ballet/academy-schedule-worker.js';
 import { BalletClassService } from '../ballet/class/class-service.js';
 import { AcademyAssessmentService } from '../ballet/assessment/assessment-service.js';
 import { BalletTrainingV3Service } from '../ballet/training-v3/training-v3-service.js';
@@ -58,6 +60,30 @@ export interface DiscordRuntime {
 
 export type ErisClientFactory = (token: string, options: Eris.ClientOptions) => Eris.Client;
 
+export function createRuntimeCommandRegistry(): CommandRegistry {
+  const coreCommands = [
+    pingCommand,
+    balanceCommand,
+    dailyCommand,
+    balletCommand,
+    academyCommand,
+    shopCommand,
+    inventoryCommand,
+    wardrobeCommand,
+    profileCommand,
+    marketCommand,
+    performanceCommand,
+    achievementsCommand,
+    marryCommand,
+    marriageCommand,
+    divorceCommand,
+    automodCommand,
+    learnCommand,
+  ];
+  const commands = [...coreCommands, ...moderationCommands];
+  return new CommandRegistry([...commands, createHelpCommand(commands)]);
+}
+
 export function createDiscordRuntime(
   config: AppConfig,
   logger: StructuredLogger,
@@ -84,6 +110,10 @@ export function createDiscordRuntime(
   const balletTrainingV3 = new BalletTrainingV3Service(pool);
   const ballet = new BalletService(pool, economy, balletTrainingV3);
   const academy = new BalletAcademyService(pool);
+  const academyGameplay = new BalletAcademyGameplayService(pool, academy);
+  const academyScheduleWorker = new AcademyScheduleWorker(academyGameplay, (error) => {
+    logger.error('academy.scheduler_tick_failed', error);
+  });
   const balletClass = new BalletClassService(pool, Math.random, balletTrainingV3);
   const academyAssessment = new AcademyAssessmentService(pool);
   const shop = new ShopService(pool, economy);
@@ -132,27 +162,7 @@ export function createDiscordRuntime(
       ...(config.persona.apiKey === undefined ? [] : [config.persona.apiKey]),
     ],
   );
-  const coreCommands = [
-    pingCommand,
-    balanceCommand,
-    dailyCommand,
-    balletCommand,
-    academyCommand,
-    shopCommand,
-    inventoryCommand,
-    wardrobeCommand,
-    profileCommand,
-    marketCommand,
-    performanceCommand,
-    achievementsCommand,
-    marryCommand,
-    marriageCommand,
-    divorceCommand,
-    automodCommand,
-    learnCommand,
-  ];
-  const commands = [...coreCommands, ...moderationCommands];
-  const registry = new CommandRegistry([...commands, createHelpCommand(commands)]);
+  const registry = createRuntimeCommandRegistry();
   const router = new InteractionRouter(registry, logger, {
     economy,
     daily,
@@ -161,6 +171,7 @@ export function createDiscordRuntime(
     balletTrainingV3,
     academyAssessment,
     academy,
+    academyGameplay,
     shop,
     inventory,
     wardrobe,
@@ -286,6 +297,7 @@ export function createDiscordRuntime(
 
   client.on('ready', () => {
     presence.start();
+    academyScheduleWorker.start();
     logger.info('discord.ready', {
       botUsername: client.user.username,
     });
@@ -339,6 +351,7 @@ export function createDiscordRuntime(
   });
 
   client.on('disconnect', () => {
+    void academyScheduleWorker.stop();
     if (!stopping) {
       logger.warn('discord.disconnected');
     }
@@ -352,6 +365,7 @@ export function createDiscordRuntime(
         await client.connect();
       } catch (error) {
         presence.stop();
+        await academyScheduleWorker.stop();
         client.disconnect({ reconnect: false });
         throw error;
       }
@@ -364,6 +378,7 @@ export function createDiscordRuntime(
       stopping = true;
       logger.info('discord.disconnecting');
       presence.stop();
+      await academyScheduleWorker.stop();
       client.disconnect({ reconnect: false });
     },
   };

@@ -97,6 +97,7 @@ describe('createDiscordRuntime', () => {
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
     vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    vi.spyOn(logger, 'error').mockImplementation(() => {});
     const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
 
     client.emit('ready');
@@ -104,7 +105,7 @@ describe('createDiscordRuntime', () => {
     client.emit('ready');
 
     expect(client.editStatus).toHaveBeenCalledTimes(1);
-    expect(vi.getTimerCount()).toBe(1);
+    expect(vi.getTimerCount()).toBe(2);
     vi.advanceTimersByTime(120_000);
     expect(client.editStatus).toHaveBeenCalledTimes(2);
 

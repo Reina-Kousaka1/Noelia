@@ -55,7 +55,29 @@ const ineligibleOverview: AcademyAssessmentOverview = {
 describe('Academy assessment command', () => {
   it('registers the natural /academy assessment flow', () => {
     expect(academyCommand.definition.name).toBe('academy');
-    expect(academyCommand.definition.options?.map((option) => option.name)).toEqual(['assessment']);
+    expect(academyCommand.definition.options?.map((option) => option.name)).toEqual([
+      'enroll',
+      'practice',
+      'schedule',
+      'cancel',
+      'checkin',
+      'report',
+      'assessment',
+    ]);
+    expect(
+      academyCommand.definition.options?.find((option) => option.name === 'practice'),
+    ).toMatchObject({
+      options: [
+        {
+          name: 'action',
+          required: true,
+          choices: expect.arrayContaining([
+            { name: 'Clap the Rhythm', value: 'CLAP_RHYTHM' },
+            { name: 'First Positions', value: 'FIRST_POSITIONS' },
+          ]),
+        },
+      ],
+    });
   });
 
   it('shows current stage, target, and concrete missing requirements without starting an attempt', async () => {

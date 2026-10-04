@@ -317,32 +317,24 @@ export const wardrobeCommand: SlashCommand = {
     }
 
     if (subcommand.name === 'uniform' && action.name === 'claim') {
-      const claimStarterUniform = services.academy?.claimStarterUniform;
-      if (claimStarterUniform === undefined) {
-        throw new Error('The Academy uniform claim service is not configured.');
-      }
-      const result = await claimStarterUniform.call(
-        services.academy,
-        interaction.id,
-        discordUserId,
-      );
-      const displaced =
-        result.replacedItems.length === 0
-          ? ''
-          : ` Replaced existing pieces: ${result.replacedItems.join(', ')}.`;
+      const gameplay = services.academyGameplay;
+      if (gameplay === undefined)
+        throw new Error('The Academy enrollment service is not configured.');
+      const result = await gameplay.enroll(interaction.id, discordUserId);
       await completeCommand(interaction, {
         embeds: [
           await personaEmbed(
             'academy_uniform_claimed',
             {
-              item_count: result.items.length,
+              item_count: result.starterWear.length,
               replayed: result.replayed,
             },
             {
               title: 'Academy Starter Uniform',
-              description: result.replayed
-                ? 'Your original uniform claim was safely replayed; no items or changes were duplicated.'
-                : `Claimed and equipped: ${result.items.join(', ')}.${displaced} This one-time starter set was not purchased.`,
+              description:
+                result.starterWear.length === 0
+                  ? 'Your Academy enrollment is saved. Any earlier starter wear remains intact, and this did not grant duplicate items.'
+                  : `Your Academy enrollment and starter wear are saved together: ${result.starterWear.join(', ')}. The one-time hand-me-down set is equipped and cannot be sold or traded.`,
               tone: result.replayed ? 'signature' : 'success',
             },
           ),

@@ -4,6 +4,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type { SlashCommand } from '../../src/commands/command.js';
 import { pingCommand } from '../../src/commands/ping/ping.command.js';
 import { shopCommand } from '../../src/commands/shop/shop.command.js';
+import { academyCommand } from '../../src/commands/academy/academy.command.js';
+import { createRuntimeCommandRegistry } from '../../src/bot/runtime.js';
 import {
   CommandRegistry,
   synchronizeApplicationCommands,
@@ -44,6 +46,27 @@ function fakeClient(guildCommands: object[] = [], globalCommands: object[] = [])
 }
 
 describe('CommandRegistry', () => {
+  it('keeps Academy, V3 Ballet, and all established moderation commands registered', () => {
+    const registry = createRuntimeCommandRegistry();
+    const names = registry.list().map((command) => command.definition.name);
+
+    expect(names).toContain(academyCommand.definition.name);
+    expect(names).toContain('ballet');
+    expect(names).toEqual(
+      expect.arrayContaining(['warn', 'warnings', 'modcase', 'timeout', 'kick', 'ban', 'automod']),
+    );
+    expect(names).not.toEqual(
+      expect.arrayContaining([
+        'levelup',
+        'promote-me',
+        'give-xp',
+        'max-skills',
+        'skip-stage',
+        'give-all-items',
+      ]),
+    );
+  });
+
   it('rejects duplicate command names', () => {
     expect(() => new CommandRegistry([pingCommand, pingCommand])).toThrow(
       'Duplicate slash command definition: ping',
