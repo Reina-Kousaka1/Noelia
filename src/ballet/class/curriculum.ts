@@ -28,10 +28,13 @@ export function buildBalletClassCurriculum(
   const type = BALLET_CLASS_TYPE_CATALOG.find((definition) => definition.id === classType);
   if (type === undefined)
     throw new BalletClassRequirementError('That class type is not available.');
-  const classStageIndex = stageIndex;
+  // The class catalog's numeric gates predate Preparatory Dance. Keep the
+  // established exercise unlock points stable while both entry stages remain
+  // distinct in Academy progression.
+  const classStageIndex = stageIndex > 1 ? stageIndex - 1 : 0;
   if (classStageIndex < type.minimumStageIndex) {
     throw new BalletClassRequirementError(
-      `${type.displayName} unlocks at ${ACADEMY_CURRICULUM[type.minimumStageIndex]?.title ?? 'a later Academy stage'}.`,
+      `${type.displayName} unlocks at ${ACADEMY_CURRICULUM[type.minimumStageIndex + (type.minimumStageIndex > 0 ? 1 : 0)]?.title ?? 'a later Academy stage'}.`,
     );
   }
 

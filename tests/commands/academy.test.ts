@@ -2,7 +2,10 @@ import * as Eris from 'eris';
 import { describe, expect, it, vi } from 'vitest';
 
 import { academyCommand } from '../../src/commands/academy/academy.command.js';
-import type { AcademyAssessmentOverview } from '../../src/ballet/assessment/types.js';
+import type {
+  AcademyAssessmentAttemptView,
+  AcademyAssessmentOverview,
+} from '../../src/ballet/assessment/types.js';
 import { AcademyAssessmentService } from '../../src/ballet/assessment/assessment-service.js';
 import type { CommandServices } from '../../src/commands/command.js';
 
@@ -115,6 +118,64 @@ describe('Academy assessment command', () => {
           }),
         ],
       }),
+    );
+  });
+
+  it('explains an old Minis-to-Pre-Primary assessment without discarding its history', async () => {
+    const { interaction, editOriginalMessage } = createInteraction();
+    const completedAt = new Date('2026-10-04T10:00:00.000Z');
+    const previousAttempt: AcademyAssessmentAttemptView = {
+      attemptId: '250aad21-50a6-4d43-a450-b2c8f8825070',
+      sourceStageId: 'minis-bambinis',
+      sourceStageName: 'Pre-School Dance',
+      targetStageId: 'pre-primary',
+      targetStageName: 'Pre-Primary',
+      attemptNumber: 1,
+      status: 'RETAKE_REQUIRED',
+      startedAt: new Date('2026-10-04T09:00:00.000Z'),
+      completedAt,
+      currentQuestionIndex: 1,
+      totalQuestions: 1,
+      currentQuestion: null,
+      result: {
+        status: 'RETAKE_REQUIRED',
+        correctAnswers: 0,
+        totalQuestions: 1,
+        practicalSections: [],
+        primaryCorrection: null,
+        secondaryCorrection: null,
+        completedAt,
+        promoted: false,
+      },
+    };
+    const overview: AcademyAssessmentOverview = {
+      ...ineligibleOverview,
+      currentStageId: 'pre-school-dance',
+      currentStageName: 'Pre-School Dance',
+      targetStageId: 'preparatory-dance',
+      targetStageName: 'Preparatory Dance',
+      latestAttempt: previousAttempt,
+    };
+    const services = {
+      academyAssessment: { getOverview: vi.fn().mockResolvedValue(overview) },
+      persona: undefined,
+    } as unknown as CommandServices;
+
+    await academyCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            description: expect.stringContaining(
+              '**Previous curriculum assessment:** Saved without promotion',
+            ),
+          }),
+        ],
+      }),
+    );
+    expect(JSON.stringify(editOriginalMessage.mock.calls[0])).toContain(
+      'Preparatory Dance is now the next stage.',
     );
   });
 });

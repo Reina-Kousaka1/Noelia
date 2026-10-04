@@ -55,11 +55,10 @@ assessment migration and command have not been deployed or applied to
 Production. See [Academy Assessments V1](docs/architecture/academy-assessments.md)
 for eligibility, result, promotion, and retake details.
 
-The Academy curriculum has the canonical 18 education-inspired stages, from
-Minis & Bambinis through Solo Seal. Records from the earlier 19-stage draft
-remain intact: `pre-school-dance` maps to Minis & Bambinis and
-`preparatory-dance` maps to Pre-Primary when read. This progression does not
-use player ages.
+The Academy curriculum has 19 canonical education-inspired stages, from
+Pre-School Dance and Preparatory Dance through Solo Seal. The old persisted ID
+`minis-bambinis` is read as Pre-School Dance; stored baselines and historical
+snapshots are not rewritten. This progression does not use player ages.
 
 ## Technology
 

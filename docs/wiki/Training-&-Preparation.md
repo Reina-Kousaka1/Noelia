@@ -16,8 +16,8 @@ The first release supports Regular, Technique, Barre Focus, Centre Focus,
 Turns, Allegro, Conditioning, Repertoire, and Assessment Preparation class
 types. Their section plans and exercise definitions live in
 src/ballet/class/catalog.ts. A selected plan is filtered by the canonical
-18-stage Academy curriculum before the class snapshot is persisted. Historical
-19-stage draft IDs are normalized when read.
+19-stage Academy curriculum before the class snapshot is persisted. The legacy
+`minis-bambinis` ID is normalized to Pre-School Dance when read.
 
 The Discord flow uses preparation buttons, Begin Class, and Attempt Exercise.
 Preparation is optional; missing areas never block a session. Marked areas are

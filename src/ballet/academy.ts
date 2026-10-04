@@ -59,10 +59,17 @@ export interface AcademyStageDefinition {
  */
 export const ACADEMY_CURRICULUM: readonly AcademyStageDefinition[] = [
   {
-    id: 'minis-bambinis',
-    title: 'Minis & Bambinis',
+    id: 'pre-school-dance',
+    title: 'Pre-School Dance',
     description: 'A welcoming first studio for ballet foundations.',
     minimumLevel: 1,
+  },
+  {
+    id: 'preparatory-dance',
+    title: 'Preparatory Dance',
+    description: 'Begin structured class practice and studio rhythm.',
+    minimumLevel: 2,
+    requiredActivities: ['class'],
   },
   {
     id: 'pre-primary',
@@ -259,16 +266,14 @@ export function getAcademyStageIndex(stageId: string): number {
 
 /** Historical stage IDs remain valid in immutable snapshots and baseline rows. */
 export function canonicalAcademyStageId(stageId: string): string {
-  if (stageId === 'pre-school-dance') return 'minis-bambinis';
-  if (stageId === 'preparatory-dance') return 'pre-primary';
+  if (stageId === 'minis-bambinis') return 'pre-school-dance';
   return stageId;
 }
 
-/** Persisted aliases keep class and assessment snapshots readable after stage consolidation. */
+/** Persisted aliases keep legacy class and assessment records readable. */
 export function academyStageStorageIds(stageId: string): readonly string[] {
   const canonicalId = canonicalAcademyStageId(stageId);
-  if (canonicalId === 'minis-bambinis') return ['minis-bambinis', 'pre-school-dance'];
-  if (canonicalId === 'pre-primary') return ['pre-primary', 'preparatory-dance'];
+  if (canonicalId === 'pre-school-dance') return ['pre-school-dance', 'minis-bambinis'];
   return [canonicalId];
 }
 

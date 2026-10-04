@@ -2,10 +2,10 @@
 
 **Status: Implemented — initial thresholds are provisional.**
 
-The canonical 18-stage curriculum is Minis & Bambinis, Pre-Primary, Primary,
-Grades 1–8, Discovering Repertoire, Intermediate Foundation, Intermediate,
-Advanced Foundation, Advanced 1, Advanced 2, and Solo Seal. Progress derives
-from existing Ballet level, activity history,
+The canonical 19-stage curriculum is Pre-School Dance, Preparatory Dance,
+Pre-Primary, Primary, Grades 1–8, Discovering Repertoire, Intermediate
+Foundation, Intermediate, Advanced Foundation, Advanced 1, Advanced 2, and
+Solo Seal. Progress derives from existing Ballet level, activity history,
 stats, best performance tiers, and selected completed Knowledge lessons before
 an assessment baseline is captured. Missing lesson gates appear
 with the other unmet requirements. Every stage after entry requires evidence
@@ -24,8 +24,7 @@ captured when it began. Migration 023 adds the progression pointer and
 assessment records without modifying prior Academy evidence. Production has
 not been migrated by this implementation work.
 
-The earlier 19-stage draft IDs remain valid in saved baselines, class snapshots,
-and assessment history: `pre-school-dance` resolves to Minis & Bambinis and
-`preparatory-dance` resolves to Pre-Primary. Stored IDs and audit history are
-retained. No user age is stored or inferred from these education-inspired RPG
-stages.
+The legacy ID `minis-bambinis` resolves to canonical `pre-school-dance` when
+read. The canonical `preparatory-dance` stage remains distinct. Stored IDs and
+audit history are retained; no database migration or data rewrite is needed.
+No user age is stored or inferred from these education-inspired RPG stages.

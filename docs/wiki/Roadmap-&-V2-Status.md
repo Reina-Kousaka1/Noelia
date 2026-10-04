@@ -3,7 +3,7 @@
 **Overall status: In Development — not released.**
 
 - **Implemented:** existing Ballet practice, stats, deterministic stage
-  performance, canonical derived 18-stage Academy curriculum, uniform policy,
+  performance, canonical derived 19-stage Academy curriculum, uniform policy,
   wallet/shop/inventory, profile aggregation, safe bounded persona, separate
   relationships, fictional Academy-history copy, and Knowledge V1 with 24
   starter lessons and profile aggregation. The persistent, stage-aware Ballet

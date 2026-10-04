@@ -35,6 +35,8 @@ describe('Ballet Academy class engine', () => {
   it('keeps early-stage class work foundational and excludes advanced sections', () => {
     const curriculum = buildBalletClassCurriculum('minis-bambinis', 'REGULAR', classId);
 
+    expect(curriculum.academyStageId).toBe('pre-school-dance');
+    expect(curriculum.academyStageName).toBe('Pre-School Dance');
     expect(curriculum.sections.map((section) => section.id)).toEqual(['BARRE', 'CENTRE']);
     expect(curriculum.exercises.every((exercise) => exercise.minimumStageIndex === 0)).toBe(true);
     expect(curriculum.exercises.some((exercise) => exercise.section === 'TURNS')).toBe(false);
@@ -42,10 +44,15 @@ describe('Ballet Academy class engine', () => {
     expect(curriculum.exercises.some((exercise) => exercise.section === 'REPERTOIRE')).toBe(false);
   });
 
-  it('normalizes historical stage aliases and uses canonical 18-stage class gates', () => {
-    const aliasedPrePrimary = buildBalletClassCurriculum('preparatory-dance', 'REGULAR', classId);
-    expect(aliasedPrePrimary.academyStageId).toBe('pre-primary');
-    expect(aliasedPrePrimary.academyStageName).toBe('Pre-Primary');
+  it('keeps canonical entry stages distinct and uses the 19-stage class curriculum', () => {
+    const preparatory = buildBalletClassCurriculum('preparatory-dance', 'REGULAR', classId);
+    expect(preparatory.academyStageId).toBe('preparatory-dance');
+    expect(preparatory.academyStageName).toBe('Preparatory Dance');
+    expect(preparatory.exercises.every((exercise) => exercise.minimumStageIndex === 0)).toBe(true);
+
+    const prePrimary = buildBalletClassCurriculum('pre-primary', 'REGULAR', classId);
+    expect(prePrimary.academyStageId).toBe('pre-primary');
+    expect(prePrimary.academyStageName).toBe('Pre-Primary');
 
     const gradeTwo = buildBalletClassCurriculum('grade-2', 'REGULAR', classId);
     const gradeThree = buildBalletClassCurriculum('grade-3', 'REGULAR', classId);

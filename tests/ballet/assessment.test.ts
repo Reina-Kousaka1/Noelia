@@ -48,21 +48,21 @@ describe('Academy assessment domain', () => {
       met: false,
     });
     expect(getBalletAcademyProgressAtStage(evidence, 'solo-seal').nextRank).toBeNull();
-    expect(ACADEMY_CURRICULUM).toHaveLength(18);
+    expect(ACADEMY_CURRICULUM).toHaveLength(19);
   });
 
-  it('maps saved 19-stage aliases into the 18-stage assessment progression', () => {
-    const firstStage = getBalletAcademyProgressAtStage(evidence, 'pre-school-dance');
-    expect(firstStage.currentRank.id).toBe('minis-bambinis');
-    expect(firstStage.nextRank?.id).toBe('pre-primary');
+  it('keeps the legacy Minis baseline on the canonical 19-stage assessment progression', () => {
+    const firstStage = getBalletAcademyProgressAtStage(evidence, 'minis-bambinis');
+    expect(firstStage.currentRank.id).toBe('pre-school-dance');
+    expect(firstStage.nextRank?.id).toBe('preparatory-dance');
     const eligibility = evaluateAcademyAssessmentEligibility(
       'preparatory-dance',
       evidence,
       true,
       false,
     );
-    expect(eligibility.sourceStageId).toBe('pre-primary');
-    expect(eligibility.targetStageId).toBe('primary');
+    expect(eligibility.sourceStageId).toBe('preparatory-dance');
+    expect(eligibility.targetStageId).toBe('pre-primary');
   });
 
   it('reports every canonical and practical requirement and does not unlock on level alone', () => {

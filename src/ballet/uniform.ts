@@ -69,6 +69,7 @@ const rankMinimumLevels: Readonly<Record<string, number>> = {
   'repertoire-artist': 12,
   soloist: 20,
   'principal-artist': 35,
+  // Legacy persisted stage ID; the canonical first stage is Pre-School Dance.
   'minis-bambinis': 1,
   'pre-school-dance': 1,
   'preparatory-dance': 2,
