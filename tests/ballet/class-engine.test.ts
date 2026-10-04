@@ -99,6 +99,35 @@ describe('Ballet Academy class engine', () => {
     expect(result.correction).toBeNull();
   });
 
+  it('rewards relevant V3 skills and applies exercise difficulty as a penalty', () => {
+    const exercise = buildBalletClassCurriculum('minis-bambinis', 'BARRE_FOCUS', classId)
+      .exercises[0]!;
+    const skills = {
+      balance: 0,
+      core_control: 0,
+      footwork: 0,
+      coordination: 0,
+      turn_control: 0,
+      jump_control: 0,
+      placement: 0,
+      musicality: 0,
+    };
+    const prepared = new Set(exercise.preparationRequirements);
+    const baseline = evaluateBalletExercise(exercise, zeroStats, prepared, 0.5);
+    const skilled = evaluateBalletExercise(exercise, zeroStats, prepared, 0.5, {
+      trainingSkills: { ...skills, placement: 100 },
+    });
+    const harder = evaluateBalletExercise(
+      { ...exercise, difficulty: Math.min(5, exercise.difficulty + 1) },
+      zeroStats,
+      prepared,
+      0.5,
+    );
+
+    expect(skilled.score).toBeGreaterThan(baseline.score);
+    expect(harder.score).toBeLessThanOrEqual(baseline.score);
+  });
+
   it('covers all four saved gameplay outcomes from fixed stats, preparation, and rolls', () => {
     const beginnerExercise = buildBalletClassCurriculum('minis-bambinis', 'BARRE_FOCUS', classId)
       .exercises[0]!;

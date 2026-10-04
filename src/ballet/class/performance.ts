@@ -1,4 +1,6 @@
 import type { BalletStats } from '../types.js';
+import { trainingSkillContribution } from '../training-v3/rules.js';
+import type { BalletTrainingSkillValues } from '../training-v3/types.js';
 import type {
   BalletClassAttempt,
   BalletCorrectionCategory,
@@ -15,6 +17,7 @@ export const BALLET_CLASS_CALIBRATION = {
   version: 1,
   baseScore: 66,
   skillContribution: 0.28,
+  trainingSkillContribution: 0.06,
   difficultyPenalty: 4,
   preparationAdjustment: 4,
   rollSwing: 8,
@@ -33,11 +36,17 @@ export interface BalletExerciseEvaluation {
   readonly rollMicros: number;
 }
 
+export interface BalletExerciseModifiers {
+  readonly trainingSkills?: BalletTrainingSkillValues;
+  readonly conditionModifier?: number;
+}
+
 export function evaluateBalletExercise(
   exercise: BalletExerciseDefinition,
   stats: BalletStats,
   preparation: ReadonlySet<BalletPreparationArea>,
   randomValue: number,
+  modifiers: BalletExerciseModifiers = {},
 ): BalletExerciseEvaluation {
   if (!Number.isFinite(randomValue) || randomValue < 0 || randomValue >= 1) {
     throw new RangeError('Exercise RNG must return a finite value in [0, 1).');
@@ -72,6 +81,11 @@ export function evaluateBalletExercise(
     throw new RangeError('An exercise needs at least one existing Ballet stat.');
 
   const weightedSkill = weightedSkillTotal / totalWeight;
+  const trainingSkill = trainingSkillContribution(modifiers.trainingSkills, exercise.family);
+  const conditionModifier = modifiers.conditionModifier ?? 0;
+  if (!Number.isInteger(conditionModifier) || conditionModifier < -12 || conditionModifier > 10) {
+    throw new RangeError('Exercise condition modifier must be an integer from -12 to 10.');
+  }
   const preparationCount = exercise.preparationRequirements.filter((area) =>
     preparation.has(area),
   ).length;
@@ -84,8 +98,10 @@ export function evaluateBalletExercise(
   const rollOffset = (randomValue - 0.5) * 2 * BALLET_CLASS_CALIBRATION.rollSwing;
   const rawScore =
     BALLET_CLASS_CALIBRATION.baseScore +
-    weightedSkill * BALLET_CLASS_CALIBRATION.skillContribution -
-    (exercise.difficulty - 1) * BALLET_CLASS_CALIBRATION.difficultyPenalty +
+    weightedSkill * BALLET_CLASS_CALIBRATION.skillContribution +
+    trainingSkill * BALLET_CLASS_CALIBRATION.trainingSkillContribution +
+    conditionModifier +
+    -(exercise.difficulty - 1) * BALLET_CLASS_CALIBRATION.difficultyPenalty +
     preparationOffset +
     rollOffset;
   const score = Math.max(0, Math.min(100, Math.round(rawScore)));

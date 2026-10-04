@@ -10,6 +10,7 @@ import type { BalletStats } from '../types.js';
 import { buildBalletClassCurriculum, isBalletClassType } from './curriculum.js';
 import { BalletClassNotFoundError, BalletClassStateError } from './errors.js';
 import { evaluateBalletExercise } from './performance.js';
+import type { BalletTrainingV3Service } from '../training-v3/training-v3-service.js';
 import { buildBalletClassReview } from './review.js';
 import type {
   BalletClassAttempt,
@@ -65,6 +66,10 @@ interface AttemptRow extends QueryResultRow {
   readonly attempted_at: Date;
   readonly correction_category: string | null;
   readonly correction_severity: number | null;
+  readonly training_skill_snapshot?: unknown | null;
+  readonly condition_snapshot?: unknown | null;
+  readonly performance_modifier?: number | null;
+  readonly setback_triggered?: boolean | null;
 }
 
 type ClassAction = 'START' | 'PREPARATION' | 'BEGIN' | 'ATTEMPT' | 'ABANDON';
@@ -82,6 +87,7 @@ export class BalletClassService implements BalletClassPort {
   public constructor(
     private readonly pool: Pool,
     private readonly random: () => number = Math.random,
+    private readonly trainingV3?: BalletTrainingV3Service,
   ) {}
 
   public async startOrResume(
@@ -284,7 +290,22 @@ export class BalletClassService implements BalletClassPort {
       const preparation = new Set<BalletPreparationArea>(
         preparationResult.rows.map((row) => parsePreparationArea(row.area)),
       );
-      const evaluation = evaluateBalletExercise(exercise, stats, preparation, this.random());
+      const trainingContext =
+        this.trainingV3 === undefined
+          ? undefined
+          : await this.trainingV3.prepareClassAttempt(client, discordUserId);
+      const evaluation = evaluateBalletExercise(
+        exercise,
+        stats,
+        preparation,
+        this.random(),
+        trainingContext === undefined
+          ? undefined
+          : {
+              trainingSkills: trainingContext.skills,
+              conditionModifier: trainingContext.performanceModifier,
+            },
+      );
       const attemptId = randomUUID();
       await client.query(
         'INSERT INTO ballet_class_attempts (attempt_id, interaction_id, class_id, discord_user_id, position, exercise_id, exercise_name, section, outcome, score, roll_micros, skill_snapshot, preparation_snapshot, attempted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, clock_timestamp())',
@@ -309,6 +330,18 @@ export class BalletClassService implements BalletClassPort {
           'INSERT INTO ballet_class_corrections (attempt_id, class_id, category, severity) VALUES ($1, $2, $3, $4)',
           [attemptId, classId, evaluation.correction.category, evaluation.correction.severity],
         );
+      }
+      if (this.trainingV3 !== undefined && trainingContext !== undefined) {
+        await this.trainingV3.recordClassAttemptWithinTransaction(client, {
+          interactionId,
+          discordUserId,
+          attemptId,
+          outcome: evaluation.outcome,
+          family: exercise.family,
+          difficulty: exercise.difficulty,
+          context: trainingContext,
+          setbackRoll: this.random(),
+        });
       }
 
       const nextIndex = classRow.current_exercise_index + 1;
@@ -508,7 +541,16 @@ async function loadClassView(
 
 async function loadAttempts(client: PoolClient, classId: string): Promise<BalletClassAttempt[]> {
   const result = await client.query<AttemptRow>(
-    'SELECT attempt.attempt_id::text, attempt.interaction_id, attempt.exercise_id, attempt.exercise_name, attempt.section, attempt.outcome, attempt.score, attempt.roll_micros, attempt.skill_snapshot, attempt.preparation_snapshot, attempt.attempted_at, correction.category AS correction_category, correction.severity AS correction_severity FROM ballet_class_attempts AS attempt LEFT JOIN ballet_class_corrections AS correction ON correction.attempt_id = attempt.attempt_id WHERE attempt.class_id = $1::uuid ORDER BY attempt.position',
+    `SELECT attempt.attempt_id::text, attempt.interaction_id, attempt.exercise_id, attempt.exercise_name,
+            attempt.section, attempt.outcome, attempt.score, attempt.roll_micros, attempt.skill_snapshot,
+            attempt.preparation_snapshot, attempt.attempted_at,
+            correction.category AS correction_category, correction.severity AS correction_severity,
+            effects.training_skill_snapshot, effects.condition_snapshot,
+            effects.performance_modifier, effects.setback_triggered
+     FROM ballet_class_attempts AS attempt
+     LEFT JOIN ballet_class_corrections AS correction ON correction.attempt_id = attempt.attempt_id
+     LEFT JOIN ballet_training_attempt_effects AS effects ON effects.attempt_id = attempt.attempt_id
+     WHERE attempt.class_id = $1::uuid ORDER BY attempt.position`,
     [classId],
   );
   return result.rows.map(parseAttempt);
@@ -542,6 +584,50 @@ function parseAttempt(row: AttemptRow): BalletClassAttempt {
     skillSnapshot: parseStats(row.skill_snapshot),
     preparationSnapshot: row.preparation_snapshot.map(parsePreparationArea),
     attemptedAt: row.attempted_at,
+    trainingEffects: parseTrainingEffects(row),
+  };
+}
+
+function parseTrainingEffects(
+  row: AttemptRow,
+): NonNullable<BalletClassAttempt['trainingEffects']> | null {
+  if (
+    row.training_skill_snapshot === undefined ||
+    row.training_skill_snapshot === null ||
+    row.condition_snapshot === undefined ||
+    row.condition_snapshot === null ||
+    row.performance_modifier === undefined ||
+    row.performance_modifier === null ||
+    row.setback_triggered === undefined ||
+    row.setback_triggered === null
+  ) {
+    return null;
+  }
+  if (
+    typeof row.training_skill_snapshot !== 'object' ||
+    row.training_skill_snapshot === null ||
+    Array.isArray(row.training_skill_snapshot) ||
+    typeof row.condition_snapshot !== 'object' ||
+    row.condition_snapshot === null ||
+    Array.isArray(row.condition_snapshot)
+  ) {
+    throw new Error('Stored Ballet class attempt contains invalid Training V3 snapshots.');
+  }
+  const condition = row.condition_snapshot as Record<string, unknown>;
+  const conditionValues = ['energy', 'nutrition', 'fatigue', 'sleepDebt'];
+  if (conditionValues.some((key) => typeof condition[key] !== 'number')) {
+    throw new Error('Stored Ballet class attempt contains invalid condition values.');
+  }
+  return {
+    skills: row.training_skill_snapshot as Record<string, number>,
+    condition: {
+      energy: condition.energy as number,
+      nutrition: condition.nutrition as number,
+      fatigue: condition.fatigue as number,
+      sleepDebt: condition.sleepDebt as number,
+    },
+    performanceModifier: row.performance_modifier,
+    setbackTriggered: row.setback_triggered,
   };
 }
 

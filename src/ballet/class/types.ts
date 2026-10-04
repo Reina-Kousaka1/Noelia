@@ -102,6 +102,17 @@ export interface BalletClassAttempt {
   readonly skillSnapshot: Readonly<Record<BalletStatKey, number>>;
   readonly preparationSnapshot: readonly BalletPreparationArea[];
   readonly attemptedAt: Date;
+  readonly trainingEffects?: {
+    readonly skills: Readonly<Record<string, number>>;
+    readonly condition: Readonly<{
+      energy: number;
+      nutrition: number;
+      fatigue: number;
+      sleepDebt: number;
+    }>;
+    readonly performanceModifier: number;
+    readonly setbackTriggered: boolean;
+  } | null;
 }
 
 export interface BalletClassReviewSection {

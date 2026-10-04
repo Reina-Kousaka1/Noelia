@@ -6,6 +6,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { BalletService } from '../../src/ballet/ballet-service.js';
 import { BalletClassService } from '../../src/ballet/class/class-service.js';
 import { BalletClassStateError } from '../../src/ballet/class/errors.js';
+import { BalletTrainingV3Service } from '../../src/ballet/training-v3/training-v3-service.js';
+import { BalletTrainingCooldownError } from '../../src/ballet/training-v3/errors.js';
 import { BalletAcademyService } from '../../src/ballet/academy-service.js';
 import {
   AcademyUniformAlreadyClaimedError,
@@ -188,8 +190,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 16,
-        currentVersion: 22,
+        appliedCount: 18,
+        currentVersion: 24,
       });
       await expect(
         upgradePool.query(
@@ -217,7 +219,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 22 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 24 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -307,6 +309,256 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         }),
       ]),
     );
+  });
+
+  it('commits V3 class effects once and restores recovery and shoe-profile state after service restart', async () => {
+    const discordUserId = testSnowflake();
+    const training = new BalletTrainingV3Service(pool, () => 0.5);
+    let rollCount = 0;
+    const classes = new BalletClassService(
+      pool,
+      () => {
+        rollCount += 1;
+        return 0.5;
+      },
+      training,
+    );
+    const started = await classes.startOrResume(testSnowflake(), discordUserId, 'BARRE_FOCUS');
+    await classes.begin(testSnowflake(), discordUserId, started.classId);
+    const exercise = started.curriculum.exercises[0];
+    if (exercise === undefined) throw new Error('Expected a Ballet class exercise.');
+    await pool.query(`UPDATE ballet_stats SET stat_value = 100 WHERE discord_user_id = $1`, [
+      discordUserId,
+    ]);
+
+    const attemptInteractionId = testSnowflake();
+    const first = await classes.attempt(
+      attemptInteractionId,
+      discordUserId,
+      started.classId,
+      exercise.id,
+    );
+    expect(first.attempt?.outcome).toBe('SUCCESS');
+    expect(rollCount).toBe(2);
+
+    let restartedRollCount = 0;
+    const reloadedClasses = new BalletClassService(
+      pool,
+      () => {
+        restartedRollCount += 1;
+        return 0.99;
+      },
+      new BalletTrainingV3Service(pool, () => 0.99),
+    );
+    const replay = await reloadedClasses.attempt(
+      attemptInteractionId,
+      discordUserId,
+      started.classId,
+      exercise.id,
+    );
+    expect(replay.replayed).toBe(true);
+    expect(restartedRollCount).toBe(0);
+
+    const [skills, workloadEvents, attemptEffects] = await Promise.all([
+      pool.query<{ readonly total_skill_value: string }>(
+        `SELECT sum(skill_value)::text AS total_skill_value FROM ballet_training_skills
+         WHERE discord_user_id = $1`,
+        [discordUserId],
+      ),
+      pool.query(
+        `SELECT interaction_id FROM ballet_stamina_workload_events
+         WHERE interaction_id = $1`,
+        [attemptInteractionId],
+      ),
+      pool.query(
+        `SELECT attempt_id FROM ballet_training_attempt_effects
+         WHERE interaction_id = $1`,
+        [attemptInteractionId],
+      ),
+    ]);
+    expect(Number(skills.rows[0]?.total_skill_value)).toBeGreaterThan(0);
+    expect(workloadEvents.rowCount).toBe(1);
+    expect(attemptEffects.rowCount).toBe(1);
+    const snapshotAfterAttempt = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
+    expect(snapshotAfterAttempt.staminaCycle).toMatchObject({
+      targetWorkload: 6,
+      completedWorkload: 1,
+    });
+    expect(Object.values(snapshotAfterAttempt.skills).reduce((sum, value) => sum + value, 0)).toBe(
+      1,
+    );
+    expect(snapshotAfterAttempt.condition.fatigue).toBeGreaterThan(10);
+
+    const firstCycle = snapshotAfterAttempt.staminaCycle;
+    if (firstCycle === null)
+      throw new Error('The first class attempt did not create a stamina cycle.');
+    await pool.query(
+      `UPDATE ballet_stamina_cycles
+       SET deadline_at = clock_timestamp() - interval '1 second'
+       WHERE discord_user_id = $1 AND cycle_number = $2`,
+      [discordUserId, firstCycle.cycleNumber],
+    );
+    const expiredRead = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
+    expect(expiredRead.staminaCycle?.status).toBe('EXPIRED');
+    await expect(
+      pool.query(
+        `SELECT status FROM ballet_stamina_cycles WHERE discord_user_id = $1 AND cycle_number = $2`,
+        [discordUserId, firstCycle.cycleNumber],
+      ),
+    ).resolves.toMatchObject({ rows: [{ status: 'ACTIVE' }] });
+
+    const classBeforeSecondAttempt = await reloadedClasses.getClass(discordUserId, started.classId);
+    const secondExercise =
+      classBeforeSecondAttempt.curriculum.exercises[classBeforeSecondAttempt.currentExerciseIndex];
+    if (secondExercise === undefined) throw new Error('Expected a second Ballet exercise.');
+    await reloadedClasses.attempt(
+      testSnowflake(),
+      discordUserId,
+      started.classId,
+      secondExercise.id,
+    );
+    const nextCycleSnapshot = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
+    expect(nextCycleSnapshot.staminaCycle).toMatchObject({
+      cycleNumber: 2,
+      targetWorkload: 2,
+      completedWorkload: 1,
+    });
+
+    const fitInteractionId = testSnowflake();
+    const shoeProfile = await training.setShoeFitProfile(
+      fitInteractionId,
+      discordUserId,
+      37.5,
+      'WIDE',
+    );
+    const shoeProfileReplay = await new BalletTrainingV3Service(pool).setShoeFitProfile(
+      fitInteractionId,
+      discordUserId,
+      37.5,
+      'WIDE',
+    );
+    await expect(
+      new BalletTrainingV3Service(pool).getSnapshot(discordUserId),
+    ).resolves.toMatchObject({
+      shoeFit: { sizeEu: 37.5, fit: 'WIDE' },
+    });
+    expect(shoeProfile.replayed).toBe(false);
+    expect(shoeProfileReplay.replayed).toBe(true);
+
+    const recoveryInteractionId = testSnowflake();
+    const recovery = await training.recover(recoveryInteractionId, discordUserId, 'REST');
+    const recoveryReplay = await new BalletTrainingV3Service(pool).recover(
+      recoveryInteractionId,
+      discordUserId,
+      'REST',
+    );
+    expect(recovery.replayed).toBe(false);
+    expect(recoveryReplay.replayed).toBe(true);
+    expect(recoveryReplay.snapshot).toEqual(recovery.snapshot);
+    const conditionBeforeBlockedAction = await training.getSnapshot(discordUserId);
+    await expect(training.recover(testSnowflake(), discordUserId, 'SLEEP')).rejects.toBeInstanceOf(
+      BalletTrainingCooldownError,
+    );
+    expect(await training.getSnapshot(discordUserId)).toEqual(conditionBeforeBlockedAction);
+    await expect(
+      pool.query(
+        `SELECT interaction_id FROM ballet_training_actions
+         WHERE discord_user_id = $1 AND action_type = 'REST'`,
+        [discordUserId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 1 });
+  });
+
+  it('records distinct successful /ballet practice interactions as separate V3 history events', async () => {
+    const discordUserId = testSnowflake();
+    await grantAcademyBasics(pool, discordUserId);
+    const training = new BalletTrainingV3Service(pool, () => 0.5);
+    const ballet = new BalletService(pool, new EconomyService(pool), training);
+
+    const first = await ballet.practice(testSnowflake(), discordUserId, 'stretching');
+    const second = await ballet.practice(testSnowflake(), discordUserId, 'barre');
+
+    expect(first.replayed).toBe(false);
+    expect(second.replayed).toBe(false);
+    await expect(
+      pool.query(
+        `SELECT interaction_id FROM ballet_training_skill_events
+         WHERE discord_user_id = $1 AND source_type = 'BALLET_PRACTICE'`,
+        [discordUserId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 2 });
+    await expect(
+      pool.query(
+        `SELECT interaction_id FROM ballet_stamina_workload_events
+         WHERE discord_user_id = $1 AND source_type = 'BALLET_PRACTICE'`,
+        [discordUserId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 2 });
+  });
+
+  it('persists a fictional class setback and completes replay-safe rehabilitation after the configured cooldown', async () => {
+    const discordUserId = testSnowflake();
+    let fakeNow = new Date();
+    const training = new BalletTrainingV3Service(
+      pool,
+      () => 0.5,
+      async () => new Date(fakeNow),
+    );
+    const classes = new BalletClassService(pool, () => 0, training);
+    const started = await classes.startOrResume(testSnowflake(), discordUserId, 'BARRE_FOCUS');
+    await classes.begin(testSnowflake(), discordUserId, started.classId);
+    const exercise = started.curriculum.exercises[0];
+    if (exercise === undefined) throw new Error('Expected a Ballet class exercise.');
+    await pool.query(
+      `INSERT INTO ballet_training_condition
+         (discord_user_id, energy, nutrition, fatigue, sleep_debt, updated_at)
+       VALUES ($1, 0, 0, 100, 100, $2)`,
+      [discordUserId, fakeNow],
+    );
+
+    const attempt = await classes.attempt(
+      testSnowflake(),
+      discordUserId,
+      started.classId,
+      exercise.id,
+    );
+    expect(attempt.attempt?.outcome).toBe('FAIL');
+    const initialSnapshot = await training.getSnapshot(discordUserId);
+    expect(initialSnapshot.setback).toMatchObject({
+      status: 'ACTIVE',
+      kind: 'MINOR_TRAINING_STRAIN',
+      requiredRehabSessions: 2,
+      completedRehabSessions: 0,
+    });
+
+    const rehabInteractionId = testSnowflake();
+    const rehab = await training.recover(rehabInteractionId, discordUserId, 'REHABILITATE');
+    const rehabReplay = await new BalletTrainingV3Service(
+      pool,
+      () => 0.5,
+      async () => new Date(fakeNow),
+    ).recover(rehabInteractionId, discordUserId, 'REHABILITATE');
+    expect(rehab.snapshot.setback.completedRehabSessions).toBe(1);
+    expect(rehabReplay.replayed).toBe(true);
+    expect(rehabReplay.snapshot).toEqual(rehab.snapshot);
+    await expect(
+      training.recover(testSnowflake(), discordUserId, 'REHABILITATE'),
+    ).rejects.toBeInstanceOf(BalletTrainingCooldownError);
+
+    fakeNow = new Date(fakeNow.getTime() + 2 * 60 * 60 * 1_000);
+    const completed = await training.recover(testSnowflake(), discordUserId, 'REHABILITATE');
+    expect(completed.snapshot.setback).toMatchObject({
+      status: 'RECOVERED',
+      requiredRehabSessions: 2,
+      completedRehabSessions: 2,
+    });
+    await expect(
+      pool.query(
+        `SELECT interaction_id FROM ballet_rehabilitation_sessions
+         WHERE discord_user_id = $1`,
+        [discordUserId],
+      ),
+    ).resolves.toMatchObject({ rowCount: 2 });
   });
 
   it('allows a class with no preparation and persists the empty readiness snapshot', async () => {

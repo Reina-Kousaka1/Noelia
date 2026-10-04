@@ -29,6 +29,7 @@ import { BALLET_ACTIVITY_CODES } from './activity-codes.js';
 import { BALLET_STAT_KEYS } from './types.js';
 import { loadAcademyUniformStatus } from './academy-service.js';
 import { AcademyUniformRequirementError } from './errors.js';
+import type { BalletTrainingV3Service } from './training-v3/training-v3-service.js';
 
 const MAX_POSTGRES_BIGINT = 9_223_372_036_854_775_807n;
 
@@ -126,6 +127,7 @@ export class BalletService implements BalletProgressPort {
   public constructor(
     private readonly pool: Pool,
     private readonly wallet: WalletCreditTransactionPort,
+    private readonly trainingV3?: BalletTrainingV3Service,
   ) {}
 
   public async getProgress(discordUserId: string): Promise<BalletProgressStatus> {
@@ -460,6 +462,14 @@ export class BalletService implements BalletProgressPort {
 
       if (completion === undefined) {
         throw new Error('Ballet activity completion was not recorded.');
+      }
+
+      if (this.trainingV3 !== undefined) {
+        await this.trainingV3.recordPracticeWithinTransaction(client, {
+          interactionId,
+          discordUserId,
+          activityCode,
+        });
       }
 
       await unlockAchievement(
