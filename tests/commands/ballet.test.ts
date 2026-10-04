@@ -40,6 +40,11 @@ function createServices() {
       attempt: vi.fn(),
       abandon: vi.fn(),
     },
+    balletTrainingV3: {
+      getSnapshot: vi.fn(),
+      recover: vi.fn(),
+      setShoeFitProfile: vi.fn(),
+    },
     shop: { listItems: vi.fn(), getItem: vi.fn(), purchase: vi.fn() },
     inventory: { listInventory: vi.fn() },
     wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
@@ -50,14 +55,126 @@ function createServices() {
 }
 
 describe('ballet command', () => {
-  it('defines status, Academy, activities, practice, and class as subcommands', () => {
+  it('defines status, Academy, activities, practice, class, and V3 training commands', () => {
     expect(balletCommand.definition.options?.map((option) => option.name)).toEqual([
       'status',
       'academy',
       'activities',
       'practice',
       'class',
+      'training',
+      'recovery',
     ]);
+  });
+
+  it('renders persisted training condition and class-cycle state', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'training',
+      },
+    ]);
+    const services = createServices();
+    services.balletTrainingV3.getSnapshot.mockResolvedValue({
+      skills: {
+        balance: 1,
+        core_control: 0,
+        footwork: 0,
+        coordination: 0,
+        turn_control: 0,
+        jump_control: 0,
+        placement: 0,
+        musicality: 0,
+      },
+      condition: {
+        energy: 70,
+        nutrition: 70,
+        fatigue: 10,
+        sleepDebt: 0,
+        updatedAt: new Date('2026-10-04T12:00:00.000Z'),
+      },
+      staminaCycle: null,
+      setback: {
+        status: 'NONE',
+        kind: null,
+        requiredRehabSessions: 0,
+        completedRehabSessions: 0,
+        startedAt: null,
+        recoveredAt: null,
+      },
+      shoeFit: null,
+    });
+
+    await balletCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.balletTrainingV3.getSnapshot).toHaveBeenCalledWith('222222222222222222');
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            description: expect.stringContaining('fictional gameplay values only'),
+          }),
+        ],
+      }),
+    );
+  });
+
+  it('routes a recovery action through the idempotent training domain', async () => {
+    const { interaction } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'recovery',
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+            name: 'action',
+            value: 'REST',
+          },
+        ],
+      },
+    ]);
+    const services = createServices();
+    services.balletTrainingV3.recover.mockResolvedValue({
+      action: 'REST',
+      replayed: false,
+      snapshot: {
+        skills: {
+          balance: 0,
+          core_control: 0,
+          footwork: 0,
+          coordination: 0,
+          turn_control: 0,
+          jump_control: 0,
+          placement: 0,
+          musicality: 0,
+        },
+        condition: {
+          energy: 82,
+          nutrition: 70,
+          fatigue: 0,
+          sleepDebt: 0,
+          updatedAt: new Date('2026-10-04T12:00:00.000Z'),
+        },
+        staminaCycle: null,
+        setback: {
+          status: 'NONE',
+          kind: null,
+          requiredRehabSessions: 0,
+          completedRehabSessions: 0,
+          startedAt: null,
+          recoveredAt: null,
+        },
+        shoeFit: null,
+      },
+    });
+
+    await balletCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.balletTrainingV3.recover).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+      'REST',
+    );
   });
 
   it('starts a persistent class through the Ballet class domain and renders its controls', async () => {

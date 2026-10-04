@@ -9,6 +9,7 @@ import { createPersonaEmbedRenderer } from '../../persona/presentation.js';
 import { BALLET_CLASS_TYPE_CATALOG } from '../../ballet/class/catalog.js';
 import { isBalletClassType } from '../../ballet/class/curriculum.js';
 import { renderBalletClassMessage } from './class-presentation.js';
+import { BALLET_RECOVERY_ACTIONS } from '../../ballet/training-v3/types.js';
 
 const activityChoices = BALLET_ACTIVITY_CODES.map((code) => ({
   name: code
@@ -70,6 +71,29 @@ export const balletCommand: SlashCommand = {
           },
         ],
       },
+      {
+        name: 'training',
+        description:
+          'View fictional training skills, condition, stamina cycle, and recovery status.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+      },
+      {
+        name: 'recovery',
+        description: 'Use one game-only recovery action.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        options: [
+          {
+            name: 'action',
+            description: 'Choose a recovery action.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+            required: true,
+            choices: BALLET_RECOVERY_ACTIONS.map((action) => ({
+              name: action[0] + action.slice(1).toLowerCase(),
+              value: action,
+            })),
+          },
+        ],
+      },
     ],
   },
   async execute({ interaction, services }) {
@@ -88,7 +112,88 @@ export const balletCommand: SlashCommand = {
     }
 
     const subcommandName = subcommand.name;
-    await deferCommand(interaction);
+    await deferCommand(interaction, subcommandName === 'recovery' ? 'ephemeral' : 'public');
+
+    if (subcommandName === 'training') {
+      const training = services.balletTrainingV3;
+      if (training === undefined) throw new Error('Ballet Training V3 is not configured.');
+      const snapshot = await training.getSnapshot(discordUserId);
+      const skills = Object.entries(snapshot.skills)
+        .map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value}`)
+        .join(' · ');
+      const cycle =
+        snapshot.staminaCycle === null
+          ? 'No stamina cycle has started; it begins with your next completed practice or class exercise.'
+          : `${snapshot.staminaCycle.status} · ${snapshot.staminaCycle.completedWorkload}/${snapshot.staminaCycle.targetWorkload} workload · deadline <t:${Math.floor(snapshot.staminaCycle.deadlineAt.getTime() / 1_000)}:R>`;
+      const setback =
+        snapshot.setback.status === 'ACTIVE'
+          ? `Active fictional training setback: ${snapshot.setback.completedRehabSessions}/${snapshot.setback.requiredRehabSessions} recovery sessions. It never diagnoses or describes a real injury.`
+          : snapshot.setback.status === 'RECOVERED'
+            ? 'Most recent fictional training setback: recovered.'
+            : 'No active fictional training setback.';
+      await completeCommand(interaction, {
+        embeds: [
+          await personaEmbed(
+            'training_v3_status',
+            {
+              condition_energy: snapshot.condition.energy,
+              condition_fatigue: snapshot.condition.fatigue,
+            },
+            {
+              title: 'Maison Noélia · Training & Readiness',
+              description: [
+                `**V3 skills:** ${skills}`,
+                `**Game condition:** Energy ${snapshot.condition.energy} · Nutrition ${snapshot.condition.nutrition} · Fatigue ${snapshot.condition.fatigue} · Sleep debt ${snapshot.condition.sleepDebt}`,
+                `**Stamina cycle:** ${cycle}`,
+                `**Setback:** ${setback}`,
+                '**Note:** these are fictional gameplay values only, not real training, health, sleep, or nutrition guidance.',
+              ].join('\n\n'),
+            },
+          ),
+        ],
+      });
+      return;
+    }
+
+    if (subcommandName === 'recovery') {
+      const training = services.balletTrainingV3;
+      if (training === undefined) throw new Error('Ballet Training V3 is not configured.');
+      const actionOption =
+        'options' in subcommand
+          ? subcommand.options?.find((option) => option.name === 'action' && 'value' in option)
+          : undefined;
+      const action =
+        actionOption !== undefined &&
+        'value' in actionOption &&
+        typeof actionOption.value === 'string'
+          ? actionOption.value
+          : undefined;
+      if (
+        action === undefined ||
+        !(BALLET_RECOVERY_ACTIONS as readonly string[]).includes(action)
+      ) {
+        throw new Error('A valid game-only recovery action is required.');
+      }
+      const result = await training.recover(
+        interaction.id,
+        discordUserId,
+        action as (typeof BALLET_RECOVERY_ACTIONS)[number],
+      );
+      const condition = result.snapshot.condition;
+      await completeCommand(interaction, {
+        embeds: [
+          await personaEmbed(
+            'training_v3_recovery',
+            { recovery_action: result.action.toLowerCase(), replayed: result.replayed },
+            {
+              title: 'Maison Noélia · Recovery updated',
+              description: `Game-only condition: Energy ${condition.energy} · Nutrition ${condition.nutrition} · Fatigue ${condition.fatigue} · Sleep debt ${condition.sleepDebt}.${result.action === 'REHABILITATE' ? `\nSetback progress: ${result.snapshot.setback.completedRehabSessions}/${result.snapshot.setback.requiredRehabSessions}.` : ''}\n\nThese values are fictional gameplay state, not health advice.`,
+            },
+          ),
+        ],
+      });
+      return;
+    }
 
     if (subcommandName === 'class') {
       const balletClass = services.balletClass;

@@ -38,6 +38,11 @@ function createServices() {
       renamePreset: vi.fn(),
       deletePreset: vi.fn(),
     },
+    balletTrainingV3: {
+      getSnapshot: vi.fn(),
+      recover: vi.fn(),
+      setShoeFitProfile: vi.fn(),
+    },
     profile: { getProfile: vi.fn() },
   };
 }
@@ -49,6 +54,7 @@ describe('wardrobe command', () => {
       'uniform',
       'equip',
       'unequip',
+      'fit',
       'clear',
       'presets',
     ]);
@@ -72,6 +78,54 @@ describe('wardrobe command', () => {
     } else {
       throw new Error('Presets must be a grouped slash command.');
     }
+  });
+
+  it('stores a clearly fictional shoe preference through the Ballet training domain', async () => {
+    const { interaction, editOriginalMessage } = createInteraction([
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        name: 'fit',
+        options: [
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.NUMBER,
+            name: 'size_eu',
+            value: 37.5,
+          },
+          {
+            type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+            name: 'fit',
+            value: 'WIDE',
+          },
+        ],
+      },
+    ]);
+    const services = createServices();
+    services.balletTrainingV3.setShoeFitProfile.mockResolvedValue({
+      profile: {
+        sizeEu: 37.5,
+        fit: 'WIDE',
+        updatedAt: new Date('2026-10-04T12:00:00.000Z'),
+      },
+      replayed: false,
+    });
+
+    await wardrobeCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(services.balletTrainingV3.setShoeFitProfile).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+      37.5,
+      'WIDE',
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            description: expect.stringContaining('does not assess or recommend real shoe fit'),
+          }),
+        ],
+      }),
+    );
   });
 
   it('shows equipped versus owned Academy uniform pieces without purchasing anything', async () => {

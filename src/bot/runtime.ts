@@ -8,6 +8,7 @@ import { BalletService } from '../ballet/ballet-service.js';
 import { BalletAcademyService } from '../ballet/academy-service.js';
 import { BalletClassService } from '../ballet/class/class-service.js';
 import { AcademyAssessmentService } from '../ballet/assessment/assessment-service.js';
+import { BalletTrainingV3Service } from '../ballet/training-v3/training-v3-service.js';
 import { ShopService } from '../shop/shop-service.js';
 import { InventoryService } from '../inventory/inventory-service.js';
 import { WardrobeService } from '../wardrobe/wardrobe-service.js';
@@ -80,9 +81,10 @@ export function createDiscordRuntime(
   });
   const economy = new EconomyService(pool);
   const daily = new DailyService(pool, economy);
-  const ballet = new BalletService(pool, economy);
+  const balletTrainingV3 = new BalletTrainingV3Service(pool);
+  const ballet = new BalletService(pool, economy, balletTrainingV3);
   const academy = new BalletAcademyService(pool);
-  const balletClass = new BalletClassService(pool);
+  const balletClass = new BalletClassService(pool, Math.random, balletTrainingV3);
   const academyAssessment = new AcademyAssessmentService(pool);
   const shop = new ShopService(pool, economy);
   const inventory = new InventoryService(pool);
@@ -156,6 +158,7 @@ export function createDiscordRuntime(
     daily,
     ballet,
     balletClass,
+    balletTrainingV3,
     academyAssessment,
     academy,
     shop,

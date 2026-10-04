@@ -71,6 +71,31 @@ export const wardrobeCommand: SlashCommand = {
         ],
       },
       {
+        name: 'fit',
+        description: 'Set your fictional in-game Ballet shoe-size preference.',
+        type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
+        options: [
+          {
+            name: 'size_eu',
+            description:
+              'Game profile size from 25 to 45 EU in half-size steps; not a real fit recommendation.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.NUMBER,
+            required: true,
+          },
+          {
+            name: 'fit',
+            description: 'Select a fictional catalog profile.',
+            type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+            required: true,
+            choices: [
+              { name: 'Standard', value: 'STANDARD' },
+              { name: 'Narrow', value: 'NARROW' },
+              { name: 'Wide', value: 'WIDE' },
+            ],
+          },
+        ],
+      },
+      {
         name: 'clear',
         description: 'Remove every item from your current outfit.',
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
@@ -187,10 +212,11 @@ export const wardrobeCommand: SlashCommand = {
         ? option.value
         : undefined;
     };
-    await deferCommand(interaction);
+    await deferCommand(interaction, action.name === 'fit' ? 'ephemeral' : 'public');
 
     if (action.name === 'view') {
       const outfit = await services.wardrobe.getOutfit(discordUserId);
+      const fitProfile = await services.balletTrainingV3?.getSnapshot(discordUserId);
       const lines = outfit.map(
         (entry) =>
           `• **${entry.displayName}** — ${entry.slots.map((slot) => slot.replaceAll('_', ' ')).join(', ')}`,
@@ -206,6 +232,44 @@ export const wardrobeCommand: SlashCommand = {
                 lines.length === 0
                   ? NOELIA_COPY.wardrobeEmpty
                   : `Current outfit\n${lines.join('\n')}`,
+              fields:
+                fitProfile?.shoeFit === null || fitProfile === undefined
+                  ? []
+                  : [
+                      {
+                        name: 'Fictional shoe profile',
+                        value: `${fitProfile.shoeFit.sizeEu} EU · ${fitProfile.shoeFit.fit} (game display only; not real-world sizing advice)`,
+                        inline: false,
+                      },
+                    ],
+            },
+          ),
+        ],
+      });
+      return;
+    }
+
+    if (action.name === 'fit') {
+      const training = services.balletTrainingV3;
+      if (training === undefined) throw new Error('Ballet Training V3 is not configured.');
+      const sizeOption = options?.find((option) => option.name === 'size_eu' && 'value' in option);
+      const fit = readString('fit');
+      const sizeEu =
+        sizeOption !== undefined && 'value' in sizeOption && typeof sizeOption.value === 'number'
+          ? sizeOption.value
+          : undefined;
+      if (sizeEu === undefined || (fit !== 'STANDARD' && fit !== 'NARROW' && fit !== 'WIDE')) {
+        throw new Error('A valid fictional shoe profile is required.');
+      }
+      const result = await training.setShoeFitProfile(interaction.id, discordUserId, sizeEu, fit);
+      await completeCommand(interaction, {
+        embeds: [
+          await personaEmbed(
+            'shoe_fit_profile',
+            { shoe_size_eu: result.profile.sizeEu, shoe_fit: result.profile.fit.toLowerCase() },
+            {
+              title: 'Fictional shoe profile saved',
+              description: `Game profile: ${result.profile.sizeEu} EU · ${result.profile.fit}. This is a display preference only; it does not assess or recommend real shoe fit.`,
             },
           ),
         ],
