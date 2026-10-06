@@ -1,6 +1,8 @@
 import { Pool } from 'pg';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { BalletService } from '../../src/ballet/ballet-service.js';
@@ -101,6 +103,20 @@ async function grantAcademyBasics(pool: Pool, discordUserId: string, equip = tru
   }
 }
 
+async function seedPrePrimaryAcademyStage(pool: Pool, discordUserId: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO discord_users (discord_user_id) VALUES ($1)
+     ON CONFLICT (discord_user_id) DO NOTHING`,
+    [discordUserId],
+  );
+  await pool.query(
+    `INSERT INTO academy_stage_progress (
+       discord_user_id, legacy_baseline_stage_id, current_stage_id
+     ) VALUES ($1, 'pre-primary', 'pre-primary')`,
+    [discordUserId],
+  );
+}
+
 function testSnowflake(): string {
   const randomHex = randomUUID().replaceAll('-', '').slice(0, 15);
   return (BigInt(`0x${randomHex}`) + 1_000_000_000_000_000_000n).toString();
@@ -132,6 +148,151 @@ integrationDescribe('isolated PostgreSQL integration', () => {
 
   afterAll(async () => {
     await pool?.end();
+  });
+
+  it('runs the complete fresh migration chain through 026 and safely replays it', async () => {
+    const schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
+    await pool.query(`CREATE SCHEMA ${schemaName}`);
+    const schemaPool = createIsolatedTestPool(process.env, schemaName);
+
+    try {
+      await expect(schemaPool.query('SELECT current_database() AS name')).resolves.toMatchObject({
+        rows: [{ name: 'noelia_test' }],
+      });
+      await expect(runMigrations(schemaPool)).resolves.toEqual({
+        appliedCount: 26,
+        currentVersion: 26,
+      });
+
+      const migrations = await loadMigrations(resolve(process.cwd(), 'migrations'));
+      const applied = await schemaPool.query<{
+        readonly version: number;
+        readonly name: string;
+        readonly checksum: string;
+      }>('SELECT version, name, checksum FROM noelia_schema_migrations ORDER BY version');
+      expect(applied.rows).toEqual(
+        migrations.map(({ version, name, checksum }) => ({ version, name, checksum })),
+      );
+
+      const starterMemberships = await schemaPool.query<{ readonly item_id: string }>(
+        `SELECT item_id FROM shop_item_collections
+         WHERE collection_id = 'first-position'
+           AND item_id IN (
+             'academy-hand-me-down-leotard',
+             'academy-hand-me-down-tights',
+             'academy-hand-me-down-flats'
+           )
+         ORDER BY item_id`,
+      );
+      expect(starterMemberships.rows.map((row) => row.item_id)).toEqual([
+        'academy-hand-me-down-flats',
+        'academy-hand-me-down-leotard',
+        'academy-hand-me-down-tights',
+      ]);
+      await expect(
+        schemaPool.query(
+          `SELECT item_id, collection_id FROM shop_item_collections
+           GROUP BY item_id, collection_id HAVING count(*) > 1`,
+        ),
+      ).resolves.toMatchObject({ rowCount: 0 });
+      await expect(runMigrations(schemaPool)).resolves.toEqual({
+        appliedCount: 0,
+        currentVersion: 26,
+      });
+    } finally {
+      await schemaPool.end();
+      await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
+    }
+  });
+
+  it('upgrades an unchanged 025 schema with only the three missing starterwear links', async () => {
+    const schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
+    await pool.query(`CREATE SCHEMA ${schemaName}`);
+    const schemaPool = createIsolatedTestPool(process.env, schemaName);
+    const migrations = await loadMigrations(resolve(process.cwd(), 'migrations'));
+    const before026Directory = await mkdtemp(join(tmpdir(), 'noelia-migrations-025-'));
+
+    try {
+      await expect(schemaPool.query('SELECT current_database() AS name')).resolves.toMatchObject({
+        rows: [{ name: 'noelia_test' }],
+      });
+      for (const migration of migrations.slice(0, 25)) {
+        await writeFile(
+          join(
+            before026Directory,
+            `${String(migration.version).padStart(3, '0')}_${migration.name}.sql`,
+          ),
+          migration.sql,
+          { flag: 'wx' },
+        );
+      }
+      await expect(runMigrations(schemaPool, before026Directory)).resolves.toEqual({
+        appliedCount: 25,
+        currentVersion: 25,
+      });
+
+      const beforeMemberships = await schemaPool.query<{
+        readonly item_id: string;
+        readonly collection_id: string;
+      }>(
+        'SELECT item_id, collection_id FROM shop_item_collections ORDER BY item_id, collection_id',
+      );
+      const originalLinks = beforeMemberships.rows.map(
+        ({ item_id, collection_id }) => `${item_id}:${collection_id}`,
+      );
+      expect(originalLinks.filter((link) => link.startsWith('academy-hand-me-down-'))).toEqual([]);
+      const checksumsBefore = await schemaPool.query<{
+        readonly version: number;
+        readonly name: string;
+        readonly checksum: string;
+      }>('SELECT version, name, checksum FROM noelia_schema_migrations ORDER BY version');
+
+      await expect(runMigrations(schemaPool)).resolves.toEqual({
+        appliedCount: 1,
+        currentVersion: 26,
+      });
+      const afterMemberships = await schemaPool.query<{
+        readonly item_id: string;
+        readonly collection_id: string;
+      }>(
+        'SELECT item_id, collection_id FROM shop_item_collections ORDER BY item_id, collection_id',
+      );
+      const resultingLinks = afterMemberships.rows.map(
+        ({ item_id, collection_id }) => `${item_id}:${collection_id}`,
+      );
+      expect(resultingLinks).toEqual(
+        [
+          ...originalLinks,
+          'academy-hand-me-down-flats:first-position',
+          'academy-hand-me-down-leotard:first-position',
+          'academy-hand-me-down-tights:first-position',
+        ].sort(),
+      );
+
+      const checksumsAfter = await schemaPool.query<{
+        readonly version: number;
+        readonly name: string;
+        readonly checksum: string;
+      }>(
+        `SELECT version, name, checksum FROM noelia_schema_migrations
+         WHERE version <= 25 ORDER BY version`,
+      );
+      expect(checksumsAfter.rows).toEqual(checksumsBefore.rows);
+      await expect(runMigrations(schemaPool)).resolves.toEqual({
+        appliedCount: 0,
+        currentVersion: 26,
+      });
+      expect(
+        await schemaPool.query(
+          `SELECT item_id, collection_id FROM shop_item_collections
+           GROUP BY item_id, collection_id HAVING count(*) > 1`,
+        ),
+      ).toMatchObject({ rowCount: 0 });
+    } finally {
+      await schemaPool.end();
+      await rm(before026Directory, { recursive: true, force: true });
+      await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
+    }
   });
 
   it('upgrades a Phase-1 V1-V6 schema to the latest migration without resetting it', async () => {
@@ -196,8 +357,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 19,
-        currentVersion: 25,
+        appliedCount: 20,
+        currentVersion: 26,
       });
       await expect(
         upgradePool.query(
@@ -240,7 +401,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 25 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 26 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -334,6 +495,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
 
   it('commits V3 class effects once and restores recovery and shoe-profile state after service restart', async () => {
     const discordUserId = testSnowflake();
+    await seedPrePrimaryAcademyStage(pool, discordUserId);
     const training = new BalletTrainingV3Service(pool, () => 0.5);
     let rollCount = 0;
     const classes = new BalletClassService(
@@ -493,6 +655,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
   it('records distinct successful /ballet practice interactions as separate V3 history events', async () => {
     const discordUserId = testSnowflake();
     await grantAcademyBasics(pool, discordUserId);
+    await seedPrePrimaryAcademyStage(pool, discordUserId);
     const training = new BalletTrainingV3Service(pool, () => 0.5);
     const ballet = new BalletService(pool, new EconomyService(pool), training);
 
@@ -519,6 +682,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
 
   it('persists a fictional class setback and completes replay-safe rehabilitation after the configured cooldown', async () => {
     const discordUserId = testSnowflake();
+    await seedPrePrimaryAcademyStage(pool, discordUserId);
     let fakeNow = new Date();
     const training = new BalletTrainingV3Service(
       pool,
@@ -760,9 +924,19 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       `SELECT item_id, display_name, category, rarity, price::text, collection, cosmetic_metadata
        FROM shop_catalog ORDER BY item_id`,
     );
-    expect(catalog.rows).toHaveLength(92);
-    expect(new Set(catalog.rows.map((item) => item.item_id)).size).toBe(92);
-    expect(new Set(catalog.rows.map((item) => item.display_name)).size).toBe(92);
+    expect(catalog.rows).toHaveLength(95);
+    expect(new Set(catalog.rows.map((item) => item.item_id)).size).toBe(95);
+    expect(new Set(catalog.rows.map((item) => item.display_name)).size).toBe(95);
+    expect(
+      catalog.rows
+        .filter((item) => item.item_id.startsWith('academy-hand-me-down-'))
+        .map((item) => item.item_id)
+        .sort(),
+    ).toEqual([
+      'academy-hand-me-down-flats',
+      'academy-hand-me-down-leotard',
+      'academy-hand-me-down-tights',
+    ]);
 
     const collectionRows = await pool.query<{ readonly collection_id: string }>(
       `SELECT collection.collection_id
@@ -795,7 +969,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const memberships = new Set(
       membershipRows.rows.map((row) => `${row.item_id}:${row.collection_id}`),
     );
-    expect(membershipRows.rows).toHaveLength(103);
+    expect(membershipRows.rows).toHaveLength(106);
     for (const item of catalog.rows) {
       expect(SHOP_CATEGORIES).toContain(item.category);
       expect(SHOP_RARITIES).toContain(item.rarity);
@@ -823,7 +997,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const shop = new ShopService(pool, economy);
     const marketplace = new MarketplaceService(pool, economy);
     const collections = new CollectionService(pool);
-    await expect(shop.listItems()).resolves.toHaveLength(92);
+    await expect(shop.listItems()).resolves.toHaveLength(95);
     const beautyItems = await shop.listItems('beauty');
     expect(beautyItems).toHaveLength(2);
     expect(beautyItems.every((item) => item.purchasable)).toBe(true);
@@ -840,7 +1014,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       expect.objectContaining({
         collectionId: 'first-position',
         ownedItems: 1,
-        totalItems: 13,
+        totalItems: 16,
         complete: false,
       }),
     );
@@ -853,11 +1027,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     );
     const escrowed = await collections.listProgress(discordUserId);
     expect(escrowed).toContainEqual(
-      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 13 }),
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 16 }),
     );
     await marketplace.cancel(testSnowflake(), discordUserId, listing.listing.listingId);
     await expect(collections.listProgress(discordUserId)).resolves.toContainEqual(
-      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 13 }),
+      expect.objectContaining({ collectionId: 'first-position', ownedItems: 1, totalItems: 16 }),
     );
   });
 
@@ -1777,7 +1951,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       1,
       350n,
     );
-    await expect(marketplace.browse(1)).resolves.toMatchObject({
+    await expect(marketplace.listMine(discordUserId, 1)).resolves.toMatchObject({
       listings: [
         expect.objectContaining({
           listingId: listing.listingId,

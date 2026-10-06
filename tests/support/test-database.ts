@@ -9,7 +9,7 @@ export class UnsafeTestDatabaseError extends Error {
   }
 }
 
-export function createIsolatedTestPool(environment: NodeJS.ProcessEnv): Pool {
+export function createIsolatedTestPool(environment: NodeJS.ProcessEnv, searchPath?: string): Pool {
   if (environment.NODE_ENV !== 'test') {
     throw new UnsafeTestDatabaseError('NODE_ENV must equal "test".');
   }
@@ -48,8 +48,15 @@ export function createIsolatedTestPool(environment: NodeJS.ProcessEnv): Pool {
     throw new UnsafeTestDatabaseError('the database name must be exactly "noelia_test".');
   }
 
+  if (searchPath !== undefined && !/^noelia_test_[a-f0-9]{32}$/.test(searchPath)) {
+    throw new UnsafeTestDatabaseError(
+      'the optional schema must be an isolated noelia_test schema.',
+    );
+  }
+
   return new Pool({
     connectionString,
+    ...(searchPath === undefined ? {} : { options: `-c search_path=${searchPath}` }),
     application_name: 'noelia-integration-tests',
     max: 2,
     idleTimeoutMillis: 5_000,

@@ -6,6 +6,8 @@ import {
   AcademyAssessmentService,
   AcademyAssessmentNotEligibleError,
 } from '../../src/ballet/assessment/assessment-service.js';
+import { BalletAcademyService } from '../../src/ballet/academy-service.js';
+import { BalletAcademyGameplayService } from '../../src/ballet/academy-gameplay-service.js';
 import { buildAssessmentQuestions } from '../../src/ballet/assessment/assessment-content.js';
 import { BalletClassService } from '../../src/ballet/class/class-service.js';
 import { getAcademyStageDefinition } from '../../src/ballet/academy.js';
@@ -13,6 +15,21 @@ import { createIsolatedTestPool } from '../support/test-database.js';
 import { runMigrations } from '../../src/database/migrations/runner.js';
 
 const integrationDescribe = process.env.NOELIA_TEST_DATABASE_URL ? describe : describe.skip;
+const discordEpochMs = 1_420_070_400_000n;
+
+function interactionAt(date: Date): string {
+  return (((BigInt(date.getTime()) - discordEpochMs) << 22n) | 1n).toString();
+}
+
+function utcClassTime(date: Date): { date: string; time: string; timeZone: string } {
+  const minute = new Date(date);
+  minute.setUTCSeconds(0, 0);
+  return {
+    date: minute.toISOString().slice(0, 10),
+    time: minute.toISOString().slice(11, 16),
+    timeZone: 'UTC',
+  };
+}
 
 function testSnowflake(): string {
   const randomHex = randomUUID().replaceAll('-', '').slice(0, 15);
@@ -107,6 +124,45 @@ async function seedAssessmentReadyUser(
     );
   }
   await addCompletedClass(pool, discordUserId);
+}
+
+async function completeEarlyAcademyPrerequisites(pool: Pool, discordUserId: string): Promise<void> {
+  let serviceClock = new Date();
+  const academy = new BalletAcademyService(pool);
+  const gameplay = new BalletAcademyGameplayService(pool, academy, randomUUID, () => serviceClock);
+  await gameplay.enroll(testSnowflake(), discordUserId);
+  for (const action of [
+    'CLAP_RHYTHM',
+    'FIND_THE_BEAT',
+    'WALK_TO_THE_BEAT',
+    'FOLLOW_THE_MUSIC',
+  ] as const) {
+    await gameplay.completeBeginnerAction(testSnowflake(), discordUserId, action);
+  }
+
+  const classTarget = new Date(serviceClock.getTime() + 3 * 60 * 60 * 1_000);
+  const booking = await gameplay.scheduleClass(
+    testSnowflake(),
+    discordUserId,
+    testSnowflake(),
+    utcClassTime(classTarget),
+  );
+  serviceClock = new Date(booking.checkInOpensAt.getTime() + 1_000);
+  await gameplay.checkIn(interactionAt(serviceClock), discordUserId, booking.scheduledClassId);
+
+  const classes = new BalletClassService(pool, () => 0.99);
+  let view = await classes.startOrResume(testSnowflake(), discordUserId, 'REGULAR');
+  view = await classes.begin(testSnowflake(), discordUserId, view.classId);
+  while (view.status === 'IN_PROGRESS') {
+    const exercise = view.curriculum.exercises[view.currentExerciseIndex];
+    if (exercise === undefined) {
+      throw new Error('Assessment readiness class stopped unexpectedly.');
+    }
+    view = (await classes.attempt(testSnowflake(), discordUserId, view.classId, exercise.id)).class;
+  }
+  if (view.status !== 'COMPLETED') {
+    throw new Error('Assessment readiness requires one completed scheduled Academy class.');
+  }
 }
 
 integrationDescribe('Academy assessment isolated PostgreSQL integration', () => {
@@ -268,6 +324,7 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
       [userId],
     );
     const legacyClassId = await addCompletedClass(pool, userId, 'minis-bambinis');
+    await completeEarlyAcademyPrerequisites(pool, userId);
     const classReview = await pool.query<{ readonly review_snapshot: unknown }>(
       'SELECT review_snapshot FROM ballet_classes WHERE class_id = $1::uuid',
       [legacyClassId],
