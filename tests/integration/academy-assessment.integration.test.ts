@@ -387,7 +387,7 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
       question.id,
       question.correctAnswerId,
     );
-    expect(passed).toMatchObject({ status: 'PASS', result: { promoted: true } });
+    expect(passed).toMatchObject({ status: 'PASS_WITH_CORRECTIONS', result: { promoted: true } });
     const persisted = await pool.query(
       `SELECT legacy_baseline_stage_id, current_stage_id FROM academy_stage_progress
        WHERE discord_user_id = $1`,
@@ -404,7 +404,7 @@ integrationDescribe('Academy assessment isolated PostgreSQL integration', () => 
     );
     expect(history.rows).toEqual([
       { target_stage_id: 'pre-primary', status: 'RETAKE_REQUIRED' },
-      { target_stage_id: 'preparatory-dance', status: 'PASS' },
+      { target_stage_id: 'preparatory-dance', status: 'PASS_WITH_CORRECTIONS' },
     ]);
     expect((await service.getOverview(userId)).targetStageId).toBe('pre-primary');
   });

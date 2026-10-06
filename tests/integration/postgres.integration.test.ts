@@ -10,6 +10,10 @@ import { BalletClassService } from '../../src/ballet/class/class-service.js';
 import { BalletClassStateError } from '../../src/ballet/class/errors.js';
 import { BalletTrainingV3Service } from '../../src/ballet/training-v3/training-v3-service.js';
 import { BalletTrainingCooldownError } from '../../src/ballet/training-v3/errors.js';
+import {
+  createInitialTrainingSkills,
+  skillValuesAfterAttempt,
+} from '../../src/ballet/training-v3/rules.js';
 import { BalletAcademyService } from '../../src/ballet/academy-service.js';
 import { BalletAcademyGameplayService } from '../../src/ballet/academy-gameplay-service.js';
 import {
@@ -542,7 +546,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(replay.replayed).toBe(true);
     expect(restartedRollCount).toBe(0);
 
-    const [skills, workloadEvents, attemptEffects] = await Promise.all([
+    const [skills, workloadEvents, skillEvents, attemptEffects] = await Promise.all([
       pool.query<{ readonly total_skill_value: string }>(
         `SELECT sum(skill_value)::text AS total_skill_value FROM ballet_training_skills
          WHERE discord_user_id = $1`,
@@ -554,6 +558,11 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         [attemptInteractionId],
       ),
       pool.query(
+        `SELECT interaction_id FROM ballet_training_skill_events
+         WHERE interaction_id = $1`,
+        [attemptInteractionId],
+      ),
+      pool.query(
         `SELECT attempt_id FROM ballet_training_attempt_effects
          WHERE interaction_id = $1`,
         [attemptInteractionId],
@@ -561,14 +570,15 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     ]);
     expect(Number(skills.rows[0]?.total_skill_value)).toBeGreaterThan(0);
     expect(workloadEvents.rowCount).toBe(1);
+    expect(skillEvents.rowCount).toBe(1);
     expect(attemptEffects.rowCount).toBe(1);
     const snapshotAfterAttempt = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
     expect(snapshotAfterAttempt.staminaCycle).toMatchObject({
       targetWorkload: 6,
       completedWorkload: 1,
     });
-    expect(Object.values(snapshotAfterAttempt.skills).reduce((sum, value) => sum + value, 0)).toBe(
-      1,
+    expect(snapshotAfterAttempt.skills).toEqual(
+      skillValuesAfterAttempt(createInitialTrainingSkills(), exercise.family, 'SUCCESS', 0),
     );
     expect(snapshotAfterAttempt.condition.fatigue).toBeGreaterThan(10);
 
