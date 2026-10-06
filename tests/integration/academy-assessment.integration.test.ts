@@ -127,7 +127,10 @@ async function seedAssessmentReadyUser(
 }
 
 async function completeEarlyAcademyPrerequisites(pool: Pool, discordUserId: string): Promise<void> {
-  let serviceClock = new Date();
+  const wallClockMinute = new Date();
+  wallClockMinute.setUTCSeconds(0, 0);
+  const classTarget = new Date(wallClockMinute.getTime() - 60_000);
+  let serviceClock = new Date(classTarget.getTime() - 30 * 60 * 1_000);
   const academy = new BalletAcademyService(pool);
   const gameplay = new BalletAcademyGameplayService(pool, academy, randomUUID, () => serviceClock);
   await gameplay.enroll(testSnowflake(), discordUserId);
@@ -140,7 +143,6 @@ async function completeEarlyAcademyPrerequisites(pool: Pool, discordUserId: stri
     await gameplay.completeBeginnerAction(testSnowflake(), discordUserId, action);
   }
 
-  const classTarget = new Date(serviceClock.getTime() + 3 * 60 * 60 * 1_000);
   const booking = await gameplay.scheduleClass(
     testSnowflake(),
     discordUserId,
@@ -163,6 +165,24 @@ async function completeEarlyAcademyPrerequisites(pool: Pool, discordUserId: stri
   if (view.status !== 'COMPLETED') {
     throw new Error('Assessment readiness requires one completed scheduled Academy class.');
   }
+
+  const reportBook = await gameplay.getReportBook(discordUserId);
+  expect(reportBook.enrolled).toBe(true);
+  expect(reportBook.completedActions).toEqual(
+    expect.arrayContaining([
+      'CLAP_RHYTHM',
+      'FIND_THE_BEAT',
+      'WALK_TO_THE_BEAT',
+      'FOLLOW_THE_MUSIC',
+    ]),
+  );
+  expect(reportBook.academyComfort).toBeGreaterThanOrEqual(8);
+  expect(reportBook.attendedCount).toBe(1);
+  expect(
+    reportBook.entries.some(
+      (entry) => entry.status === 'ATTENDED' && (entry.grades?.overall ?? 6) <= 4,
+    ),
+  ).toBe(true);
 }
 
 integrationDescribe('Academy assessment isolated PostgreSQL integration', () => {

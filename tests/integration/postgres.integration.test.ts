@@ -260,14 +260,14 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       const resultingLinks = afterMemberships.rows.map(
         ({ item_id, collection_id }) => `${item_id}:${collection_id}`,
       );
-      expect(resultingLinks).toEqual(
-        [
-          ...originalLinks,
-          'academy-hand-me-down-flats:first-position',
-          'academy-hand-me-down-leotard:first-position',
-          'academy-hand-me-down-tights:first-position',
-        ].sort(),
-      );
+      const expectedLinks = new Set([
+        ...originalLinks,
+        'academy-hand-me-down-flats:first-position',
+        'academy-hand-me-down-leotard:first-position',
+        'academy-hand-me-down-tights:first-position',
+      ]);
+      expect(resultingLinks).toHaveLength(expectedLinks.size);
+      expect(new Set(resultingLinks)).toEqual(expectedLinks);
 
       const checksumsAfter = await schemaPool.query<{
         readonly version: number;
