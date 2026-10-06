@@ -156,7 +156,7 @@ export class BalletAcademyService implements BalletAcademyPort {
              AND item.category NOT IN ('seasonal', 'event_item')
              AND item.cosmetic_metadata -> 'academy_uniform_roles' ? $1
              AND item.cosmetic_metadata -> 'slots' @> $2::jsonb
-           ORDER BY (item.cosmetic_metadata ->> 'academy_starter' = 'true') DESC,
+           ORDER BY COALESCE(item.cosmetic_metadata ->> 'academy_starter' = 'true', false) DESC,
                     item.price, item.item_id
            LIMIT 1
            FOR SHARE`,

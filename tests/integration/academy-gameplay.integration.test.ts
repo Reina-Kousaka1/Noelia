@@ -186,12 +186,12 @@ integrationDescribe('isolated early Academy gameplay PostgreSQL integration', ()
     const userId = testSnowflake();
     await pool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [userId]);
     await pool.query(
-      `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source)
+      `INSERT INTO user_inventory (discord_user_id, item_id, quantity, source, tradeable)
        VALUES
-         ($1, 'soft-pink-leotard', 1, 'EVENT_REWARD'),
-         ($1, 'cloud-soft-tights', 1, 'EVENT_REWARD'),
-         ($1, 'classic-ballet-flats', 1, 'EVENT_REWARD'),
-         ($1, 'academy-hand-me-down-leotard', 1, 'EVENT_REWARD')`,
+         ($1, 'soft-pink-leotard', 1, 'EVENT_REWARD', true),
+         ($1, 'cloud-soft-tights', 1, 'EVENT_REWARD', true),
+         ($1, 'classic-ballet-flats', 1, 'EVENT_REWARD', true),
+         ($1, 'academy-hand-me-down-leotard', 1, 'EVENT_REWARD', true)`,
       [userId],
     );
     await pool.query(
@@ -344,7 +344,8 @@ integrationDescribe('isolated early Academy gameplay PostgreSQL integration', ()
          FROM ballet_academy_scheduled_classes AS scheduled
          JOIN ballet_academy_attendance AS attendance USING (scheduled_class_id)
          JOIN ballet_academy_report_cards AS report USING (attendance_id)
-         JOIN ballet_academy_enrollments AS enrollment USING (discord_user_id)
+         JOIN ballet_academy_enrollments AS enrollment
+           ON enrollment.discord_user_id = scheduled.discord_user_id
          WHERE scheduled.scheduled_class_id = $1::uuid AND scheduled.class_id = $2::uuid`,
         [booking.scheduledClassId, view.classId],
       ),

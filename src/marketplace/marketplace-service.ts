@@ -70,6 +70,7 @@ interface RequestRow extends QueryResultRow {
 
 interface CatalogAvailabilityRow extends QueryResultRow {
   readonly stackable: boolean;
+  readonly academy_starter: boolean;
 }
 
 interface InventoryQuantityRow extends QueryResultRow {
@@ -170,7 +171,9 @@ export class MarketplaceService implements MarketplacePort {
 
       await this.ensureAndLockUsers(client, [sellerUserId]);
       const catalogResult = await client.query<CatalogAvailabilityRow>(
-        `SELECT stackable FROM shop_catalog WHERE item_id = $1 FOR SHARE`,
+        `SELECT stackable,
+                COALESCE(cosmetic_metadata ->> 'academy_starter' = 'true', false) AS academy_starter
+         FROM shop_catalog WHERE item_id = $1 FOR SHARE`,
         [itemId],
       );
       const catalog = catalogResult.rows[0];
@@ -193,6 +196,7 @@ export class MarketplaceService implements MarketplacePort {
         throw new MarketplaceItemNotOwnedError();
       }
       if (
+        catalog.academy_starter ||
         !inventory.tradeable ||
         (inventory.source === 'EVENT_REWARD' &&
           (await this.isLegacyAcademyStarterWear(client, sellerUserId, itemId)))
