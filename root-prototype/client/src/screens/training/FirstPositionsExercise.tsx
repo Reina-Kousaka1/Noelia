@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { exerciseGuidance } from "@noelia-root/persona";
 import type { MadameMood } from "../../components/Madame";
 import { TrainingExerciseFrame, TrainingResultCard } from "./TrainingExerciseFrame";
 import { useTrainingSubmission } from "./useTrainingSubmission";
@@ -28,14 +29,14 @@ const FirstPositionsExercise: React.FC<FirstPositionsExerciseProps> = ({
 
   const showInstructions = (): void => {
     setPhase("instructions");
-    onMadameUpdate("explaining", "We shall place each position in order. Take your time, ma chère.");
+    onMadameUpdate("explaining", exerciseGuidance("first-positions", "explain"));
   };
 
   const beginPractice = (): void => {
     setSequence([]);
     submission.reset();
     setPhase("active");
-    onMadameUpdate("explaining", "Begin with first position, then continue carefully through fifth.");
+    onMadameUpdate("explaining", exerciseGuidance("first-positions", "begin"));
   };
 
   const recordPosition = (value: number): void => {
@@ -51,7 +52,7 @@ const FirstPositionsExercise: React.FC<FirstPositionsExerciseProps> = ({
     setSequence([]);
     submission.reset();
     setPhase("start");
-    onMadameUpdate("greeting", "A new beginning, ma chère. Let us place the feet with care.");
+    onMadameUpdate("greeting", exerciseGuidance("first-positions", "replay"));
   };
 
   const phaseLabel = {

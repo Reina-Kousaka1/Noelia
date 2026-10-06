@@ -1,4 +1,5 @@
 import React from "react";
+import { profileComment } from "@noelia-root/persona";
 import type { SectionId } from "./section";
 import { devProfileDataLabel } from "../profile/devProfileSource";
 import { AcademyProfileSummary } from "../profile/ProfileReadModel";
@@ -30,6 +31,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ onNavigate }) => {
           <span className="home-hero-kicker">NOÉLIA ACADEMY</span>
           <h2>Student profile</h2>
           <p>Profile data is supplied through the shared Academy read model.</p>
+          {profile && <p>{profileComment(profile.wardrobe.academyUniform.ready)}</p>}
         </div>
       </article>
 

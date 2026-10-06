@@ -1,4 +1,5 @@
 import React from "react";
+import { academyWelcome } from "@noelia-root/persona";
 import type { SectionId } from "./section";
 import { devProfileDataLabel } from "../profile/devProfileSource";
 import {
@@ -34,8 +35,8 @@ const AcademyScreen: React.FC<AcademyScreenProps> = ({ onNavigate }) => {
         <span className="academy-card-ornament" aria-hidden="true">✧</span>
         <div className="academy-welcome-copy">
           <span className="home-hero-kicker">A NOTE FROM MADAME</span>
-          <h2>“Good technique is a gift you give to every step.”</h2>
-          <p>Begin gently. Listen carefully. Let the work speak for itself.</p>
+          <h2>“{academyWelcome.quote}”</h2>
+          <p>{academyWelcome.note}</p>
         </div>
       </article>
 

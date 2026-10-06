@@ -2,6 +2,9 @@
   "name": "@noelia-root/server",
   "version": "1.0.0",
   "private": true,
+  "dependencies": {
+    "@noelia-root/persona": "file:../persona"
+  },
   "scripts": {
     "build": "tsc",
     "server": "rootsdk start devhost --project-folder=../"

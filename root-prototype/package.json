@@ -27,6 +27,7 @@
   },
   "workspaces": {
     "packages": [
+      "./persona",
       "./networking",
       "./server",
       "./client"

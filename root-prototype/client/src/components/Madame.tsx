@@ -1,22 +1,9 @@
 import React from "react";
+import { moodLabels } from "@noelia-root/persona";
+import type { MadameMood } from "@noelia-root/persona";
 import "./Madame.css";
 
-export type MadameMood =
-  | "idle"
-  | "greeting"
-  | "explaining"
-  | "approving"
-  | "correcting"
-  | "celebrating";
-
-const moodLabels: Record<MadameMood, string> = {
-  idle: "IN THE STUDIO",
-  greeting: "A WARM WELCOME",
-  explaining: "A WORD OF GUIDANCE",
-  approving: "WELL DONE",
-  correcting: "A GENTLE CORRECTION",
-  celebrating: "A MOMENT TO CELEBRATE",
-};
+export type { MadameMood };
 
 type MadameProps = {
   mood: MadameMood;

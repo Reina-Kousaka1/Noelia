@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { connectionFeedback } from "@noelia-root/persona";
 import type { TrainingResult } from "@noelia-root/gen-shared";
 import type { MadameMood } from "../../components/Madame";
 import type { ExerciseId } from "./exerciseCatalog";
@@ -41,7 +42,7 @@ export function useTrainingSubmission(
           ? error.message
           : "The studio connection is unavailable. Your attempt is still here; please try sending it again.";
       setState((current) => ({ ...current, error: safeMessage, isSubmitting: false }));
-      onMadameUpdate("correcting", "I could not review that attempt. Let us send it once more.");
+      onMadameUpdate("correcting", connectionFeedback());
       return null;
     }
   };

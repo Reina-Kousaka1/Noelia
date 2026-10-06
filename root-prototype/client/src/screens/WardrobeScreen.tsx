@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { wardrobeFeedback } from "@noelia-root/persona";
 import Avatar from "../avatar/Avatar";
 import { defaultDevAppearance, devAppearances } from "../avatar/devAppearances";
 import { avatarLayerLabels, avatarLayerOrder } from "../avatar/avatarModel";
@@ -15,7 +16,7 @@ const WardrobeScreen: React.FC<WardrobeScreenProps> = ({ onMadameUpdate }) => {
   const previewAppearance = (id: string): void => {
     setAppearanceId(id);
     const selected = devAppearances.find((look) => look.id === id);
-    if (selected) onMadameUpdate("approving", selected.note);
+    if (selected) onMadameUpdate("approving", wardrobeFeedback(selected.id));
   };
 
   return (

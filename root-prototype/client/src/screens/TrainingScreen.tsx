@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { madameLine } from "@noelia-root/persona";
 import type { ComponentType } from "react";
 import type { MadameMood } from "../components/Madame";
 import ClapRhythmExercise from "./training/ClapRhythmExercise";
@@ -27,7 +28,7 @@ const TrainingScreen: React.FC<TrainingScreenProps> = ({ onMadameUpdate }) => {
 
   const openExercise = (id: ExerciseId): void => {
     setSelectedExercise(id);
-    onMadameUpdate("greeting", "Take your place, ma chère. We shall begin with care.");
+    onMadameUpdate("greeting", madameLine("greeting", id));
   };
 
   if (selectedExercise && Player) {

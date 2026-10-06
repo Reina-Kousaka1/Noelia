@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { madameLine, sectionGreeting } from "@noelia-root/persona";
 import AcademyScreen from "./screens/AcademyScreen";
 import HomeScreen from "./screens/HomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
@@ -13,14 +14,6 @@ import {
 } from "./components/Navigation";
 import "./app.css";
 
-const welcomeMessages: Record<SectionId, string> = {
-  home: "Welcome to the studio, ma chère. Let us begin with one graceful step.",
-  academy: "At Noélia Academy, patience is part of every beautiful movement.",
-  training: "Stand tall, listen carefully, and give each exercise your attention.",
-  wardrobe: "A dancer's presence begins with care. Choose a look for this preview.",
-  profile: "Your profile will grow from your Academy record when it is connected.",
-};
-
 const screenTitles: Record<SectionId, string> = {
   home: "Home",
   academy: "Academy",
@@ -32,17 +25,19 @@ const screenTitles: Record<SectionId, string> = {
 const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionId>("home");
   const [madameMood, setMadameMood] = useState<MadameMood>("greeting");
-  const [madameMessage, setMadameMessage] = useState(welcomeMessages.home);
+  const [madameMessage, setMadameMessage] = useState(sectionGreeting("home"));
+  const [guidanceCount, setGuidanceCount] = useState(0);
 
   const navigate = (section: SectionId): void => {
     setActiveSection(section);
     setMadameMood(section === "home" ? "greeting" : "idle");
-    setMadameMessage(welcomeMessages[section]);
+    setMadameMessage(sectionGreeting(section));
   };
 
   const speakWithMadame = (): void => {
     setMadameMood("greeting");
-    setMadameMessage("One careful beginning is all I ask, ma chère. Are you ready?");
+    setMadameMessage(madameLine("greeting", String(guidanceCount)));
+    setGuidanceCount((count) => count + 1);
   };
 
   const updateMadame = (mood: MadameMood, message: string): void => {

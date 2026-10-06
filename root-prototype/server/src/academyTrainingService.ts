@@ -1,4 +1,5 @@
 import { Client } from "@rootsdk/server-app";
+import { trainingFeedback } from "@noelia-root/persona";
 import {
   TrainingAttemptRequest,
   TrainingErrorCode,
@@ -99,7 +100,7 @@ export class AcademyTrainingService extends AcademyTrainingServiceBase {
       exerciseId,
       exerciseName,
       outcome,
-      madameFeedback: feedbackFor(outcome),
+      madameFeedback: feedbackFor(outcome, exerciseId),
       errorCode: TrainingErrorCode.NONE,
     };
   }
@@ -147,17 +148,17 @@ function evaluateSequence(
   return TrainingOutcome.FAIL;
 }
 
-function feedbackFor(outcome: TrainingOutcome): string {
+function feedbackFor(outcome: TrainingOutcome, exerciseId: string): string {
   switch (outcome) {
     case TrainingOutcome.PERFECT:
-      return "Beautifully precise, ma chère. Your careful work shows.";
+      return trainingFeedback("PERFECT", exerciseId);
     case TrainingOutcome.SUCCESS:
-      return "A lovely beginning. Keep your attention on each clear position.";
+      return trainingFeedback("SUCCESS", exerciseId);
     case TrainingOutcome.SHAKY:
-      return "A few details wandered. Breathe, and place each movement with care.";
+      return trainingFeedback("SHAKY", exerciseId);
     case TrainingOutcome.FAIL:
     default:
-      return "Every dancer learns one step at a time. Let us try the sequence once more.";
+      return trainingFeedback("FAIL", exerciseId);
   }
 }
 

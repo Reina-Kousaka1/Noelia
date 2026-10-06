@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { exerciseGuidance } from "@noelia-root/persona";
 import type { MadameMood } from "../../components/Madame";
 import { TrainingExerciseFrame, TrainingResultCard } from "./TrainingExerciseFrame";
 import { useTrainingSubmission } from "./useTrainingSubmission";
@@ -29,19 +30,19 @@ const PortDeBrasExercise: React.FC<PortDeBrasExerciseProps> = ({
 
   const showInstructions = (): void => {
     setPhase("instructions");
-    onMadameUpdate("explaining", "Soft shoulders, long arms, and an unhurried breath, ma chère.");
+    onMadameUpdate("explaining", exerciseGuidance("port-de-bras", "explain"));
   };
 
   const showDemonstration = (): void => {
     setPhase("demonstration");
-    onMadameUpdate("explaining", "Watch the order closely. We begin low and finish where we began.");
+    onMadameUpdate("explaining", exerciseGuidance("port-de-bras", "observe"));
   };
 
   const beginPractice = (): void => {
     setSequence([]);
     submission.reset();
     setPhase("active");
-    onMadameUpdate("explaining", "Now reproduce the arm sequence in the same order.");
+    onMadameUpdate("explaining", exerciseGuidance("port-de-bras", "begin"));
   };
 
   const recordArmPosition = (value: number): void => {
@@ -57,7 +58,7 @@ const PortDeBrasExercise: React.FC<PortDeBrasExerciseProps> = ({
     setSequence([]);
     submission.reset();
     setPhase("start");
-    onMadameUpdate("greeting", "Again, ma chère. Let the arms travel with quiet intention.");
+    onMadameUpdate("greeting", exerciseGuidance("port-de-bras", "replay"));
   };
 
   const phaseLabel = {

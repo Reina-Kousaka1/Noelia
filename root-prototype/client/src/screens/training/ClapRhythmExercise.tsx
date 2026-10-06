@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { exerciseGuidance } from "@noelia-root/persona";
 import type { MadameMood } from "../../components/Madame";
 import { TrainingExerciseFrame, TrainingResultCard } from "./TrainingExerciseFrame";
 import { useTrainingSubmission } from "./useTrainingSubmission";
@@ -20,14 +21,14 @@ const ClapRhythmExercise: React.FC<ClapRhythmExerciseProps> = ({
 
   const showInstructions = (): void => {
     setPhase("instructions");
-    onMadameUpdate("explaining", "Four even beats, ma chère. Listen for the space between them.");
+    onMadameUpdate("explaining", exerciseGuidance("clap-rhythm", "explain"));
   };
 
   const beginPractice = (): void => {
     setClapCount(0);
     submission.reset();
     setPhase("active");
-    onMadameUpdate("explaining", "When you are ready, tap once for each beat.");
+    onMadameUpdate("explaining", exerciseGuidance("clap-rhythm", "begin"));
   };
 
   const askForReview = async (): Promise<void> => {
@@ -39,7 +40,7 @@ const ClapRhythmExercise: React.FC<ClapRhythmExerciseProps> = ({
     setClapCount(0);
     submission.reset();
     setPhase("start");
-    onMadameUpdate("greeting", "A fresh beginning, ma chère. Shall we try again?");
+    onMadameUpdate("greeting", exerciseGuidance("clap-rhythm", "replay"));
   };
 
   const phaseLabel = {
