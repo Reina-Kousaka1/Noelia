@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+enum TrainingOutcome {
+  TRAINING_OUTCOME_UNSPECIFIED = 0;
+  PERFECT = 1;
+  SUCCESS = 2;
+  SHAKY = 3;
+  FAIL = 4;
+}
+
+enum TrainingErrorCode {
+  TRAINING_ERROR_CODE_NONE = 0;
+  TRAINING_ERROR_CODE_UNSUPPORTED_EXERCISE = 1;
+  TRAINING_ERROR_CODE_MALFORMED_INPUT = 2;
+}
+
+message TrainingAttemptRequest {
+  string exercise_id = 1;
+  repeated uint32 interaction_data = 2;
+}
+
+message TrainingResult {
+  string exercise_id = 1;
+  string exercise_name = 2;
+  TrainingOutcome outcome = 3;
+  string madame_feedback = 4;
+  TrainingErrorCode error_code = 5;
+}
+
+service AcademyTrainingService {
+  rpc SubmitAttempt(TrainingAttemptRequest) returns (TrainingResult);
+}

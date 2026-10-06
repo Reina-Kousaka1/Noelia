@@ -1,0 +1,13 @@
+{
+  "name": "@noelia-root/gen-client",
+  "version": "1.0.1791305984019",
+	"dependencies": {
+		"@noelia-root/gen-shared": "file:../shared"
+	},
+  "main": "./dist/mjs/index.js",
+  "typings": "./dist/mjs/index.d.ts",
+	"type": "module",
+	"scripts": { 
+		"build": "tsc"
+	}
+}

@@ -1,0 +1,67 @@
+.madame-card {
+  display: flex;
+  min-height: 96px;
+  align-items: center;
+  gap: 15px;
+  padding: 14px 17px;
+  border: 1px solid #ebdbd5;
+  border-radius: 17px;
+  background: linear-gradient(110deg, #fffaf7 0%, #fffdfa 55%, #faf3ef 100%);
+  box-shadow: 0 8px 24px #72514a0b;
+}
+.madame-portrait-button { width: 64px; height: 64px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
+.madame-portrait-button:focus-visible, .madame-again:focus-visible { outline: 3px solid #c88799; outline-offset: 3px; }
+.madame-portrait { position: relative; display: block; width: 64px; height: 64px; overflow: hidden; border: 1px solid #e6c9c5; border-radius: 50%; background: linear-gradient(145deg, #f6e8e2, #f1dadd); animation: madame-idle 3.2s ease-in-out infinite; }
+.madame-face { position: absolute; z-index: 2; top: 15px; left: 21px; width: 23px; height: 28px; border-radius: 46% 46% 49% 49%; background: #edc6aa; }
+.madame-face::before { position: absolute; top: 14px; left: 6px; width: 3px; height: 2px; border-radius: 50%; background: #795951; box-shadow: 9px 0 #795951; content: ""; }
+.madame-face::after { position: absolute; top: 20px; left: 10px; width: 4px; height: 2px; border-bottom: 1px solid #bd7d79; border-radius: 50%; content: ""; }
+.madame-hair { position: absolute; z-index: 1; top: 9px; left: 16px; width: 32px; height: 39px; border-radius: 46% 46% 34% 34%; background: #55413f; }
+.madame-hair::before { position: absolute; top: -4px; right: -3px; width: 18px; height: 18px; border: 3px solid #55413f; border-radius: 50%; background: #75524e; content: ""; }
+.madame-neck { position: absolute; z-index: 1; top: 39px; left: 27px; width: 12px; height: 10px; background: #e8baa0; }
+.madame-jacket { position: absolute; z-index: 3; bottom: -9px; left: 12px; width: 41px; height: 28px; border-radius: 17px 17px 0 0; background: linear-gradient(110deg, #b77983, #e0b8b8); }
+.madame-jacket::before { position: absolute; top: 0; left: 15px; width: 12px; height: 10px; border-radius: 0 0 50% 50%; background: #fff3eb; content: ""; }
+.madame-bow { position: absolute; z-index: 4; top: 8px; left: 25px; width: 16px; height: 8px; border-radius: 4px; background: #d49ba2; clip-path: polygon(0 0, 44% 30%, 50% 0, 56% 30%, 100% 0, 83% 100%, 52% 68%, 50% 100%, 48% 68%, 17% 100%); }
+.madame-pearl { position: absolute; z-index: 5; top: 34px; width: 4px; height: 4px; border-radius: 50%; background: #fff8e9; }
+.madame-pearl-left { left: 20px; }
+.madame-pearl-right { right: 20px; }
+.madame-spark { position: absolute; z-index: 5; top: 13px; right: 7px; color: #bc8e8f; font-size: 9px; }
+.madame-copy { min-width: 0; flex: 1; }
+.madame-label-row { display: flex; align-items: center; gap: 10px; }
+.madame-name { color: #6b4e50; font: 17px Georgia, serif; }
+.madame-mood-label { color: #a8867e; font-size: 8px; font-weight: 700; letter-spacing: .13em; }
+.madame-message { margin: 5px 0 0; color: #766560; font: 13px/1.5 Georgia, serif; animation: madame-message-in .28s ease-out; }
+.madame-again { display: grid; width: 38px; height: 38px; flex: 0 0 auto; place-items: center; border: 1px solid #ead9d3; border-radius: 50%; background: #fffdfa; color: #ad7d83; cursor: pointer; font-size: 19px; transition: transform .2s ease, background .2s ease; }
+.madame-again:hover { transform: rotate(-28deg); background: #fff4f2; }
+.madame-greeting .madame-portrait { animation: madame-greeting .45s ease-out, madame-idle 3.2s .45s ease-in-out infinite; }
+.madame-explaining .madame-portrait { animation: madame-explain .5s ease-out, madame-idle 3.2s .5s ease-in-out infinite; }
+.madame-approving .madame-portrait { animation: madame-approve .52s ease-out, madame-idle 3.2s .52s ease-in-out infinite; }
+.madame-correcting .madame-portrait { animation: madame-correct .45s ease-out, madame-idle 3.2s .45s ease-in-out infinite; }
+.madame-celebrating .madame-portrait { animation: madame-celebrate .7s ease-out, madame-idle 3.2s .7s ease-in-out infinite; }
+@keyframes madame-idle { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes madame-message-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes madame-greeting { from { opacity: .65; transform: translateY(5px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes madame-explain { 50% { transform: rotate(-4deg) translateY(-2px); } }
+@keyframes madame-approve { 50% { transform: translateY(-4px) rotate(3deg); } }
+@keyframes madame-correct { 35% { transform: rotate(-5deg); } 70% { transform: rotate(3deg); } }
+@keyframes madame-celebrate { 35% { transform: translateY(-6px) rotate(-7deg); } 70% { transform: translateY(0) rotate(6deg); } }
+@media (max-width: 560px) {
+  .madame-card { min-height: 83px; gap: 11px; padding: 11px 12px; border-radius: 14px; }
+  .madame-portrait-button, .madame-portrait { width: 54px; height: 54px; }
+  .madame-portrait { transform-origin: center; }
+  .madame-hair { top: 7px; left: 12px; }
+  .madame-face { top: 13px; left: 17px; }
+  .madame-neck { top: 36px; left: 23px; }
+  .madame-jacket { left: 8px; }
+  .madame-bow { top: 6px; left: 21px; }
+  .madame-pearl-left { left: 16px; }
+  .madame-pearl-right { right: 16px; }
+  .madame-label-row { align-items: flex-start; flex-direction: column; gap: 2px; }
+  .madame-name { font-size: 15px; }
+  .madame-mood-label { font-size: 7px; }
+  .madame-message { margin-top: 4px; font-size: 11px; line-height: 1.4; }
+  .madame-again { width: 32px; height: 32px; font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .madame-portrait, .madame-message { animation: none !important; }
+  .madame-again { transition: none; }
+}

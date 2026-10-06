@@ -1,0 +1,6 @@
+{
+  "name": "@noelia-root/networking",
+  "scripts": {
+    "build": "rootsdk build proto"
+  }
+}
