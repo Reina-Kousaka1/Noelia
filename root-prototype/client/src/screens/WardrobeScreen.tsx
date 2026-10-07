@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { wardrobeFeedback } from "@noelia-root/persona";
 import Avatar from "../avatar/Avatar";
 import { defaultDevAppearance, devAppearances } from "../avatar/devAppearances";
@@ -11,12 +11,18 @@ type WardrobeScreenProps = {
 
 const WardrobeScreen: React.FC<WardrobeScreenProps> = ({ onMadameUpdate }) => {
   const [appearanceId, setAppearanceId] = useState(defaultDevAppearance.id);
+  const reactionSequence = useRef(0);
   const appearance = devAppearances.find((look) => look.id === appearanceId) ?? defaultDevAppearance;
 
   const previewAppearance = (id: string): void => {
     setAppearanceId(id);
     const selected = devAppearances.find((look) => look.id === id);
-    if (selected) onMadameUpdate("approving", wardrobeFeedback(selected.id));
+    if (selected) {
+      onMadameUpdate(
+        "approving",
+        wardrobeFeedback(selected.id, `wardrobe-preview-${reactionSequence.current++}`),
+      );
+    }
   };
 
   return (

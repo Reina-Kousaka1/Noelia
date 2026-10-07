@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { madameLine } from "@noelia-root/persona";
 import type { ComponentType } from "react";
 import type { MadameMood } from "../components/Madame";
@@ -24,11 +24,20 @@ type TrainingScreenProps = {
 
 const TrainingScreen: React.FC<TrainingScreenProps> = ({ onMadameUpdate }) => {
   const [selectedExercise, setSelectedExercise] = useState<ExerciseId | null>(null);
+  const greetingSequence = useRef(0);
   const Player = selectedExercise ? exercisePlayers[selectedExercise] : undefined;
 
   const openExercise = (id: ExerciseId): void => {
     setSelectedExercise(id);
-    onMadameUpdate("greeting", madameLine("greeting", id));
+    onMadameUpdate(
+      "greeting",
+      madameLine(
+        "greeting",
+        `training-${id}-${greetingSequence.current++}`,
+        "training",
+        "medium",
+      ),
+    );
   };
 
   if (selectedExercise && Player) {

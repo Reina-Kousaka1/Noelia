@@ -1,5 +1,7 @@
 import { academyTrainingServiceClient } from "@noelia-root/gen-client";
 import { TrainingErrorCode, TrainingOutcome } from "@noelia-root/gen-shared";
+import { trainingFeedback } from "@noelia-root/persona";
+import type { TrainingToneOutcome } from "@noelia-root/persona";
 import type { TrainingResult } from "@noelia-root/gen-shared";
 import type { ExerciseId } from "./exerciseCatalog";
 import type { MadameMood } from "../../components/Madame";
@@ -25,6 +27,7 @@ const userErrorMessages: Record<TrainingSubmissionErrorKind, string> = {
 export async function submitTrainingAttempt(
   exerciseId: ExerciseId,
   interactionData: readonly number[],
+  dialogueVariantKey = "default",
 ): Promise<TrainingResult> {
   let response: TrainingResult;
   try {
@@ -66,7 +69,29 @@ export async function submitTrainingAttempt(
     throw new TrainingSubmissionError("malformed", userErrorMessages.malformed);
   }
 
-  return response;
+  return {
+    ...response,
+    madameFeedback: trainingFeedback(
+      trainingToneOutcome(response.outcome),
+      exerciseId,
+      dialogueVariantKey,
+    ),
+  };
+}
+
+function trainingToneOutcome(outcome: TrainingOutcome): TrainingToneOutcome {
+  switch (outcome) {
+    case TrainingOutcome.PERFECT:
+      return "PERFECT";
+    case TrainingOutcome.SUCCESS:
+      return "SUCCESS";
+    case TrainingOutcome.SHAKY:
+      return "SHAKY";
+    case TrainingOutcome.FAIL:
+      return "FAIL";
+    default:
+      return "FAIL";
+  }
 }
 
 export function trainingMoodForOutcome(outcome: TrainingOutcome): MadameMood {

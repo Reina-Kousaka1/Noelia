@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { madameLine, sectionGreeting } from "@noelia-root/persona";
 import AcademyScreen from "./screens/AcademyScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -27,16 +27,17 @@ const App: React.FC = () => {
   const [madameMood, setMadameMood] = useState<MadameMood>("greeting");
   const [madameMessage, setMadameMessage] = useState(sectionGreeting("home"));
   const [guidanceCount, setGuidanceCount] = useState(0);
+  const dialogueSequence = useRef(0);
 
   const navigate = (section: SectionId): void => {
     setActiveSection(section);
     setMadameMood(section === "home" ? "greeting" : "idle");
-    setMadameMessage(sectionGreeting(section));
+    setMadameMessage(sectionGreeting(section, `section-${section}-${dialogueSequence.current++}`));
   };
 
   const speakWithMadame = (): void => {
     setMadameMood("greeting");
-    setMadameMessage(madameLine("greeting", String(guidanceCount)));
+    setMadameMessage(madameLine("greeting", `greeting-${guidanceCount}`));
     setGuidanceCount((count) => count + 1);
   };
 
