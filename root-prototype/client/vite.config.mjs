@@ -3,12 +3,17 @@ import checker from "vite-plugin-checker";
 import react from "@vitejs/plugin-react";
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command }) => ({
   server: {
     open: true,
   },
-  plugins: [react(), hotReload, checker({ typescript: true })],
-});
+  plugins: [
+    react(),
+    hotReload,
+    // The build runs `tsc` first; use the checker only during development.
+    ...(command === "serve" ? [checker({ typescript: true })] : []),
+  ],
+}));
 
 function hotReload() {
   return {

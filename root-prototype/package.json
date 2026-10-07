@@ -19,9 +19,9 @@
     "@types/node": "^22.10.2"
   },
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "clean": "node clean.js",
-    "test": "npm run build --workspaces && node --test persona/persona.test.cjs scripts/devhost-config.test.cjs community-bot/test/community-help.test.cjs server/test/community-relay.test.cjs client/test/communityEvent.test.mjs test/community-flow.test.cjs",
+    "test": "npm run build --workspaces --if-present && node --test persona/persona.test.cjs scripts/devhost-config.test.cjs community-bot/test/community-help.test.cjs server/test/community-relay.test.cjs client/test/communityEvent.test.mjs client/test/viteConfig.test.mjs test/community-flow.test.cjs",
     "start:app": "npm run server --workspace @noelia-root/server",
     "start:bot": "npm run bot --workspace @noelia-root/community-bot"
   },
