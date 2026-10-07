@@ -432,6 +432,17 @@ function connectionFeedback(variationKey = "connection") {
   });
 }
 
+function communityHelpResponse(variationKey = "root-community-help") {
+  const introduction = dialogueLine({
+    context: "community",
+    state: "explaining",
+    intensity: "medium",
+    variationKey,
+  });
+
+  return `${introduction} In the Root App, you can explore the Academy, your profile, training, and wardrobe.`;
+}
+
 const academyWelcome = Object.freeze({
   quote: "Good technique is not an ornament; it is the foundation.",
   note: "Arrive prepared, listen closely, and let your work become impeccable in its own time.",
@@ -448,4 +459,5 @@ module.exports = {
   wardrobeFeedback,
   profileComment,
   connectionFeedback,
+  communityHelpResponse,
 };

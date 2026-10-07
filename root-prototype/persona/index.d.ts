@@ -59,3 +59,4 @@ export declare function trainingFeedback(
 export declare function wardrobeFeedback(appearanceId: string, variationKey?: string): string;
 export declare function profileComment(uniformReady: boolean, variationKey?: string): string;
 export declare function connectionFeedback(variationKey?: string): string;
+export declare function communityHelpResponse(variationKey?: string): string;

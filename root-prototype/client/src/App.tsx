@@ -1,5 +1,11 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { madameLine, sectionGreeting } from "@noelia-root/persona";
+import {
+  MadameCommunityServiceClientEvent,
+  madameCommunityServiceClient,
+} from "@noelia-root/gen-client";
+import type { MadameCommunityEvent } from "@noelia-root/gen-shared";
+import { applyCommunityMadameEvent } from "./communityEvent.mjs";
 import AcademyScreen from "./screens/AcademyScreen";
 import HomeScreen from "./screens/HomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
@@ -28,6 +34,26 @@ const App: React.FC = () => {
   const [madameMessage, setMadameMessage] = useState(sectionGreeting("home"));
   const [guidanceCount, setGuidanceCount] = useState(0);
   const dialogueSequence = useRef(0);
+
+  useEffect(() => {
+    const onCommunityEvent = (event: MadameCommunityEvent): void => {
+      applyCommunityMadameEvent(event, (mood, message) => {
+        setMadameMood(mood);
+        setMadameMessage(message);
+      });
+    };
+
+    madameCommunityServiceClient.on(
+      MadameCommunityServiceClientEvent.Created,
+      onCommunityEvent,
+    );
+    return () => {
+      madameCommunityServiceClient.off(
+        MadameCommunityServiceClientEvent.Created,
+        onCommunityEvent,
+      );
+    };
+  }, []);
 
   const navigate = (section: SectionId): void => {
     setActiveSection(section);

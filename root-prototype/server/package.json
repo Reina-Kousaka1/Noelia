@@ -3,10 +3,11 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "@rootsdk/server-app": "0.21.3",
     "@noelia-root/persona": "file:../persona"
   },
   "scripts": {
     "build": "tsc",
-    "server": "rootsdk start devhost --project-folder=../"
+    "server": "node ../scripts/start-root-devhost.cjs app"
   }
 }

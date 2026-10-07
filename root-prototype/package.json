@@ -7,20 +7,23 @@
     "node": ">=22"
   },
   "dependencies": {
-    "@rootsdk/client-app": "*",
-    "@rootsdk/server-app": "*",
+    "@rootsdk/client-app": "0.21.3",
+    "@rootsdk/server-app": "0.21.3",
     "@noelia-root/gen-client": "file:./networking/gen/client",
     "@noelia-root/gen-server": "file:./networking/gen/server",
     "@noelia-root/gen-shared": "file:./networking/gen/shared"
   },
   "devDependencies": {
-    "@rootsdk/dev-tools": "*",
+    "@rootsdk/dev-tools": "0.21.3",
     "typescript": "^5.8.2",
     "@types/node": "^22.10.2"
   },
   "scripts": {
     "build": "npm run build --workspaces",
-    "clean": "node clean.js"
+    "clean": "node clean.js",
+    "test": "npm run build --workspaces && node --test persona/persona.test.cjs scripts/devhost-config.test.cjs community-bot/test/community-help.test.cjs server/test/community-relay.test.cjs client/test/communityEvent.test.mjs test/community-flow.test.cjs",
+    "start:app": "npm run server --workspace @noelia-root/server",
+    "start:bot": "npm run bot --workspace @noelia-root/community-bot"
   },
   "config": {
     "protocVersion": "36.2"
@@ -30,6 +33,7 @@
       "./persona",
       "./networking",
       "./server",
+      "./community-bot",
       "./client"
     ]
   }

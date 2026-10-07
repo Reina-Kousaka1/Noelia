@@ -152,6 +152,17 @@ test("contextual corrections criticize the work and offer a useful next action",
   }
 });
 
+test("community help uses the shared Madame response system", () => {
+  const response = persona.communityHelpResponse("help-smoke");
+  assert.match(response, /Root App/);
+  assert.ok(response.startsWith(persona.dialogueLine({
+    context: "community",
+    state: "explaining",
+    intensity: "medium",
+    variationKey: "help-smoke",
+  })));
+});
+
 test("error dialogue remains calm and helpful regardless of requested intensity", () => {
   const messages = keys.flatMap((variationKey) => [
     persona.dialogueLine({

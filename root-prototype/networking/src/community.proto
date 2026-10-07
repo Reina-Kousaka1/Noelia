@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+import "rootsdk/types.proto";
+
+message MadameCommunityEvent {
+  string message = 1;
+  string mood = 2;
+}
+
+service MadameCommunityService {
+  rpc BroadcastCreated(MadameCommunityEvent) returns (rootsdk.Void);
+}

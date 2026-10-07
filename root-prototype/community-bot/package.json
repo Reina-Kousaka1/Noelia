@@ -1,0 +1,13 @@
+{
+  "name": "@noelia-root/community-bot",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@noelia-root/persona": "file:../persona",
+    "@rootsdk/server-bot": "0.21.3"
+  },
+  "scripts": {
+    "build": "tsc",
+    "bot": "node ../scripts/start-root-devhost.cjs bot"
+  }
+}

@@ -11,4 +11,5 @@ export const {
   wardrobeFeedback,
   profileComment,
   connectionFeedback,
+  communityHelpResponse,
 } = persona;
