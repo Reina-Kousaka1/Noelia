@@ -1,4 +1,5 @@
 import * as Eris from 'eris';
+import { ConnectionWatchdog, gatewayIsHealthy } from './connection-watchdog.js';
 import type { Pool } from 'pg';
 
 import type { AppConfig } from '../config/environment.js';
@@ -88,6 +89,7 @@ export function createDiscordRuntime(
   config: AppConfig,
   logger: StructuredLogger,
   pool: Pool,
+  requestRecovery: () => void,
   createClient: ErisClientFactory = (token, options) => new Eris.Client(token, options),
 ): DiscordRuntime {
   const intents: Eris.IntentStrings[] = ['guilds'];
@@ -191,6 +193,7 @@ export function createDiscordRuntime(
       joinMonitoringEnabled: config.automod.joinMonitoringEnabled,
     },
   });
+  const watchdog = new ConnectionWatchdog(() => gatewayIsHealthy(client), requestRecovery, logger);
   let stopping = false;
   let commandSync: Promise<void> | undefined;
   const automodEventQueues = new Map<string, Promise<void>>();
@@ -296,6 +299,8 @@ export function createDiscordRuntime(
   }
 
   client.on('ready', () => {
+    if (stopping) return;
+    watchdog.observe();
     presence.start();
     academyScheduleWorker.start();
     logger.info('discord.ready', {
@@ -352,18 +357,23 @@ export function createDiscordRuntime(
 
   client.on('disconnect', () => {
     void academyScheduleWorker.stop();
-    if (!stopping) {
-      logger.warn('discord.disconnected');
-    }
+    watchdog.observe();
+    if (!stopping) logger.warn('discord.disconnected');
   });
+  for (const event of ['shardDisconnect', 'shardReady', 'shardResume'] as const) {
+    client.on(event, () => watchdog.observe());
+  }
 
   return {
     async start() {
+      if (stopping) return;
+      watchdog.start();
       logger.info('discord.connecting');
 
       try {
         await client.connect();
       } catch (error) {
+        watchdog.stop();
         presence.stop();
         await academyScheduleWorker.stop();
         client.disconnect({ reconnect: false });
@@ -376,6 +386,8 @@ export function createDiscordRuntime(
       }
 
       stopping = true;
+      watchdog.stop();
+      client.options.autoreconnect = false;
       logger.info('discord.disconnecting');
       presence.stop();
       await academyScheduleWorker.stop();

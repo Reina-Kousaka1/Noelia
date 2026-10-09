@@ -1,4 +1,5 @@
 import type { Pool } from 'pg';
+import { ShutdownController } from './infrastructure/shutdown.js';
 
 import { createDiscordRuntime } from './bot/runtime.js';
 import { loadEnvironmentConfig } from './config/environment.js';
@@ -11,7 +12,7 @@ import { createLogger } from './infrastructure/logging/logger.js';
 async function main(): Promise<void> {
   let logger = createLogger();
   let pool: Pool | undefined;
-  let shutdownPromise: Promise<void> | undefined;
+  let shutdown: ShutdownController | undefined;
   let runtime: ReturnType<typeof createDiscordRuntime> | undefined;
 
   try {
@@ -24,6 +25,23 @@ async function main(): Promise<void> {
     logger.info('application.starting', {
       name: NOELIA_NAME,
       nodeEnvironment: config.nodeEnvironment,
+    });
+
+    shutdown = new ShutdownController(
+      async () => {
+        await runtime?.stop();
+      },
+      async () => {
+        await pool?.end();
+      },
+      logger,
+      (code) => process.exit(code),
+    );
+    process.once('SIGINT', () => {
+      void shutdown?.request('SIGINT');
+    });
+    process.once('SIGTERM', () => {
+      void shutdown?.request('SIGTERM');
     });
 
     pool = createPostgresPool(config.postgres, logger);
@@ -45,72 +63,16 @@ async function main(): Promise<void> {
       provider: 'postgresql',
     });
 
-    runtime = createDiscordRuntime(config, logger, pool);
-
-    const shutdown = (signal?: NodeJS.Signals): Promise<void> => {
-      if (shutdownPromise !== undefined) {
-        return shutdownPromise;
-      }
-
-      if (signal !== undefined) {
-        logger.info('application.shutdown_requested', { signal });
-      }
-
-      shutdownPromise = (async () => {
-        if (runtime !== undefined) {
-          try {
-            await runtime.stop();
-          } catch (error) {
-            process.exitCode = 1;
-            logger.error('application.discord_shutdown_failed', error);
-          }
-        }
-
-        if (pool !== undefined) {
-          try {
-            await pool.end();
-            pool = undefined;
-          } catch (error) {
-            process.exitCode = 1;
-            logger.error('application.database_shutdown_failed', error);
-          }
-        }
-
-        logger.info('application.stopped');
-      })();
-
-      return shutdownPromise;
-    };
-
-    process.once('SIGINT', () => {
-      void shutdown('SIGINT');
-    });
-    process.once('SIGTERM', () => {
-      void shutdown('SIGTERM');
+    runtime = createDiscordRuntime(config, logger, pool, () => {
+      void shutdown?.request('discord_recovery');
     });
 
     await runtime.start();
   } catch (error) {
-    process.exitCode = 1;
+    if (shutdown?.stopping) return;
     logger.error('application.startup_failed', error);
-
-    if (shutdownPromise === undefined) {
-      if (runtime !== undefined) {
-        try {
-          await runtime.stop();
-        } catch (shutdownError) {
-          logger.error('application.discord_shutdown_failed', shutdownError);
-        }
-      }
-
-      if (pool !== undefined) {
-        try {
-          await pool.end();
-        } catch (shutdownError) {
-          logger.error('application.database_shutdown_failed', shutdownError);
-        }
-      }
-    }
+    if (shutdown !== undefined) await shutdown.request('startup_failure');
+    else process.exitCode = 1;
   }
 }
 

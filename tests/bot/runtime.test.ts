@@ -35,6 +35,9 @@ const config: AppConfig = {
 
 function createFakeClient() {
   return Object.assign(new EventEmitter(), {
+    options: { autoreconnect: true },
+    ready: false,
+    shards: new Map(),
     connect: vi.fn().mockResolvedValue(undefined),
     disconnect: vi.fn(),
     editStatus: vi.fn(),
@@ -54,7 +57,9 @@ function createFakePool(): Pool {
 
 describe('createDiscordRuntime', () => {
   afterEach(() => {
+    vi.clearAllTimers();
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   it('starts and stops Eris with reconnect disabled on shutdown', async () => {
@@ -63,7 +68,7 @@ describe('createDiscordRuntime', () => {
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
 
-    const runtime = createDiscordRuntime(config, logger, createFakePool(), createClient);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), vi.fn(), createClient);
 
     await runtime.start();
     await runtime.stop();
@@ -85,7 +90,7 @@ describe('createDiscordRuntime', () => {
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
 
-    const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), vi.fn(), () => client);
 
     await expect(runtime.start()).rejects.toThrow('connection failed');
     expect(client.disconnect).toHaveBeenCalledWith({ reconnect: false });
@@ -98,19 +103,59 @@ describe('createDiscordRuntime', () => {
     vi.spyOn(logger, 'info').mockImplementation(() => {});
     vi.spyOn(logger, 'warn').mockImplementation(() => {});
     vi.spyOn(logger, 'error').mockImplementation(() => {});
-    const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), vi.fn(), () => client);
 
+    await runtime.start();
     client.emit('ready');
     client.emit('disconnect');
     client.emit('ready');
 
     expect(client.editStatus).toHaveBeenCalledTimes(1);
-    expect(vi.getTimerCount()).toBe(2);
+    expect(vi.getTimerCount()).toBe(3);
     vi.advanceTimersByTime(120_000);
     expect(client.editStatus).toHaveBeenCalledTimes(2);
 
     await runtime.stop();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('preserves Eris recovery and cancels the watchdog during shutdown', async () => {
+    vi.useFakeTimers();
+    const client = createFakeClient();
+    const logger = new StructuredLogger();
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
+    vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const recover = vi.fn();
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), recover, () => client);
+    await runtime.start();
+    expect(client.options.autoreconnect).toBe(true);
+    client.emit('shardDisconnect', new Error('network unavailable'), 0);
+    vi.advanceTimersByTime(60_000);
+    expect(recover).not.toHaveBeenCalled();
+    await runtime.stop();
+    client.emit('shardResume', 0);
+    client.emit('ready');
+    vi.advanceTimersByTime(30 * 60_000);
+    expect(recover).not.toHaveBeenCalled();
+    expect(client.options.autoreconnect).toBe(false);
+    expect(client.editStatus).not.toHaveBeenCalled();
+  });
+
+  it('requests one recovery after prolonged gateway startup failure', async () => {
+    vi.useFakeTimers();
+    const client = createFakeClient();
+    const logger = new StructuredLogger();
+    vi.spyOn(logger, 'info').mockImplementation(() => {});
+    vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const recover = vi.fn();
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), recover, () => client);
+    await runtime.start();
+    vi.advanceTimersByTime(15 * 60_000);
+    expect(recover).toHaveBeenCalledOnce();
+    client.emit('disconnect');
+    vi.advanceTimersByTime(30 * 60_000);
+    expect(recover).toHaveBeenCalledOnce();
+    await runtime.stop();
   });
 
   it('requests privileged AutoMod intents only when their runtime switches are enabled', async () => {
@@ -125,6 +170,7 @@ describe('createDiscordRuntime', () => {
       },
       logger,
       createFakePool(),
+      vi.fn(),
       createClient,
     );
 
@@ -142,7 +188,7 @@ describe('createDiscordRuntime', () => {
     const client = createFakeClient();
     const logger = new StructuredLogger();
     vi.spyOn(logger, 'info').mockImplementation(() => {});
-    const runtime = createDiscordRuntime(config, logger, createFakePool(), () => client);
+    const runtime = createDiscordRuntime(config, logger, createFakePool(), vi.fn(), () => client);
 
     client.emit('ready');
     await vi.waitFor(() => {
