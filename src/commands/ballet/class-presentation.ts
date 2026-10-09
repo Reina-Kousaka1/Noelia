@@ -147,11 +147,10 @@ function renderReview(view: BalletClassView): string {
   ].filter((line): line is string => line !== null);
   if (review.primaryCorrection !== null) {
     correctionLines.push(
-      'Madame: ' +
-        review.primaryCorrection.count +
+      review.primaryCorrection.count +
         ' notes pointed to ' +
         correctionName(review.primaryCorrection.category).toLowerCase() +
-        '. Keep that observation with you for a future class.',
+        '. Keep it in mind for a future class.',
     );
   }
   return [
@@ -176,14 +175,12 @@ function formatAttempt(
       (item) => item.correction?.category === attempt.correction?.category,
     ).length;
     if (repeats > 1) {
-      lines.push(
-        'Madame noticed this same note returning in class; it will be reflected in the review.',
-      );
+      lines.push('That note came back. It will be on the review.');
     }
   } else if (attempt.outcome === 'PERFECT') {
-    lines.push('Très bien, ma chère. Beautifully controlled.');
+    lines.push('Good. I noticed.');
   } else {
-    lines.push('Good work. Keep that clear musical phrasing.');
+    lines.push('Not bad. Keep the phrasing clear.');
   }
   return lines.join('\n');
 }
@@ -192,15 +189,15 @@ function teacherCorrection(
   category: NonNullable<BalletClassAttempt['correction']>['category'],
 ): string {
   const notes: Readonly<Record<typeof category, string>> = {
-    BALANCE: 'Madame: Balance needs steadier attention in this combination.',
-    TIMING: 'Madame: Stay with the musical counts, ma chère.',
-    FOOTWORK: 'Madame: Keep the footwork precise as the phrase moves on.',
-    TECHNIQUE: 'Madame: Let the technique stay consistent through the sequence.',
-    COORDINATION: 'Madame: Let the arms and steps travel together more smoothly.',
-    POSTURE_PLACEMENT: 'Madame: Keep your placement in mind through the phrase.',
-    TURN_CONTROL: 'Madame: The turn needs calmer control in this gameplay sequence.',
-    JUMP_CONTROL: 'Madame: Keep the landing controlled in this gameplay sequence.',
-    MUSICALITY: 'Madame: Listen for the phrase before you move.',
+    BALANCE: 'Balance needs steadier control here.',
+    TIMING: 'Stay with the count.',
+    FOOTWORK: 'Footwork. Watch the placement through the phrase.',
+    TECHNIQUE: 'Keep the technique consistent.',
+    COORDINATION: 'Arms and steps need to move together.',
+    POSTURE_PLACEMENT: 'Placement. Check it through the phrase.',
+    TURN_CONTROL: 'Control the turn. Again.',
+    JUMP_CONTROL: 'Land with control. Again.',
+    MUSICALITY: 'Listen for the phrase first.',
   };
   return notes[category];
 }

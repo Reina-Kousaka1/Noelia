@@ -7,6 +7,7 @@ import type { Pool } from 'pg';
 import type { AppConfig } from '../../src/config/environment.js';
 import { createDiscordRuntime } from '../../src/bot/runtime.js';
 import { StructuredLogger } from '../../src/infrastructure/logging/logger.js';
+import { NOELIA_PRESENCE } from '../../src/persona/copy.js';
 
 const config: AppConfig = {
   nodeEnvironment: 'test',
@@ -256,7 +257,7 @@ describe('createDiscordRuntime', () => {
       }
     });
     expect(client.editStatus).toHaveBeenCalledWith('online', {
-      name: 'At the barre, finding my balance',
+      name: NOELIA_PRESENCE[0],
       type: Eris.Constants.ActivityTypes.GAME,
     });
     expect(client.getGuildCommands).toHaveBeenCalledWith(config.discord.guildId);

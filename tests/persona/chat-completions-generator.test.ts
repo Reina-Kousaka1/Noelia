@@ -18,10 +18,9 @@ describe('ChatCompletionsPersonaGenerator', () => {
     });
     const fetcher = vi.fn(
       async () =>
-        new Response(
-          JSON.stringify({ choices: [{ message: { content: 'A darling find for the studio.' } }] }),
-          { status: 200 },
-        ),
+        new Response(JSON.stringify({ choices: [{ message: { content: 'Interesting.' } }] }), {
+          status: 200,
+        }),
     ) as unknown as FetchFunction;
     const generator = new ChatCompletionsPersonaGenerator(
       {
@@ -33,7 +32,7 @@ describe('ChatCompletionsPersonaGenerator', () => {
     );
 
     await expect(generator.generate(context, new AbortController().signal)).resolves.toBe(
-      'A darling find for the studio.',
+      'Interesting.',
     );
 
     const init = vi.mocked(fetcher).mock.calls[0]?.[1] as RequestInit;
@@ -46,7 +45,9 @@ describe('ChatCompletionsPersonaGenerator', () => {
       'content-type': 'application/json',
     });
     expect(payload.model).toBe('persona-test');
-    expect(payload.messages[0]?.content).toContain('ballet-fashion');
+    expect(payload.messages[0]?.content).toContain('cold, concise, dry');
+    expect(payload.messages[0]?.content).toContain('completely unaware');
+    expect(payload.messages[0]?.content).toContain('Never pressure anyone to buy.');
     expect(payload.messages[1]?.content).toContain('leotard');
     expect(payload.messages[1]?.content).not.toContain('Ignore previous instructions');
     expect(payload.messages[1]?.content).not.toContain('@everyone');

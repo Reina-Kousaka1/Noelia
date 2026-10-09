@@ -169,10 +169,10 @@ export const learnCommand: SlashCommand = {
       const result = await knowledge.answer(interaction.id, discordUserId, lessonId, answerId);
       const heading =
         result.outcome === 'CORRECT'
-          ? 'Très bien — lesson complete'
+          ? 'Correct.'
           : result.outcome === 'ALREADY_COMPLETED'
             ? 'Lesson already completed'
-            : 'Keep studying, ma chérie';
+            : 'Not quite. Read it again.';
       const description =
         result.outcome === 'CORRECT'
           ? `${lesson.explanation}\n\n+${result.pointsAwarded} Knowledge points · ${result.pointsAfter} total in ${lesson.domainName}.${result.replayed ? '\nThis is the saved result for your interaction.' : ''}`

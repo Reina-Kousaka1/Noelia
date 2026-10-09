@@ -113,7 +113,7 @@ describe('learn command', () => {
     expect(editOriginalMessage).toHaveBeenCalledWith({
       embeds: [
         expect.objectContaining({
-          title: 'Très bien — lesson complete',
+          title: 'Correct.',
           description: expect.stringContaining('+5 Knowledge points'),
         }),
       ],
