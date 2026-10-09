@@ -12,36 +12,17 @@ afterEach(() => {
 });
 
 describe('PersonaPresenceRotator', () => {
-  it('keeps the original statuses and adds concise, valid ballet statuses', () => {
+  it('uses the rebalance status pool and keeps every status concise and valid', () => {
     expect(NOELIA_PRESENCE).toHaveLength(24);
     expect(NOELIA_PRESENCE.slice(0, 4)).toEqual([
-      'At the barre, finding my balance',
-      'Tying a satin ribbon before class',
-      'Practising port de bras, one count at a time',
-      'Saving a soft rose glow for rehearsal',
+      'Oh.',
+      'I noticed.',
+      'Not competing. Just keeping score.',
+      'I do not like attention. I do not need to ask for it.',
     ]);
-    expect(NOELIA_PRESENCE.slice(4)).toEqual([
-      'Working on my plié, doucement 🩰',
-      'One more pirouette… encore une fois',
-      'Dreaming of the Paris stage',
-      'At the barre, ma chérie 🎀',
-      'Perfecting every little tendu',
-      'Pointe shoes tied, ready to dance',
-      'Rehearsing under the studio lights',
-      'A little plié before rehearsal',
-      'Counting music in cinq, six, sept, huit',
-      'Practising my arabesque',
-      'Ribbons, rosin & rehearsal 🎀',
-      'Finding the perfect ballet line',
-      'Keeping every studio detail impeccable',
-      'A little refinement before rehearsal',
-      'Just a little rehearsal; the line seemed to find itself',
-      'I always bring a spare ribbon. It is simply practical, really',
-      'En répétition 🩰',
-      'Preparing for curtain call',
-      'A quiet moment at the barre',
-      'Toujours en pointe 🩰',
-    ]);
+    expect(NOELIA_PRESENCE).toContain('Again.');
+    expect(NOELIA_PRESENCE).toContain('Posture.');
+    expect(NOELIA_PRESENCE).toContain('Très bien.');
     expect(NOELIA_PRESENCE.every((status) => status.trim().length > 0)).toBe(true);
     expect(NOELIA_PRESENCE.every((status) => Array.from(status).length <= 128)).toBe(true);
   });

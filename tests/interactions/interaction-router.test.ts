@@ -63,6 +63,7 @@ describe('InteractionRouter', () => {
     const interaction = createInteraction('ping');
     const client = {} as Eris.Client;
     const logger = new StructuredLogger();
+    const generatePersona = vi.fn();
     const logError = vi.spyOn(logger, 'error').mockImplementation(() => {});
     const router = new InteractionRouter(new CommandRegistry([command]), logger, {
       economy: { getBalance: vi.fn().mockResolvedValue(0n) },
@@ -72,6 +73,7 @@ describe('InteractionRouter', () => {
       inventory: { listInventory: vi.fn() },
       wardrobe: { getOutfit: vi.fn(), equip: vi.fn(), unequip: vi.fn() },
       profile: { getProfile: vi.fn() },
+      persona: { generate: generatePersona },
     });
 
     await router.dispatch(interaction, client);
@@ -80,6 +82,7 @@ describe('InteractionRouter', () => {
       content: 'Noélia could not complete that command. Please try again in a moment.',
       flags: Eris.Constants.MessageFlags.EPHEMERAL,
     });
+    expect(generatePersona).not.toHaveBeenCalled();
     expect(logError).toHaveBeenCalledWith('discord.command_failed', expect.any(Error), {
       commandName: 'ping',
       interactionId: 'interaction-id',
@@ -250,10 +253,15 @@ describe('InteractionRouter', () => {
     expect(interaction.editParent).toHaveBeenCalledWith(
       expect.objectContaining({
         embeds: [
-          expect.objectContaining({ description: expect.stringContaining('SHAKY · 62/100') }),
+          expect.objectContaining({
+            description: expect.stringContaining('SHAKY · 62/100'),
+          }),
         ],
       }),
     );
+    const rendered = vi.mocked(interaction.editParent).mock.calls[0]?.[0];
+    expect(JSON.stringify(rendered)).toContain('Footwork. Watch the placement through the phrase.');
+    expect(JSON.stringify(rendered)).not.toMatch(/Madame:|ma chère|Beautifully controlled/);
   });
 
   it('routes a marriage button and edits the proposal after the transaction succeeds', async () => {

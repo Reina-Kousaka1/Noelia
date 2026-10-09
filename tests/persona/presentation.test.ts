@@ -56,7 +56,7 @@ describe('persona presentation', () => {
     const facts = context.facts;
     const generate = vi.fn(async (received: PersonaContext) => {
       expect(received).toEqual(context);
-      return 'Très bien, that class had such lovely energy.';
+      return 'Better. I noticed.';
     });
     const presenter: PersonaTextPort = { generate };
 
@@ -66,7 +66,7 @@ describe('persona presentation', () => {
       embed,
     });
 
-    expect(result.title).toBe('Très bien, that class had such lovely energy.');
+    expect(result.title).toBe('Better. I noticed.');
     expect(result.description).toBe(embed.description);
     expect(result.fields).toEqual(embed.fields);
     expect(context.facts).toEqual(facts);
@@ -74,8 +74,8 @@ describe('persona presentation', () => {
   });
 
   it('allows prose to vary while structured game facts stay unchanged', async () => {
-    const first = 'The studio is glowing after that class.';
-    const second = 'A graceful class, ma chérie.';
+    const first = 'I noticed.';
+    const second = 'Almost effortless. Almost.';
     const presenter: PersonaTextPort = {
       generate: vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second),
     };
@@ -103,7 +103,7 @@ describe('persona presentation', () => {
     const result = await createPersonaEmbed(presenter, { context, embed }, fallback);
 
     expect(result.title).toContain('Practice complete');
-    expect(result.title).toContain('Très bien');
+    expect(result.title).toContain('Better');
     expect(result.description).toBe(embed.description);
     expect(result.fields).toEqual(embed.fields);
     expect(warn).toHaveBeenCalledWith('persona.generation_failed', {
@@ -121,7 +121,7 @@ describe('persona presentation', () => {
     const result = await createPersonaEmbed(presenter, { context, embed }, fallback);
 
     expect(result.title).toContain(embed.title);
-    expect(result.title).toContain('Très bien');
+    expect(result.title).toContain('Better');
     expect(generate).not.toHaveBeenCalled();
   });
 
@@ -138,7 +138,7 @@ describe('persona presentation', () => {
     const result = await createPersonaEmbed(presenter, { context, embed }, fallback);
 
     expect(result.title).toContain(embed.title);
-    expect(result.title).toContain('Très bien');
+    expect(result.title).toContain('Better');
     expect(signal?.aborted).toBe(true);
   });
 
@@ -157,10 +157,10 @@ describe('persona presentation', () => {
     const title = new DeterministicPersonaFallback().render(shopContext, NOELIA_COPY.shopTitle);
 
     expect(title).toContain(NOELIA_COPY.shopTitle);
-    expect(title.match(/The studio boutique/g)).toHaveLength(1);
+    expect(title.match(/The shop/g)).toHaveLength(1);
   });
 
-  it('uses distinct, polished fallback tones for training, wardrobe, shop, and profile contexts', () => {
+  it('uses distinct, cold fallback tones for training, wardrobe, shop, and profile contexts', () => {
     const fallback = new DeterministicPersonaFallback();
     const contexts = [
       createPersonaContext('ballet', 'practice_complete', { xp_gained: '15' }),
@@ -170,31 +170,87 @@ describe('persona presentation', () => {
     ];
     const titles = contexts.map((entry) => fallback.render(entry, 'Studio update'));
 
-    expect(titles[0]).toContain('Precision');
-    expect(titles[1]).toContain('well-composed look');
-    expect(titles[2]).toContain('collection offers');
-    expect(titles[3]).toContain('lovely record');
+    expect(titles[0]).toContain('Better');
+    expect(titles[1]).toContain('Interesting choice');
+    expect(titles[2]).toContain('Interesting');
+    expect(titles[3]).toContain('good record');
     expect(new Set(titles).size).toBe(titles.length);
   });
 
-  it('keeps rich-girl energy implicit and never turns it into wealth-shaming or personal insults', () => {
+  it('makes cold confidence and pick-me subtext part of ordinary contexts', () => {
+    expect(NOELIA_PERSONA_FALLBACKS['profile:progress_view']).toContain(
+      'I do not compare profiles. There would not be much point.',
+    );
+    expect(NOELIA_PERSONA_FALLBACKS['ballet:practice_complete']).toContain(
+      'Again, if you want it cleaner.',
+    );
+    expect(NOELIA_PERSONA_FALLBACKS['wardrobe:outfit_view']).toContain('It is fine.');
+    expect(NOELIA_PRESENCE).toContain('I am not competitive. I just prefer winning.');
+    expect(NOELIA_PRESENCE).toContain('There would not be much point.');
+  });
+
+  it('keeps zero self-awareness without self-labels or persona diagnosis', () => {
     const phrases = [...Object.values(NOELIA_PERSONA_FALLBACKS).flat(), ...NOELIA_PRESENCE];
     const forbidden =
-      /\b(?:i am rich|i'm rich|i am spoiled|i'm spoiled|i am a pick[- ]?me|i'm a pick[- ]?me|i am a queen|i'm a queen|better than you|not like other girls|you are poor|you're poor|can't afford|cannot afford|broke|pathetic|useless|stupid|ugly)\b/i;
+      /\b(?:i(?:'| a)m (?:rich|spoiled|arrogant|a pick[- ]?me|showing off)|i know that sounded (?:arrogant|mean|rude)|maybe i(?:'| a)m spoiled|i should(?:n't| not) compare myself|not like other girls|other girls are|better than you|you(?:'| a)re poor|you are poor|can't afford|cannot afford|broke|pathetic|useless|stupid|ugly)\b/i;
 
     expect(phrases.length).toBeGreaterThan(0);
     for (const phrase of phrases) expect(phrase).not.toMatch(forbidden);
   });
 
-  it('keeps stronger pick-me cues occasional and concentrated in personal style contexts', () => {
+  it('rejects self-diagnosing generated voice while keeping the intended contradiction', () => {
+    for (const phrase of [
+      "Maybe I'm spoiled.",
+      'I know that sounded arrogant.',
+      "I know I'm showing off.",
+      "I shouldn't compare myself.",
+      'I am being competitive.',
+      'Not like other girls.',
+      "You're broke.",
+      "You can't afford it.",
+    ]) {
+      expect(validatePersonaText(phrase)).toBeUndefined();
+    }
+
+    expect(validatePersonaText('I am not competitive. I just prefer winning.')).toBe(
+      'I am not competitive. I just prefer winning.',
+    );
+  });
+
+  it('keeps the old Ballet-Madame voice inside Ballet and leaves it as a small trace', () => {
+    const nonBalletPhrases = [
+      ...Object.entries(NOELIA_PERSONA_FALLBACKS)
+        .filter(([key]) => !key.startsWith('ballet:') && key !== 'ballet')
+        .flatMap(([, variants]) => variants),
+    ];
+    const balletLanguage =
+      /(?:ma ch[eè]re|ma ch[eè]rie|magnifique|voilà|doucement|barre|plié|pirouette|tendu|arabesque|pointe|posture|très bien)/i;
+    const allBalletTraces = Object.entries(NOELIA_PERSONA_FALLBACKS)
+      .filter(([key]) => key.startsWith('ballet:') || key === 'ballet')
+      .flatMap(([, variants]) => variants)
+      .filter((phrase) => balletLanguage.test(phrase));
+
+    expect(nonBalletPhrases.every((phrase) => !balletLanguage.test(phrase))).toBe(true);
+    expect(allBalletTraces).toEqual(['Très bien.', 'Posture.']);
+  });
+
+  it('uses more direct standards in training and wardrobe than in technical responses', () => {
     const trainingPhrases = NOELIA_PERSONA_FALLBACKS['ballet:practice_complete'] ?? [];
     const wardrobePhrases = NOELIA_PERSONA_FALLBACKS['wardrobe:outfit_view'] ?? [];
     const neutralHelpPhrases = NOELIA_PERSONA_FALLBACKS.help ?? [];
-    const cue = /almost effortless|spare ribbon|noticed the balance/i;
+    const cue = /again|cleaner|interesting choice|suits you/i;
 
-    expect(trainingPhrases.some((phrase) => /almost effortless/i.test(phrase))).toBe(true);
-    expect(wardrobePhrases.some((phrase) => /spare ribbon/i.test(phrase))).toBe(true);
+    expect(trainingPhrases.some((phrase) => /again/i.test(phrase))).toBe(true);
+    expect(wardrobePhrases.some((phrase) => /suits you/i.test(phrase))).toBe(true);
     expect(neutralHelpPhrases.every((phrase) => !cue.test(phrase))).toBe(true);
+  });
+
+  it('does not shame users for possessions or finances and does not attack other women', () => {
+    const phrases = [...Object.values(NOELIA_PERSONA_FALLBACKS).flat(), ...NOELIA_PRESENCE];
+    const harmful =
+      /\b(?:poor|broke|can't afford|cannot afford|other girls|girls are jealous|ugly|fat|skinny|stupid|pathetic|useless|you are inferior|better than you)\b/i;
+
+    for (const phrase of phrases) expect(phrase).not.toMatch(harmful);
   });
 
   it('keeps the curated variants distinct within each context', () => {
@@ -209,18 +265,18 @@ describe('persona presentation', () => {
     }
   });
 
-  it('keeps a refined presentation separate from structured gameplay results', () => {
+  it('keeps cold presentation separate from structured gameplay results', () => {
     const factsBefore = JSON.stringify(context.facts);
     const fallback = new DeterministicPersonaFallback();
     const title = fallback.render(context, 'Practice complete');
 
-    expect(title).toContain('Precision');
+    expect(title).toContain('Better');
     expect(embed.description).toContain('+15 Ballet XP');
     expect(embed.description).toContain('+20 🩰');
     expect(JSON.stringify(context.facts)).toBe(factsBefore);
   });
 
-  it('uses a gentle uniform reminder without needing persona generation', async () => {
+  it('uses a concise uniform reminder without needing persona generation', async () => {
     const uniformContext = createPersonaContext('wardrobe', 'academy_uniform', {
       ready: false,
     });
@@ -233,7 +289,7 @@ describe('persona presentation', () => {
       new DeterministicPersonaFallback(),
     );
 
-    expect(result.title).toContain('Doucement, ma chérie');
+    expect(result.title).toContain('required pieces are still missing');
     expect(result.description).toBe('Leotard, tights, and flats.');
   });
 

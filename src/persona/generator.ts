@@ -43,6 +43,8 @@ export interface PersonaTextPort {
 
 const factKeyPattern = /^[a-z][a-zA-Z0-9_]{0,39}$/;
 const integerFactPattern = /^\d{1,24}$/;
+const disallowedPersonaVoice =
+  /\b(?:i(?:'m| am) (?:such a )?(?:pick[- ]?me|spoiled|rich|arrogant|competitive|showing off)|i know (?:that )?(?:i (?:sounded|sound|was being)|(?:that )?sounded) (?:arrogant|spoiled|rude|mean|competitive)|i (?:realize|recognize|admit) (?:that )?i (?:am|was) (?:arrogant|spoiled|rude|mean|privileged|competitive)|i (?:was|am being|sounded|came across as) (?:a little )?(?:arrogant|spoiled|rude|mean|privileged|competitive)|maybe i(?:'m| am) spoiled|my standards (?:are|might be) too high|i should(?:n't| not) compare myself|not like other girls|other girls are|better than you|you(?:'re| are) (?:poor|broke|ugly|fat|skinny|stupid|pathetic|useless)|you (?:can't|cannot) afford)\b/i;
 const safeEnumFacts: Readonly<Record<string, ReadonlySet<string>>> = {
   academy_stage: new Set(ACADEMY_CURRICULUM.map((stage) => stage.id)),
   activity: new Set(BALLET_ACTIVITY_CODES.map((code) => code.replaceAll('-', '_'))),
@@ -111,6 +113,7 @@ export function validatePersonaText(
   }
   if (/\b(?:api[_ -]?key|authorization|password|secret)\s*[:=]/i.test(text)) return undefined;
   if (secrets.some((secret) => secret.length > 0 && text.includes(secret))) return undefined;
+  if (disallowedPersonaVoice.test(text)) return undefined;
 
   return text;
 }
