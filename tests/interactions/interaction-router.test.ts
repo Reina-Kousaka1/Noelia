@@ -58,7 +58,7 @@ describe('InteractionRouter', () => {
     expect(interaction.createMessage).not.toHaveBeenCalled();
   });
 
-  it('returns a generic ephemeral response when a handler fails', async () => {
+  it('returns a clear, neutral ephemeral response when a handler fails', async () => {
     const command = createCommand(vi.fn().mockRejectedValue(new Error('internal failure')));
     const interaction = createInteraction('ping');
     const client = {} as Eris.Client;

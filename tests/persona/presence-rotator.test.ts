@@ -13,7 +13,7 @@ afterEach(() => {
 
 describe('PersonaPresenceRotator', () => {
   it('keeps the original statuses and adds concise, valid ballet statuses', () => {
-    expect(NOELIA_PRESENCE).toHaveLength(22);
+    expect(NOELIA_PRESENCE).toHaveLength(24);
     expect(NOELIA_PRESENCE.slice(0, 4)).toEqual([
       'At the barre, finding my balance',
       'Tying a satin ribbon before class',
@@ -35,6 +35,8 @@ describe('PersonaPresenceRotator', () => {
       'Finding the perfect ballet line',
       'Keeping every studio detail impeccable',
       'A little refinement before rehearsal',
+      'Just a little rehearsal; the line seemed to find itself',
+      'I always bring a spare ribbon. It is simply practical, really',
       'En répétition 🩰',
       'Preparing for curtain call',
       'A quiet moment at the barre',

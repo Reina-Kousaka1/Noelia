@@ -12,7 +12,7 @@ import {
   SafePersonaPresenter,
 } from '../../src/persona/presentation.js';
 import type { PersonaGenerator, PersonaTextPort } from '../../src/persona/generator.js';
-import { NOELIA_COPY, NOELIA_PERSONA_FALLBACKS } from '../../src/persona/copy.js';
+import { NOELIA_COPY, NOELIA_PERSONA_FALLBACKS, NOELIA_PRESENCE } from '../../src/persona/copy.js';
 
 const context = createPersonaContext('ballet', 'practice_complete', {
   activity: 'class',
@@ -178,12 +178,35 @@ describe('persona presentation', () => {
   });
 
   it('keeps rich-girl energy implicit and never turns it into wealth-shaming or personal insults', () => {
-    const phrases = Object.values(NOELIA_PERSONA_FALLBACKS).flat();
+    const phrases = [...Object.values(NOELIA_PERSONA_FALLBACKS).flat(), ...NOELIA_PRESENCE];
     const forbidden =
-      /\b(?:i am rich|i'm rich|i am spoiled|i'm spoiled|better than you|you are poor|you're poor|pathetic|useless)\b/i;
+      /\b(?:i am rich|i'm rich|i am spoiled|i'm spoiled|i am a pick[- ]?me|i'm a pick[- ]?me|i am a queen|i'm a queen|better than you|not like other girls|you are poor|you're poor|can't afford|cannot afford|broke|pathetic|useless|stupid|ugly)\b/i;
 
     expect(phrases.length).toBeGreaterThan(0);
     for (const phrase of phrases) expect(phrase).not.toMatch(forbidden);
+  });
+
+  it('keeps stronger pick-me cues occasional and concentrated in personal style contexts', () => {
+    const trainingPhrases = NOELIA_PERSONA_FALLBACKS['ballet:practice_complete'] ?? [];
+    const wardrobePhrases = NOELIA_PERSONA_FALLBACKS['wardrobe:outfit_view'] ?? [];
+    const neutralHelpPhrases = NOELIA_PERSONA_FALLBACKS.help ?? [];
+    const cue = /almost effortless|spare ribbon|noticed the balance/i;
+
+    expect(trainingPhrases.some((phrase) => /almost effortless/i.test(phrase))).toBe(true);
+    expect(wardrobePhrases.some((phrase) => /spare ribbon/i.test(phrase))).toBe(true);
+    expect(neutralHelpPhrases.every((phrase) => !cue.test(phrase))).toBe(true);
+  });
+
+  it('keeps the curated variants distinct within each context', () => {
+    for (const key of [
+      'ballet:practice_complete',
+      'wardrobe:outfit_view',
+      'shop:browse',
+      'profile:progress_view',
+    ]) {
+      const variants = NOELIA_PERSONA_FALLBACKS[key] ?? [];
+      expect(new Set(variants).size).toBe(variants.length);
+    }
   });
 
   it('keeps a refined presentation separate from structured gameplay results', () => {

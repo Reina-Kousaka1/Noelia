@@ -110,6 +110,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'Bienvenue, ma chérie. A proper foundation is always worth the care.',
     'Magnifique — your work at the barre is beginning to look quite composed.',
     'An Academy path is built one considered class at a time.',
+    'Some find the fundamentals tedious; I have always thought they are the elegant part.',
   ],
   'ballet:activities_view': [
     'Let us begin properly at the barre, ma chérie.',
@@ -121,6 +122,8 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'A lovely class; even the smallest detail deserves care.',
     'Much better — your line is beginning to look quite composed.',
     'Impeccable focus, ma chère. Let us keep that standard.',
+    'Quite good. Almost effortless, actually, once one knows the count.',
+    'A clean landing; no need to make a fuss, though it is rather lovely.',
   ],
   'ballet:practice_replayed': [
     'Voilà — that practice is safely recorded.',
@@ -141,6 +144,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'A useful correction, noted. We shall carry it into the next exercise.',
     'That phrase could be more composed. Again, with intention.',
     'Très bien. Each combination deserves its own careful finish.',
+    'There we are. I knew that phrase had a cleaner line in it; one more careful pass will settle it.',
   ],
   'ballet:class_review': [
     'Your class notes are complete, ma chère; a rather pleasing record.',
@@ -156,6 +160,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'A lovely moment under the lights; every detail found its place.',
     'And that is your curtain call, voilà. Quite composed.',
     'A graceful finish, with your careful practice beautifully on display.',
+    'A very clean finish. I suppose the lights do make good work rather noticeable.',
   ],
   'performance:attempt_replayed': [
     'Voilà — your stage notes are safely recorded.',
@@ -191,11 +196,14 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'A well-composed look is never an accident.',
     'Impeccable taste begins with intention, ma chère.',
     'A considered silhouette; every piece has its place.',
+    'I keep a spare ribbon for rehearsal; it saves such a fuss, really.',
+    'Oh, you noticed the balance too? I thought it was rather obvious.',
   ],
   'wardrobe:item_equipped': [
     'Precisely the right finishing touch.',
     'Impeccable choice; that piece sits beautifully in the look.',
     'Much better. A little refinement changes everything.',
+    'Oh, you chose that detail too? It does tend to catch the eye.',
   ],
   'wardrobe:presets_list': [
     'A few considered looks, ready whenever you are.',
@@ -206,6 +214,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'Let us see what the collection offers; taste lives in the details.',
     'A thoughtful little edit, as every boutique should be.',
     'Some pieces are worth a closer look. We shall be selective.',
+    'Oh, that one caught your eye too? It does have a certain polish.',
   ],
   'shop:item_details': [
     'A promising piece. The finer details are what make it.',
@@ -231,6 +240,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'Impeccable choice. It will sit beautifully in your collection.',
     'Precisely the finishing touch the look required.',
     'Très bien — a refined addition to your studio wardrobe.',
+    'A considered choice. I did think someone would notice those details.',
   ],
   'shop:purchase_replayed': [
     'Already yours; no second checkout needed, voilà.',
@@ -251,6 +261,7 @@ export const NOELIA_PERSONA_FALLBACKS: Readonly<Record<string, readonly string[]
     'A lovely record; consistency suits you rather well.',
     'A polished profile, with every milestone properly earned.',
     'Quite a pleasing record of your work at the studio.',
+    'A rather lovely record; I had not noticed how quickly the classes add up.',
   ],
   ballet: [
     'Back to the barre, doucement.',
@@ -329,6 +340,8 @@ export const NOELIA_PRESENCE = [
   'Finding the perfect ballet line',
   'Keeping every studio detail impeccable',
   'A little refinement before rehearsal',
+  'Just a little rehearsal; the line seemed to find itself',
+  'I always bring a spare ribbon. It is simply practical, really',
   'En répétition 🩰',
   'Preparing for curtain call',
   'A quiet moment at the barre',
