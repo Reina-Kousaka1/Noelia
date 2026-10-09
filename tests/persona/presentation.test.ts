@@ -12,7 +12,7 @@ import {
   SafePersonaPresenter,
 } from '../../src/persona/presentation.js';
 import type { PersonaGenerator, PersonaTextPort } from '../../src/persona/generator.js';
-import { NOELIA_COPY } from '../../src/persona/copy.js';
+import { NOELIA_COPY, NOELIA_PERSONA_FALLBACKS } from '../../src/persona/copy.js';
 
 const context = createPersonaContext('ballet', 'practice_complete', {
   activity: 'class',
@@ -158,6 +158,43 @@ describe('persona presentation', () => {
 
     expect(title).toContain(NOELIA_COPY.shopTitle);
     expect(title.match(/The studio boutique/g)).toHaveLength(1);
+  });
+
+  it('uses distinct, polished fallback tones for training, wardrobe, shop, and profile contexts', () => {
+    const fallback = new DeterministicPersonaFallback();
+    const contexts = [
+      createPersonaContext('ballet', 'practice_complete', { xp_gained: '15' }),
+      createPersonaContext('wardrobe', 'outfit_view', { equipped_item_count: 3 }),
+      createPersonaContext('shop', 'browse', { category: 'all' }),
+      createPersonaContext('profile', 'progress_view', { level: 4 }),
+    ];
+    const titles = contexts.map((entry) => fallback.render(entry, 'Studio update'));
+
+    expect(titles[0]).toContain('Precision');
+    expect(titles[1]).toContain('well-composed look');
+    expect(titles[2]).toContain('collection offers');
+    expect(titles[3]).toContain('lovely record');
+    expect(new Set(titles).size).toBe(titles.length);
+  });
+
+  it('keeps rich-girl energy implicit and never turns it into wealth-shaming or personal insults', () => {
+    const phrases = Object.values(NOELIA_PERSONA_FALLBACKS).flat();
+    const forbidden =
+      /\b(?:i am rich|i'm rich|i am spoiled|i'm spoiled|better than you|you are poor|you're poor|pathetic|useless)\b/i;
+
+    expect(phrases.length).toBeGreaterThan(0);
+    for (const phrase of phrases) expect(phrase).not.toMatch(forbidden);
+  });
+
+  it('keeps a refined presentation separate from structured gameplay results', () => {
+    const factsBefore = JSON.stringify(context.facts);
+    const fallback = new DeterministicPersonaFallback();
+    const title = fallback.render(context, 'Practice complete');
+
+    expect(title).toContain('Precision');
+    expect(embed.description).toContain('+15 Ballet XP');
+    expect(embed.description).toContain('+20 🩰');
+    expect(JSON.stringify(context.facts)).toBe(factsBefore);
   });
 
   it('uses a gentle uniform reminder without needing persona generation', async () => {
