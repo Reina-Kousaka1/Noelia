@@ -116,7 +116,10 @@ export const academyCommand: SlashCommand = {
     if (selected === undefined || selected.type !== subcommand) {
       throw new Error('The Academy command requires a subcommand.');
     }
-    await deferCommand(interaction, 'ephemeral');
+    // Reports contain personal attendance/grades, and assessments expose individual questions/results.
+    const visibility =
+      selected.name === 'report' || selected.name === 'assessment' ? 'ephemeral' : 'public';
+    await deferCommand(interaction, visibility);
 
     if (selected.name !== 'assessment') {
       const gameplay = services.academyGameplay;

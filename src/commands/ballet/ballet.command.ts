@@ -112,7 +112,7 @@ export const balletCommand: SlashCommand = {
     }
 
     const subcommandName = subcommand.name;
-    await deferCommand(interaction, subcommandName === 'recovery' ? 'ephemeral' : 'public');
+    await deferCommand(interaction);
 
     if (subcommandName === 'training') {
       const training = services.balletTrainingV3;

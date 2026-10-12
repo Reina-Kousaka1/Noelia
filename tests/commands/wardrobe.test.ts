@@ -90,7 +90,7 @@ describe('wardrobe command', () => {
   });
 
   it('stores a clearly fictional shoe preference through the Ballet training domain', async () => {
-    const { interaction, editOriginalMessage } = createInteraction([
+    const { interaction, defer, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'fit',
@@ -126,6 +126,7 @@ describe('wardrobe command', () => {
       37.5,
       'WIDE',
     );
+    expect(defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
     expect(editOriginalMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         embeds: [

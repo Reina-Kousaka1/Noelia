@@ -120,7 +120,7 @@ describe('ballet command', () => {
   });
 
   it('routes a recovery action through the idempotent training domain', async () => {
-    const { interaction } = createInteraction([
+    const { interaction, editOriginalMessage } = createInteraction([
       {
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
         name: 'recovery',
@@ -174,6 +174,16 @@ describe('ballet command', () => {
       '111111111111111111',
       '222222222222222222',
       'REST',
+    );
+    expect(interaction.defer).toHaveBeenCalledWith();
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            title: expect.stringContaining('Maison Noélia · Recovery updated'),
+          }),
+        ],
+      }),
     );
   });
 

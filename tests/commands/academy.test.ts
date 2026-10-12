@@ -9,7 +9,7 @@ import type {
 import { AcademyAssessmentService } from '../../src/ballet/assessment/assessment-service.js';
 import type { CommandServices } from '../../src/commands/command.js';
 
-function createInteraction() {
+function createInteraction(subcommandName = 'assessment', options?: Eris.InteractionDataOptions[]) {
   const editOriginalMessage = vi.fn().mockResolvedValue(undefined);
   const interaction = {
     id: '111111111111111111',
@@ -18,7 +18,8 @@ function createInteraction() {
       options: [
         {
           type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
-          name: 'assessment',
+          name: subcommandName,
+          ...(options === undefined ? {} : { options }),
         },
       ],
     },
@@ -105,6 +106,70 @@ describe('Academy assessment command', () => {
           }),
         ],
         components: [],
+      }),
+    );
+  });
+
+  it('publishes a successful Academy practice result in the channel', async () => {
+    const { interaction, editOriginalMessage } = createInteraction('practice', [
+      {
+        type: Eris.Constants.ApplicationCommandOptionTypes.STRING,
+        name: 'action',
+        value: 'CLAP_RHYTHM',
+      },
+    ]);
+    const gameplay = {
+      completeBeginnerAction: vi.fn().mockResolvedValue({
+        actionName: 'Clap the Rhythm',
+        stageId: 'pre-school-dance',
+        academyComfort: 10,
+        completedActions: ['CLAP_RHYTHM'],
+        replayed: false,
+      }),
+    };
+    const services = { academyGameplay: gameplay } as unknown as CommandServices;
+
+    await academyCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(interaction.defer).toHaveBeenCalledWith();
+    expect(interaction.defer).not.toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
+    expect(gameplay.completeBeginnerAction).toHaveBeenCalledWith(
+      '111111111111111111',
+      '222222222222222222',
+      'CLAP_RHYTHM',
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [expect.objectContaining({ title: 'Clap the Rhythm · Foundation recorded' })],
+      }),
+    );
+  });
+
+  it('keeps the personal Academy report book ephemeral', async () => {
+    const { interaction, editOriginalMessage } = createInteraction('report');
+    const gameplay = {
+      getReportBook: vi.fn().mockResolvedValue({
+        stageId: 'pre-school-dance',
+        stageName: 'Pre-School Dance',
+        enrolled: true,
+        academyComfort: 10,
+        completedActions: [],
+        attendedCount: 0,
+        excusedCount: 0,
+        missedCount: 0,
+        systemCancelledCount: 0,
+        recentAttendanceStatuses: [],
+        entries: [],
+      }),
+    };
+    const services = { academyGameplay: gameplay } as unknown as CommandServices;
+
+    await academyCommand.execute({ client: {} as Eris.Client, interaction, services });
+
+    expect(interaction.defer).toHaveBeenCalledWith(Eris.Constants.MessageFlags.EPHEMERAL);
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [expect.objectContaining({ title: 'Maison Noélia · Academy Report Book' })],
       }),
     );
   });
