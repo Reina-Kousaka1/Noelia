@@ -154,7 +154,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     await pool?.end();
   });
 
-  it('runs the complete fresh migration chain through 026 and safely replays it', async () => {
+  it('runs the complete fresh migration chain through 027 and safely replays it', async () => {
     const schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
     await pool.query(`CREATE SCHEMA ${schemaName}`);
     const schemaPool = createIsolatedTestPool(process.env, schemaName);
@@ -164,8 +164,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         rows: [{ name: 'noelia_test' }],
       });
       await expect(runMigrations(schemaPool)).resolves.toEqual({
-        appliedCount: 26,
-        currentVersion: 26,
+        appliedCount: 27,
+        currentVersion: 27,
       });
 
       const migrations = await loadMigrations(resolve(process.cwd(), 'migrations'));
@@ -201,7 +201,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       ).resolves.toMatchObject({ rowCount: 0 });
       await expect(runMigrations(schemaPool)).resolves.toEqual({
         appliedCount: 0,
-        currentVersion: 26,
+        currentVersion: 27,
       });
     } finally {
       await schemaPool.end();
@@ -209,7 +209,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     }
   });
 
-  it('upgrades an unchanged 025 schema with only the three missing starterwear links', async () => {
+  it('upgrades an unchanged 025 schema with starterwear links and additive preparation state', async () => {
     const schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
     await pool.query(`CREATE SCHEMA ${schemaName}`);
     const schemaPool = createIsolatedTestPool(process.env, schemaName);
@@ -252,8 +252,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       }>('SELECT version, name, checksum FROM noelia_schema_migrations ORDER BY version');
 
       await expect(runMigrations(schemaPool)).resolves.toEqual({
-        appliedCount: 1,
-        currentVersion: 26,
+        appliedCount: 2,
+        currentVersion: 27,
       });
       const afterMemberships = await schemaPool.query<{
         readonly item_id: string;
@@ -284,7 +284,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       expect(checksumsAfter.rows).toEqual(checksumsBefore.rows);
       await expect(runMigrations(schemaPool)).resolves.toEqual({
         appliedCount: 0,
-        currentVersion: 26,
+        currentVersion: 27,
       });
       expect(
         await schemaPool.query(
@@ -361,8 +361,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 20,
-        currentVersion: 26,
+        appliedCount: 21,
+        currentVersion: 27,
       });
       await expect(
         upgradePool.query(
@@ -405,7 +405,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 26 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 27 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });
@@ -501,6 +501,20 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const discordUserId = testSnowflake();
     await seedPrePrimaryAcademyStage(pool, discordUserId);
     const training = new BalletTrainingV3Service(pool, () => 0.5);
+    const initialPlan = await training.getSnapshot(discordUserId);
+    expect(initialPlan).toMatchObject({
+      condition: { consistencyStamina: 100 },
+      staminaCycle: {
+        cycleNumber: 1,
+        targetWorkload: 20,
+        completedWorkload: 0,
+        durationDays: 7,
+      },
+    });
+    const reloadedPlan = await new BalletTrainingV3Service(pool, () => 0.99).getSnapshot(
+      discordUserId,
+    );
+    expect(reloadedPlan.staminaCycle).toEqual(initialPlan.staminaCycle);
     let rollCount = 0;
     const classes = new BalletClassService(
       pool,
@@ -511,6 +525,9 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       training,
     );
     const started = await classes.startOrResume(testSnowflake(), discordUserId, 'BARRE_FOCUS');
+    for (const area of started.curriculum.exercises[0]?.preparationRequirements ?? []) {
+      await classes.markPreparation(testSnowflake(), discordUserId, started.classId, area);
+    }
     await classes.begin(testSnowflake(), discordUserId, started.classId);
     const exercise = started.curriculum.exercises[0];
     if (exercise === undefined) throw new Error('Expected a Ballet class exercise.');
@@ -526,7 +543,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       exercise.id,
     );
     expect(first.attempt?.outcome).toBe('SUCCESS');
-    expect(rollCount).toBe(2);
+    expect(rollCount).toBe(3);
 
     let restartedRollCount = 0;
     const reloadedClasses = new BalletClassService(
@@ -574,7 +591,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(attemptEffects.rowCount).toBe(1);
     const snapshotAfterAttempt = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
     expect(snapshotAfterAttempt.staminaCycle).toMatchObject({
-      targetWorkload: 6,
+      targetWorkload: 20,
       completedWorkload: 1,
     });
     expect(snapshotAfterAttempt.skills).toEqual(
@@ -587,18 +604,38 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       throw new Error('The first class attempt did not create a stamina cycle.');
     await pool.query(
       `UPDATE ballet_stamina_cycles
-       SET deadline_at = clock_timestamp() - interval '1 second'
+       SET completed_workload = 15,
+           deadline_at = clock_timestamp() - interval '1 second'
        WHERE discord_user_id = $1 AND cycle_number = $2`,
       [discordUserId, firstCycle.cycleNumber],
     );
-    const expiredRead = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
-    expect(expiredRead.staminaCycle?.status).toBe('EXPIRED');
+    const expiredRead = await new BalletTrainingV3Service(pool, () => 0.5).getSnapshot(
+      discordUserId,
+    );
+    expect(expiredRead.staminaCycle).toMatchObject({
+      cycleNumber: 2,
+      status: 'ACTIVE',
+      completedWorkload: 0,
+    });
+    expect(expiredRead.staminaCycle?.targetWorkload).toBeGreaterThanOrEqual(10);
+    expect(expiredRead.staminaCycle?.targetWorkload).toBeLessThanOrEqual(30);
+    expect(expiredRead.condition.consistencyStamina).toBe(101);
     await expect(
       pool.query(
-        `SELECT status FROM ballet_stamina_cycles WHERE discord_user_id = $1 AND cycle_number = $2`,
+        `SELECT status, cycle_outcome, finalized_at, stamina_delta FROM ballet_stamina_cycles
+         WHERE discord_user_id = $1 AND cycle_number = $2`,
         [discordUserId, firstCycle.cycleNumber],
       ),
-    ).resolves.toMatchObject({ rows: [{ status: 'ACTIVE' }] });
+    ).resolves.toMatchObject({
+      rows: [
+        {
+          status: 'EXPIRED',
+          cycle_outcome: 'WEEKLY_GOAL_MISSED',
+          finalized_at: expect.any(Date),
+          stamina_delta: 1,
+        },
+      ],
+    });
 
     const classBeforeSecondAttempt = await reloadedClasses.getClass(discordUserId, started.classId);
     const secondExercise =
@@ -613,9 +650,10 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const nextCycleSnapshot = await new BalletTrainingV3Service(pool).getSnapshot(discordUserId);
     expect(nextCycleSnapshot.staminaCycle).toMatchObject({
       cycleNumber: 2,
-      targetWorkload: 2,
+      targetWorkload: expiredRead.staminaCycle?.targetWorkload,
       completedWorkload: 1,
     });
+    expect(nextCycleSnapshot.condition.consistencyStamina).toBe(101);
 
     const fitInteractionId = testSnowflake();
     const shoeProfile = await training.setShoeFitProfile(
@@ -669,10 +707,13 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const training = new BalletTrainingV3Service(pool, () => 0.5);
     const ballet = new BalletService(pool, new EconomyService(pool), training);
 
-    const first = await ballet.practice(testSnowflake(), discordUserId, 'stretching');
+    const firstInteractionId = testSnowflake();
+    const first = await ballet.practice(firstInteractionId, discordUserId, 'stretching');
+    const firstReplay = await ballet.practice(firstInteractionId, discordUserId, 'stretching');
     const second = await ballet.practice(testSnowflake(), discordUserId, 'barre');
 
     expect(first.replayed).toBe(false);
+    expect(firstReplay.replayed).toBe(true);
     expect(second.replayed).toBe(false);
     await expect(
       pool.query(

@@ -10,7 +10,11 @@ import type { BalletStats } from '../types.js';
 import { isStructuredTrainingUnlocked } from '../academy-gameplay.js';
 import { buildBalletClassCurriculum, isBalletClassType } from './curriculum.js';
 import { BalletClassNotFoundError, BalletClassStateError } from './errors.js';
-import { evaluateBalletExercise } from './performance.js';
+import {
+  evaluateBalletExercise,
+  preparationFailureStreak,
+  preparationReasonCode,
+} from './performance.js';
 import type { BalletTrainingV3Service } from '../training-v3/training-v3-service.js';
 import { buildBalletClassReview } from './review.js';
 import {
@@ -28,6 +32,7 @@ import type {
   BalletCorrectionCategory,
   BalletExerciseOutcome,
   BalletPreparationArea,
+  BalletPreparationStatus,
 } from './types.js';
 import {
   BALLET_CLASS_SECTIONS,
@@ -66,6 +71,12 @@ interface AttemptRow extends QueryResultRow {
   readonly outcome: string;
   readonly score: number;
   readonly roll_micros: number;
+  readonly preparation_failure_roll_micros: number | null;
+  readonly preparation_failure_probability_micros: number | null;
+  readonly preparation_failure_triggered: boolean | null;
+  readonly preparation_failure_streak: number;
+  readonly preparation_reason_code: string | null;
+  readonly preparation_status: string | null;
   readonly skill_snapshot: unknown;
   readonly preparation_snapshot: string[];
   readonly attempted_at: Date;
@@ -330,15 +341,23 @@ export class BalletClassService implements BalletClassPort {
         preparation,
         this.random(),
         trainingContext === undefined
-          ? undefined
+          ? { preparationFailureRoll: this.random() }
           : {
               trainingSkills: trainingContext.skills,
               conditionModifier: trainingContext.performanceModifier,
+              preparationFailureRoll: this.random(),
             },
       );
+      const previousPreparation = await loadLatestPreparationFailure(client, discordUserId);
+      const failureStreak = preparationFailureStreak(
+        previousPreparation,
+        evaluation.outcome,
+        evaluation.preparationStatus,
+      );
+      const reasonCode = preparationReasonCode(evaluation.preparationStatus, failureStreak);
       const attemptId = randomUUID();
       await client.query(
-        'INSERT INTO ballet_class_attempts (attempt_id, interaction_id, class_id, discord_user_id, position, exercise_id, exercise_name, section, outcome, score, roll_micros, skill_snapshot, preparation_snapshot, attempted_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, clock_timestamp())',
+        'INSERT INTO ballet_class_attempts (attempt_id, interaction_id, class_id, discord_user_id, position, exercise_id, exercise_name, section, outcome, score, roll_micros, skill_snapshot, preparation_snapshot, attempted_at, preparation_failure_roll_micros, preparation_failure_probability_micros, preparation_failure_triggered, preparation_status, preparation_failure_streak, preparation_reason_code) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb, $13, clock_timestamp(), $14, $15, $16, $17, $18, $19)',
         [
           attemptId,
           interactionId,
@@ -353,6 +372,12 @@ export class BalletClassService implements BalletClassPort {
           evaluation.rollMicros,
           JSON.stringify(stats),
           [...preparation],
+          evaluation.preparationFailureRollMicros,
+          evaluation.preparationFailureProbabilityMicros,
+          evaluation.preparationFailureTriggered,
+          evaluation.preparationStatus,
+          failureStreak,
+          reasonCode,
         ],
       );
       if (evaluation.correction !== null) {
@@ -371,6 +396,13 @@ export class BalletClassService implements BalletClassPort {
           difficulty: exercise.difficulty,
           context: trainingContext,
           setbackRoll: this.random(),
+        });
+      } else if (this.trainingV3 !== undefined) {
+        await this.trainingV3.recordPreparationWorkloadWithinTransaction(client, {
+          interactionId,
+          discordUserId,
+          sourceType: 'CLASS_ATTEMPT',
+          sourceReference: attemptId,
         });
       }
 
@@ -580,6 +612,9 @@ async function loadAttempts(client: PoolClient, classId: string): Promise<Ballet
     `SELECT attempt.attempt_id::text, attempt.interaction_id, attempt.exercise_id, attempt.exercise_name,
             attempt.section, attempt.outcome, attempt.score, attempt.roll_micros, attempt.skill_snapshot,
             attempt.preparation_snapshot, attempt.attempted_at,
+            attempt.preparation_failure_roll_micros, attempt.preparation_failure_probability_micros,
+            attempt.preparation_failure_triggered, attempt.preparation_status,
+            attempt.preparation_failure_streak, attempt.preparation_reason_code,
             correction.category AS correction_category, correction.severity AS correction_severity,
             effects.training_skill_snapshot, effects.condition_snapshot,
             effects.performance_modifier, effects.setback_triggered
@@ -590,6 +625,39 @@ async function loadAttempts(client: PoolClient, classId: string): Promise<Ballet
     [classId],
   );
   return result.rows.map(parseAttempt);
+}
+
+async function loadLatestPreparationFailure(
+  client: PoolClient,
+  discordUserId: string,
+): Promise<{
+  outcome: BalletExerciseOutcome;
+  status: BalletPreparationStatus;
+  streak: number;
+} | null> {
+  const result = await client.query<{
+    readonly outcome: string;
+    readonly preparation_status: string | null;
+    readonly preparation_failure_streak: number;
+  }>(
+    `SELECT outcome, preparation_status, preparation_failure_streak
+     FROM ballet_class_attempts WHERE discord_user_id = $1
+     ORDER BY attempted_at DESC, attempt_id DESC LIMIT 1`,
+    [discordUserId],
+  );
+  const row = result.rows[0];
+  if (
+    row === undefined ||
+    !isExerciseOutcome(row.outcome) ||
+    !isPreparationStatus(row.preparation_status)
+  ) {
+    return null;
+  }
+  return {
+    outcome: row.outcome,
+    status: row.preparation_status,
+    streak: row.preparation_failure_streak,
+  };
 }
 
 function parseAttempt(row: AttemptRow): BalletClassAttempt {
@@ -616,6 +684,31 @@ function parseAttempt(row: AttemptRow): BalletClassAttempt {
     outcome: row.outcome,
     score: row.score,
     rollMicros: row.roll_micros,
+    ...(row.preparation_failure_roll_micros === null
+      ? {}
+      : { preparationFailureRollMicros: row.preparation_failure_roll_micros }),
+    ...(row.preparation_failure_probability_micros === null
+      ? {}
+      : { preparationFailureProbabilityMicros: row.preparation_failure_probability_micros }),
+    ...(row.preparation_failure_triggered === null
+      ? {}
+      : { preparationFailureTriggered: row.preparation_failure_triggered }),
+    ...(row.preparation_failure_streak === undefined
+      ? {}
+      : { preparationFailureStreak: row.preparation_failure_streak }),
+    ...(row.preparation_reason_code === null
+      ? {}
+      : { preparationReasonCode: parsePreparationReasonCode(row.preparation_reason_code) }),
+    ...(row.preparation_status === 'PREPARED' ||
+    row.preparation_status === 'PARTIALLY_PREPARED' ||
+    row.preparation_status === 'UNPREPARED'
+      ? {
+          preparationStatus: row.preparation_status,
+          ...(row.preparation_reason_code === null
+            ? { preparationReasonCode: row.preparation_status }
+            : {}),
+        }
+      : {}),
     correction,
     skillSnapshot: parseStats(row.skill_snapshot),
     preparationSnapshot: row.preparation_snapshot.map(parsePreparationArea),
@@ -846,6 +939,24 @@ function isExerciseOutcome(value: string): value is BalletExerciseOutcome {
 
 function isPreparationArea(value: string): value is BalletPreparationArea {
   return (BALLET_PREPARATION_AREAS as readonly string[]).includes(value);
+}
+
+function isPreparationStatus(value: string | null): value is BalletPreparationStatus {
+  return value === 'PREPARED' || value === 'PARTIALLY_PREPARED' || value === 'UNPREPARED';
+}
+
+function parsePreparationReasonCode(
+  value: string,
+): NonNullable<BalletClassAttempt['preparationReasonCode']> {
+  if (
+    value === 'PREPARED' ||
+    value === 'PARTIALLY_PREPARED' ||
+    value === 'UNPREPARED' ||
+    value === 'REPEATED_PREPARATION_FAILURE'
+  ) {
+    return value;
+  }
+  throw new Error('Database returned an unknown preparation reason code.');
 }
 
 function parsePreparationArea(value: string): BalletPreparationArea {

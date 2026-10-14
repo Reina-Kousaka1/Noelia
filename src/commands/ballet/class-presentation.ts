@@ -169,6 +169,20 @@ function formatAttempt(
   attempts: readonly BalletClassAttempt[],
 ): string {
   const lines = ['**' + attempt.outcome + ' · ' + attempt.score + '/100**'];
+  if (attempt.preparationStatus !== undefined) {
+    lines.push('Preparation: ' + attempt.preparationStatus.toLowerCase().replaceAll('_', ' '));
+  }
+  if (attempt.preparationReasonCode === 'REPEATED_PREPARATION_FAILURE') {
+    lines.push('Preparation-related failures have repeated across recent class exercises.');
+  }
+  if (attempt.preparationFailureProbabilityMicros !== undefined) {
+    const riskPercent = attempt.preparationFailureProbabilityMicros / 10_000;
+    if (riskPercent > 0) {
+      lines.push(
+        `Preparation risk roll: ${riskPercent}%${attempt.preparationFailureTriggered === true ? ' triggered a failure' : ' did not trigger'}.`,
+      );
+    }
+  }
   if (attempt.correction !== null) {
     lines.push(teacherCorrection(attempt.correction.category));
     const repeats = attempts.filter(

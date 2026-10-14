@@ -7,6 +7,8 @@ import type {
   BalletExerciseDefinition,
   BalletExerciseOutcome,
   BalletPreparationArea,
+  BalletPreparationReasonCode,
+  BalletPreparationStatus,
 } from './types.js';
 
 /**
@@ -20,6 +22,9 @@ export const BALLET_CLASS_CALIBRATION = {
   trainingSkillContribution: 0.06,
   difficultyPenalty: 4,
   preparationAdjustment: 4,
+  insufficientPreparationThreshold: 0.5,
+  unpreparedFailureChance: 0.65,
+  maximumRecordedPreparationFailureStreak: 100,
   rollSwing: 8,
   perfectMinimum: 92,
   successMinimum: 72,
@@ -34,11 +39,44 @@ export interface BalletExerciseEvaluation {
     readonly severity: number;
   } | null;
   readonly rollMicros: number;
+  readonly preparationFailureProbability: number;
+  readonly preparationFailureTriggered: boolean;
+  readonly preparationFailureRollMicros: number;
+  readonly preparationFailureProbabilityMicros: number;
+  readonly preparationStatus: 'PREPARED' | 'PARTIALLY_PREPARED' | 'UNPREPARED';
 }
 
 export interface BalletExerciseModifiers {
   readonly trainingSkills?: BalletTrainingSkillValues;
   readonly conditionModifier?: number;
+  readonly preparationFailureRoll?: number;
+}
+
+export interface PreviousPreparationFailure {
+  readonly outcome: BalletExerciseOutcome;
+  readonly status: BalletPreparationStatus;
+  readonly streak: number;
+}
+
+export function preparationFailureStreak(
+  previous: PreviousPreparationFailure | null,
+  outcome: BalletExerciseOutcome,
+  status: BalletPreparationStatus,
+): number {
+  if (outcome !== 'FAIL' || status === 'PREPARED') return 0;
+  const previousWasRepeatedFailure =
+    previous !== null && previous.outcome === 'FAIL' && previous.status !== 'PREPARED';
+  return Math.min(
+    BALLET_CLASS_CALIBRATION.maximumRecordedPreparationFailureStreak,
+    previousWasRepeatedFailure ? previous.streak + 1 : 1,
+  );
+}
+
+export function preparationReasonCode(
+  status: BalletPreparationStatus,
+  streak: number,
+): BalletPreparationReasonCode {
+  return streak >= 2 && status !== 'PREPARED' ? 'REPEATED_PREPARATION_FAILURE' : status;
 }
 
 export function evaluateBalletExercise(
@@ -93,6 +131,17 @@ export function evaluateBalletExercise(
     exercise.preparationRequirements.length === 0
       ? 0.5
       : preparationCount / exercise.preparationRequirements.length;
+  const failureRoll = modifiers.preparationFailureRoll ?? randomValue;
+  if (!Number.isFinite(failureRoll) || failureRoll < 0 || failureRoll >= 1) {
+    throw new RangeError('Preparation RNG must return a finite value in [0, 1).');
+  }
+  const deficit = Math.max(
+    0,
+    BALLET_CLASS_CALIBRATION.insufficientPreparationThreshold - preparationRatio,
+  );
+  const preparationFailureProbability =
+    (deficit / BALLET_CLASS_CALIBRATION.insufficientPreparationThreshold) *
+    BALLET_CLASS_CALIBRATION.unpreparedFailureChance;
   const preparationOffset =
     (preparationRatio - 0.5) * 2 * BALLET_CLASS_CALIBRATION.preparationAdjustment;
   const rollOffset = (randomValue - 0.5) * 2 * BALLET_CLASS_CALIBRATION.rollSwing;
@@ -104,8 +153,13 @@ export function evaluateBalletExercise(
     -(exercise.difficulty - 1) * BALLET_CLASS_CALIBRATION.difficultyPenalty +
     preparationOffset +
     rollOffset;
-  const score = Math.max(0, Math.min(100, Math.round(rawScore)));
-  const outcome = getExerciseOutcome(score);
+  const performanceScore = Math.max(0, Math.min(100, Math.round(rawScore)));
+  const scoreOutcome = getExerciseOutcome(performanceScore);
+  const preparationFailureTriggered = failureRoll < preparationFailureProbability;
+  const outcome = preparationFailureTriggered ? 'FAIL' : scoreOutcome;
+  const score = preparationFailureTriggered
+    ? Math.min(performanceScore, BALLET_CLASS_CALIBRATION.shakyMinimum - 1)
+    : performanceScore;
   const correction =
     outcome === 'SHAKY' || outcome === 'FAIL'
       ? {
@@ -114,7 +168,22 @@ export function evaluateBalletExercise(
         }
       : null;
 
-  return { score, outcome, correction, rollMicros: Math.floor(randomValue * 1_000_000) };
+  return {
+    score,
+    outcome,
+    correction,
+    rollMicros: Math.floor(randomValue * 1_000_000),
+    preparationFailureProbability,
+    preparationFailureTriggered,
+    preparationFailureRollMicros: Math.floor(failureRoll * 1_000_000),
+    preparationFailureProbabilityMicros: Math.floor(preparationFailureProbability * 1_000_000),
+    preparationStatus:
+      preparationCount === exercise.preparationRequirements.length
+        ? 'PREPARED'
+        : preparationCount === 0
+          ? 'UNPREPARED'
+          : 'PARTIALLY_PREPARED',
+  };
 }
 
 export function getExerciseOutcome(score: number): BalletExerciseOutcome {

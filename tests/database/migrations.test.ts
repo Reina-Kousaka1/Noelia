@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(26);
+    expect(migrations).toHaveLength(27);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -190,6 +190,11 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[25]?.sql).toContain("('academy-hand-me-down-flats', 'first-position')");
     expect(migrations[25]?.sql).toContain('ON CONFLICT (item_id, collection_id) DO NOTHING');
     expect(migrations[25]?.sql).not.toMatch(/\b(DROP|TRUNCATE)\b/i);
+    expect(migrations[26]).toMatchObject({ version: 27, name: 'weekly_preparation_stamina' });
+    expect(migrations[26]?.sql).toContain('ADD COLUMN consistency_stamina');
+    expect(migrations[26]?.sql).toContain('ADD COLUMN preparation_failure_roll_micros');
+    expect(migrations[26]?.sql).toContain('duration_days BETWEEN 1 AND 42');
+    expect(migrations[26]?.sql).not.toMatch(/\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i);
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -205,8 +210,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 26,
-      currentVersion: 26,
+      appliedCount: 27,
+      currentVersion: 27,
     });
 
     expect(statements).toContain('BEGIN');
@@ -361,6 +366,10 @@ describe('PostgreSQL migrations', () => {
         'academy_starterwear_first_position_collection',
         expect.stringMatching(/^[a-f0-9]{64}$/),
       ],
+    );
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO noelia_schema_migrations'),
+      [27, 'weekly_preparation_stamina', expect.stringMatching(/^[a-f0-9]{64}$/)],
     );
     expect(client.release).toHaveBeenCalledOnce();
   });

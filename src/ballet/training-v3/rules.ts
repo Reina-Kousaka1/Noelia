@@ -20,6 +20,14 @@ export const BALLET_TRAINING_V3_RULES = {
     number
   >,
   initialCondition: { energy: 70, nutrition: 70, fatigue: 10, sleepDebt: 0 },
+  consistencyStamina: {
+    initial: 100,
+    minimum: 0,
+    maximum: 150,
+    completedPeriodGain: 2,
+    partialPeriodThreshold: 0.75,
+    partialPeriodGain: 1,
+  },
   recoveryCooldownHours: 2,
   passiveRecovery: {
     energyPerHour: 2,
@@ -41,11 +49,22 @@ export const BALLET_TRAINING_V3_RULES = {
     REHABILITATE: { energy: 6, nutrition: 0, fatigue: -8, sleepDebt: 0 },
   } satisfies Record<BalletRecoveryAction, ConditionDelta>,
   staminaCycle: {
-    initialTargetWorkload: 6,
-    durationHours: 168,
+    initialTargetWorkload: 20,
+    durationDays: {
+      weeklyMaximumTarget: 20,
+      fortnightlyMaximumTarget: 40,
+      threeWeekMaximumTarget: 63,
+      weekly: 7,
+      fortnightly: 14,
+      threeWeeks: 21,
+      maximum: 42,
+    },
+    targetGrowthOnCompletion: 1.25,
+    carryoverShare: 0.5,
+    normalFloorRatio: 0.5,
     minimumTargetWorkload: 1,
-    maximumTargetWorkload: 20,
-    belowFloorExceptionProbability: 0.000001,
+    maximumTargetWorkload: 70,
+    belowFloorExceptionProbability: 0.000001, // exactly 0.0001% (1 in 1,000,000)
   },
   setback: {
     fatigueThreshold: 85,
@@ -102,7 +121,11 @@ export function createInitialTrainingSkills(): BalletTrainingSkillValues {
 
 export function createInitialCondition(now: Date): BalletConditionSnapshot {
   assertValidDate(now);
-  return { ...BALLET_TRAINING_V3_RULES.initialCondition, updatedAt: now };
+  return {
+    ...BALLET_TRAINING_V3_RULES.initialCondition,
+    consistencyStamina: BALLET_TRAINING_V3_RULES.consistencyStamina.initial,
+    updatedAt: now,
+  };
 }
 
 export function recoverConditionOverTime(
@@ -116,6 +139,7 @@ export function recoverConditionOverTime(
   );
   if (elapsedHours === 0) return condition;
   return {
+    consistencyStamina: condition.consistencyStamina,
     energy: clamp(
       condition.energy + elapsedHours * BALLET_TRAINING_V3_RULES.passiveRecovery.energyPerHour,
     ),
@@ -157,6 +181,7 @@ export function applyExerciseCondition(
     recovered.fatigue + costs.baseFatigue + difficulty * costs.difficultyFatigue,
   );
   return {
+    consistencyStamina: recovered.consistencyStamina,
     energy: clamp(recovered.energy - costs.baseEnergy - difficulty * costs.difficultyEnergy),
     nutrition: clamp(recovered.nutrition - costs.nutrition),
     fatigue,
@@ -173,6 +198,7 @@ export function applyRecoveryAction(
   const recovered = recoverConditionOverTime(current, now);
   const delta = BALLET_TRAINING_V3_RULES.recovery[action];
   return {
+    consistencyStamina: recovered.consistencyStamina,
     energy: clamp(recovered.energy + delta.energy),
     nutrition: clamp(recovered.nutrition + delta.nutrition),
     fatigue: clamp(recovered.fatigue + delta.fatigue),
@@ -187,41 +213,74 @@ export function nextStaminaCycle(
   now: Date,
   belowFloorRoll: number,
   targetRoll: number,
+  previousTargetWorkload = previousCompletedWorkload,
 ): BalletStaminaCycleSnapshot {
   assertUnitInterval(belowFloorRoll, 'Stamina floor exception RNG');
   assertUnitInterval(targetRoll, 'Stamina target RNG');
   if (!Number.isInteger(cycleNumber) || cycleNumber < 1)
     throw new RangeError('Cycle number must be positive.');
+  if (!Number.isInteger(previousTargetWorkload) || previousTargetWorkload < 0) {
+    throw new RangeError('Previous target workload must be a non-negative integer.');
+  }
   if (!Number.isInteger(previousCompletedWorkload) || previousCompletedWorkload < 0) {
     throw new RangeError('Completed workload must be a non-negative integer.');
   }
   assertValidDate(now);
   const config = BALLET_TRAINING_V3_RULES.staminaCycle;
-  const normalFloor = Math.max(
-    config.minimumTargetWorkload,
-    Math.ceil(previousCompletedWorkload * 0.5),
-  );
+  if (
+    previousTargetWorkload > config.maximumTargetWorkload ||
+    previousCompletedWorkload > previousTargetWorkload
+  ) {
+    throw new RangeError('Previous preparation workload is outside the configured bounds.');
+  }
+  const normalFloor =
+    cycleNumber === 1
+      ? config.initialTargetWorkload
+      : Math.max(
+          config.minimumTargetWorkload,
+          Math.ceil(previousTargetWorkload * config.normalFloorRatio),
+        );
   // The initial cycle is a fixed seed workload. The rare relaxation only
   // applies when adapting a later cycle to a completed prior workload.
   const belowFloorException =
     cycleNumber > 1 &&
     normalFloor > config.minimumTargetWorkload &&
     belowFloorRoll < config.belowFloorExceptionProbability;
-  const minimum = belowFloorException
-    ? Math.max(config.minimumTargetWorkload, normalFloor - 1)
-    : normalFloor;
+  const minimum =
+    cycleNumber === 1
+      ? config.initialTargetWorkload
+      : belowFloorException
+        ? normalFloor - 1
+        : Math.max(
+            normalFloor,
+            Math.min(previousTargetWorkload, previousCompletedWorkload),
+            previousTargetWorkload -
+              Math.ceil(
+                Math.max(0, previousTargetWorkload - previousCompletedWorkload) *
+                  config.carryoverShare,
+              ),
+          );
+  const missing = Math.max(0, previousTargetWorkload - previousCompletedWorkload);
   const maximum =
     cycleNumber === 1
       ? config.initialTargetWorkload
       : Math.min(
           config.maximumTargetWorkload,
-          Math.max(minimum, Math.ceil(previousCompletedWorkload * 1.25)),
+          Math.max(
+            minimum,
+            previousCompletedWorkload >= previousTargetWorkload
+              ? Math.ceil(previousTargetWorkload * config.targetGrowthOnCompletion)
+              : previousTargetWorkload + Math.ceil(missing * config.carryoverShare),
+          ),
         );
   const targetWorkload =
     cycleNumber === 1
       ? config.initialTargetWorkload
-      : minimum + Math.floor(targetRoll * (maximum - minimum + 1));
-  const durationMs = config.durationHours * 3_600_000;
+      : belowFloorException
+        ? normalFloor - 1
+        : minimum + Math.floor(targetRoll * (maximum - minimum + 1));
+  const durationDays = cycleDurationDays(targetWorkload);
+  const durationMs = durationDays * 24 * 3_600_000;
   return {
     cycleNumber,
     targetWorkload,
@@ -231,7 +290,67 @@ export function nextStaminaCycle(
     deadlineAt: new Date(now.getTime() + durationMs),
     completedAt: null,
     belowFloorException,
+    durationDays,
+    outcome: null,
+    finalizedAt: null,
+    staminaDelta: null,
+    floorRollMicros: Math.floor(belowFloorRoll * 1_000_000),
+    targetRollMicros: Math.floor(targetRoll * 1_000_000),
+    carryoverFromCycleNumber: cycleNumber > 1 ? cycleNumber - 1 : null,
   };
+}
+
+export function finalizeStaminaPeriod(
+  cycle: BalletStaminaCycleSnapshot,
+  stamina: number,
+  finalizedAt: Date,
+): {
+  readonly stamina: number;
+  readonly delta: number;
+  readonly outcome: 'WEEKLY_GOAL_COMPLETED' | 'WEEKLY_GOAL_MISSED';
+} {
+  assertValidDate(finalizedAt);
+  const policy = BALLET_TRAINING_V3_RULES.consistencyStamina;
+  if (
+    !Number.isInteger(cycle.targetWorkload) ||
+    cycle.targetWorkload < 1 ||
+    cycle.targetWorkload > BALLET_TRAINING_V3_RULES.staminaCycle.maximumTargetWorkload ||
+    !Number.isInteger(cycle.completedWorkload) ||
+    cycle.completedWorkload < 0 ||
+    cycle.completedWorkload > cycle.targetWorkload
+  ) {
+    throw new RangeError('Preparation cycle workload is outside the configured bounds.');
+  }
+  if (!Number.isInteger(stamina) || stamina < policy.minimum || stamina > policy.maximum) {
+    throw new RangeError('Consistency stamina is outside its configured bounds.');
+  }
+  const completed = cycle.completedWorkload >= cycle.targetWorkload;
+  const ratio = cycle.targetWorkload === 0 ? 0 : cycle.completedWorkload / cycle.targetWorkload;
+  const delta = completed
+    ? policy.completedPeriodGain
+    : ratio >= policy.partialPeriodThreshold
+      ? policy.partialPeriodGain
+      : 0;
+  return {
+    stamina: Math.min(policy.maximum, stamina + delta),
+    delta: Math.min(policy.maximum - stamina, delta),
+    outcome: completed ? 'WEEKLY_GOAL_COMPLETED' : 'WEEKLY_GOAL_MISSED',
+  };
+}
+
+export function cycleDurationDays(targetWorkload: number): number {
+  if (
+    !Number.isInteger(targetWorkload) ||
+    targetWorkload < 1 ||
+    targetWorkload > BALLET_TRAINING_V3_RULES.staminaCycle.maximumTargetWorkload
+  ) {
+    throw new RangeError('Preparation workload is outside the configured bounds.');
+  }
+  const policy = BALLET_TRAINING_V3_RULES.staminaCycle.durationDays;
+  if (targetWorkload <= policy.weeklyMaximumTarget) return policy.weekly;
+  if (targetWorkload <= policy.fortnightlyMaximumTarget) return policy.fortnightly;
+  if (targetWorkload <= policy.threeWeekMaximumTarget) return policy.threeWeeks;
+  return policy.maximum;
 }
 
 export function shouldCreateTrainingSetback(

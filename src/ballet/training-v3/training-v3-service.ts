@@ -12,6 +12,7 @@ import {
   conditionScoreModifier,
   createInitialCondition,
   createInitialTrainingSkills,
+  finalizeStaminaPeriod,
   nextStaminaCycle,
   recoverConditionOverTime,
   shouldCreateTrainingSetback,
@@ -38,6 +39,7 @@ import type {
 } from './types.js';
 
 interface ConditionRow extends QueryResultRow {
+  readonly consistency_stamina: number;
   readonly energy: number;
   readonly nutrition: number;
   readonly fatigue: number;
@@ -59,6 +61,13 @@ interface CycleRow extends QueryResultRow {
   readonly deadline_at: Date;
   readonly completed_at: Date | null;
   readonly below_floor_exception: boolean;
+  readonly duration_days: number;
+  readonly floor_roll_micros: number | null;
+  readonly target_roll_micros: number | null;
+  readonly carryover_from_cycle_number: number | null;
+  readonly cycle_outcome: string | null;
+  readonly finalized_at: Date | null;
+  readonly stamina_delta: number | null;
 }
 
 interface SetbackRow extends QueryResultRow {
@@ -121,8 +130,10 @@ export class BalletTrainingV3Service {
   public async getSnapshot(discordUserId: string): Promise<BalletTrainingV3Snapshot> {
     assertDiscordSnowflake(discordUserId, 'Discord user ID');
     return withTransaction(this.pool, async (client) => {
-      await client.query('SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY');
+      await ensureAndLockUser(client, discordUserId);
+      await ensureStateRows(client, discordUserId);
       const now = await this.getCurrentTime(client);
+      await ensurePreparationCycle(client, discordUserId, now, this.random);
       return loadSnapshot(client, discordUserId, now);
     });
   }
@@ -148,6 +159,7 @@ export class BalletTrainingV3Service {
       }
 
       const now = await this.getCurrentTime(client);
+      await ensurePreparationCycle(client, discordUserId, now, this.random);
       const lastAction = await client.query<{ readonly created_at: Date }>(
         `SELECT created_at FROM ballet_training_actions
          WHERE discord_user_id = $1 AND action_type <> 'SHOE_FIT'
@@ -363,6 +375,24 @@ export class BalletTrainingV3Service {
     return loadSnapshot(client, input.discordUserId, now);
   }
 
+  /** Record Foundation-stage workload without unlocking V3 skills or condition modifiers. */
+  public async recordPreparationWorkloadWithinTransaction(
+    client: PoolClient,
+    input: {
+      readonly interactionId: string;
+      readonly discordUserId: string;
+      readonly sourceType: 'CLASS_ATTEMPT' | 'BALLET_PRACTICE';
+      readonly sourceReference: string;
+    },
+  ): Promise<void> {
+    const now = await this.getCurrentTime(client);
+    await recordWorkload(client, {
+      ...input,
+      now,
+      random: this.random,
+    });
+  }
+
   private async getCurrentTime(client: PoolClient): Promise<Date> {
     const now = await this.clock(client);
     if (!(now instanceof Date) || Number.isNaN(now.getTime())) {
@@ -444,13 +474,14 @@ async function loadCondition(
   forUpdate: boolean,
 ): Promise<BalletConditionSnapshot> {
   const result = await client.query<ConditionRow>(
-    `SELECT energy, nutrition, fatigue, sleep_debt, updated_at
+    `SELECT consistency_stamina, energy, nutrition, fatigue, sleep_debt, updated_at
      FROM ballet_training_condition WHERE discord_user_id = $1${forUpdate ? ' FOR UPDATE' : ''}`,
     [discordUserId],
   );
   const row = result.rows[0];
   if (row === undefined) return createInitialCondition(now);
   return {
+    consistencyStamina: row.consistency_stamina,
     energy: row.energy,
     nutrition: row.nutrition,
     fatigue: row.fatigue,
@@ -466,16 +497,18 @@ async function saveCondition(
 ): Promise<void> {
   await client.query(
     `INSERT INTO ballet_training_condition
-       (discord_user_id, energy, nutrition, fatigue, sleep_debt, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6)
+       (discord_user_id, consistency_stamina, energy, nutrition, fatigue, sleep_debt, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
      ON CONFLICT (discord_user_id) DO UPDATE
-       SET energy = EXCLUDED.energy,
+       SET consistency_stamina = EXCLUDED.consistency_stamina,
+           energy = EXCLUDED.energy,
            nutrition = EXCLUDED.nutrition,
            fatigue = EXCLUDED.fatigue,
            sleep_debt = EXCLUDED.sleep_debt,
            updated_at = EXCLUDED.updated_at`,
     [
       discordUserId,
+      condition.consistencyStamina,
       condition.energy,
       condition.nutrition,
       condition.fatigue,
@@ -491,7 +524,9 @@ async function loadLatestCycle(
   now: Date,
 ): Promise<BalletStaminaCycleSnapshot | null> {
   const result = await client.query<CycleRow>(
-    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at, completed_at, below_floor_exception
+    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at, completed_at,
+            below_floor_exception, duration_days, floor_roll_micros, target_roll_micros,
+            carryover_from_cycle_number, cycle_outcome, finalized_at, stamina_delta
      FROM ballet_stamina_cycles WHERE discord_user_id = $1
      ORDER BY cycle_number DESC LIMIT 1`,
     [discordUserId],
@@ -501,16 +536,10 @@ async function loadLatestCycle(
   if (row.status !== 'ACTIVE' && row.status !== 'COMPLETED' && row.status !== 'EXPIRED')
     throw new Error('Invalid persisted stamina cycle status.');
   const expired = row.status === 'ACTIVE' && row.deadline_at.getTime() <= now.getTime();
-  return {
-    cycleNumber: row.cycle_number,
-    targetWorkload: row.target_workload,
-    completedWorkload: row.completed_workload,
+  return cycleRowToSnapshot({
+    ...row,
     status: expired ? 'EXPIRED' : row.status,
-    startedAt: row.started_at,
-    deadlineAt: row.deadline_at,
-    completedAt: row.completed_at,
-    belowFloorException: row.below_floor_exception,
-  };
+  });
 }
 
 async function loadLatestSetback(
@@ -643,52 +672,24 @@ async function recordWorkload(
     random: () => number;
   },
 ): Promise<void> {
+  await ensurePreparationCycle(client, input.discordUserId, input.now, input.random);
+  const recent = await client.query<{ readonly event_count: string }>(
+    `SELECT count(*)::text AS event_count FROM ballet_stamina_workload_events
+     WHERE discord_user_id = $1 AND recorded_at >= $2::timestamptz - interval '24 hours'`,
+    [input.discordUserId, input.now],
+  );
+  if (
+    Number(recent.rows[0]?.event_count ?? '0') >= BALLET_TRAINING_V3_RULES.maximumSkillEventsPerDay
+  )
+    return;
   const active = await client.query<CycleRow>(
-    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at, completed_at, below_floor_exception
+    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at,
+            completed_at, below_floor_exception, duration_days, floor_roll_micros,
+            target_roll_micros, carryover_from_cycle_number, cycle_outcome, finalized_at, stamina_delta
      FROM ballet_stamina_cycles WHERE discord_user_id = $1 AND status = 'ACTIVE' FOR UPDATE`,
     [input.discordUserId],
   );
-  let cycle = active.rows[0];
-  if (cycle !== undefined && cycle.deadline_at.getTime() <= input.now.getTime()) {
-    await client.query(
-      `UPDATE ballet_stamina_cycles SET status = 'EXPIRED' WHERE discord_user_id = $1 AND status = 'ACTIVE'`,
-      [input.discordUserId],
-    );
-    cycle = undefined;
-  }
-  if (cycle === undefined) {
-    const previous = await client.query<CycleRow>(
-      `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at, completed_at, below_floor_exception
-       FROM ballet_stamina_cycles WHERE discord_user_id = $1
-       ORDER BY cycle_number DESC LIMIT 1 FOR UPDATE`,
-      [input.discordUserId],
-    );
-    const old = previous.rows[0];
-    const nextNumber = (old?.cycle_number ?? 0) + 1;
-    const generated = nextStaminaCycle(
-      nextNumber,
-      old?.completed_workload ?? 0,
-      input.now,
-      input.random(),
-      input.random(),
-    );
-    const inserted = await client.query<CycleRow>(
-      `INSERT INTO ballet_stamina_cycles
-         (cycle_id, discord_user_id, cycle_number, target_workload, completed_workload, status, below_floor_exception, started_at, deadline_at)
-       VALUES ($1, $2, $3, $4, 0, 'ACTIVE', $5, $6, $7)
-       RETURNING cycle_number, target_workload, completed_workload, status, started_at, deadline_at, completed_at, below_floor_exception`,
-      [
-        randomUUID(),
-        input.discordUserId,
-        generated.cycleNumber,
-        generated.targetWorkload,
-        generated.belowFloorException,
-        generated.startedAt,
-        generated.deadlineAt,
-      ],
-    );
-    cycle = inserted.rows[0];
-  }
+  const cycle = active.rows[0];
   if (cycle === undefined) throw new Error('Stamina cycle could not be initialized.');
   const event = await client.query(
     `INSERT INTO ballet_stamina_workload_events
@@ -709,11 +710,156 @@ async function recordWorkload(
     `UPDATE ballet_stamina_cycles
      SET completed_workload = completed_workload + 1,
          status = CASE WHEN completed_workload + 1 >= target_workload THEN 'COMPLETED' ELSE 'ACTIVE' END,
-         completed_at = CASE WHEN completed_workload + 1 >= target_workload THEN $2::timestamptz ELSE NULL END
+         completed_at = CASE WHEN completed_workload + 1 >= target_workload THEN $2::timestamptz ELSE NULL END,
+         cycle_outcome = CASE WHEN completed_workload + 1 >= target_workload THEN 'WEEKLY_GOAL_COMPLETED' ELSE NULL END,
+         finalized_at = CASE WHEN completed_workload + 1 >= target_workload THEN $2::timestamptz ELSE NULL END,
+         stamina_delta = NULL
      WHERE discord_user_id = $1 AND cycle_number = $3 AND status = 'ACTIVE'`,
     [input.discordUserId, input.now, cycle.cycle_number],
   );
   if (updated.rowCount !== 1) throw new Error('Stamina cycle workload was not advanced.');
+  if (cycle.completed_workload + 1 >= cycle.target_workload) {
+    const staminaDelta = await applyCycleStamina(
+      client,
+      input.discordUserId,
+      { ...cycle, completed_workload: cycle.completed_workload + 1 },
+      input.now,
+    );
+    await client.query(
+      `UPDATE ballet_stamina_cycles SET stamina_delta = $3
+       WHERE discord_user_id = $1 AND cycle_number = $2 AND status = 'COMPLETED'`,
+      [input.discordUserId, cycle.cycle_number, staminaDelta],
+    );
+    await ensurePreparationCycle(client, input.discordUserId, input.now, input.random);
+  }
+}
+
+async function ensurePreparationCycle(
+  client: PoolClient,
+  discordUserId: string,
+  now: Date,
+  random: () => number,
+): Promise<void> {
+  const activeResult = await client.query<CycleRow>(
+    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at,
+            completed_at, below_floor_exception, duration_days, floor_roll_micros,
+            target_roll_micros, carryover_from_cycle_number, cycle_outcome, finalized_at, stamina_delta
+     FROM ballet_stamina_cycles WHERE discord_user_id = $1 AND status = 'ACTIVE' FOR UPDATE`,
+    [discordUserId],
+  );
+  let active = activeResult.rows[0];
+  if (active !== undefined && active.deadline_at.getTime() <= now.getTime()) {
+    await finalizeExpiredCycle(client, discordUserId, active, now);
+    active = undefined;
+  }
+  if (active !== undefined) return;
+
+  const previousResult = await client.query<CycleRow>(
+    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at,
+            completed_at, below_floor_exception, duration_days, floor_roll_micros,
+            target_roll_micros, carryover_from_cycle_number, cycle_outcome, finalized_at, stamina_delta
+     FROM ballet_stamina_cycles WHERE discord_user_id = $1
+     ORDER BY cycle_number DESC LIMIT 1 FOR UPDATE`,
+    [discordUserId],
+  );
+  const previous = previousResult.rows[0];
+  const generated = nextStaminaCycle(
+    (previous?.cycle_number ?? 0) + 1,
+    previous?.completed_workload ?? 0,
+    now,
+    random(),
+    random(),
+    previous?.target_workload ?? 0,
+  );
+  await client.query(
+    `INSERT INTO ballet_stamina_cycles
+       (cycle_id, discord_user_id, cycle_number, target_workload, completed_workload, status,
+        below_floor_exception, started_at, deadline_at, duration_days, floor_roll_micros,
+        target_roll_micros, carryover_from_cycle_number)
+     VALUES ($1, $2, $3, $4, 0, 'ACTIVE', $5, $6, $7, $8, $9, $10, $11)`,
+    [
+      randomUUID(),
+      discordUserId,
+      generated.cycleNumber,
+      generated.targetWorkload,
+      generated.belowFloorException,
+      generated.startedAt,
+      generated.deadlineAt,
+      generated.durationDays,
+      generated.floorRollMicros,
+      generated.targetRollMicros,
+      previous?.cycle_number ?? null,
+    ],
+  );
+}
+
+async function finalizeExpiredCycle(
+  client: PoolClient,
+  discordUserId: string,
+  cycle: CycleRow,
+  now: Date,
+): Promise<void> {
+  const snapshot = cycleRowToSnapshot(cycle);
+  const condition = recoverConditionOverTime(
+    await loadCondition(client, discordUserId, now, true),
+    now,
+  );
+  const result = finalizeStaminaPeriod(snapshot, condition.consistencyStamina, now);
+  const finalized = await client.query(
+    `UPDATE ballet_stamina_cycles
+     SET status = 'EXPIRED', cycle_outcome = $3, finalized_at = $4, stamina_delta = $5
+     WHERE discord_user_id = $1 AND cycle_number = $2 AND status = 'ACTIVE'`,
+    [discordUserId, cycle.cycle_number, result.outcome, now, result.delta],
+  );
+  if (finalized.rowCount !== 1) return;
+  await saveCondition(client, discordUserId, {
+    ...condition,
+    consistencyStamina: result.stamina,
+    updatedAt: now,
+  });
+}
+
+async function applyCycleStamina(
+  client: PoolClient,
+  discordUserId: string,
+  cycle: CycleRow,
+  now: Date,
+): Promise<number> {
+  const condition = recoverConditionOverTime(
+    await loadCondition(client, discordUserId, now, true),
+    now,
+  );
+  const result = finalizeStaminaPeriod(
+    cycleRowToSnapshot(cycle),
+    condition.consistencyStamina,
+    now,
+  );
+  await saveCondition(client, discordUserId, {
+    ...condition,
+    consistencyStamina: result.stamina,
+    updatedAt: now,
+  });
+  return result.delta;
+}
+
+function cycleRowToSnapshot(row: CycleRow): BalletStaminaCycleSnapshot {
+  return {
+    cycleNumber: row.cycle_number,
+    targetWorkload: row.target_workload,
+    completedWorkload: row.completed_workload,
+    status: row.status as BalletStaminaCycleSnapshot['status'],
+    startedAt: row.started_at,
+    deadlineAt: row.deadline_at,
+    completedAt: row.completed_at,
+    belowFloorException: row.below_floor_exception,
+    durationDays: row.duration_days,
+    outcome: row.cycle_outcome as BalletStaminaCycleSnapshot['outcome'],
+    finalizedAt: row.finalized_at,
+    staminaDelta: row.stamina_delta,
+    floorRollMicros: row.floor_roll_micros,
+    targetRollMicros: row.target_roll_micros,
+    carryoverFromCycleNumber: row.carryover_from_cycle_number,
+  };
 }
 
 async function getDatabaseTime(client: PoolClient): Promise<Date> {
@@ -825,6 +971,10 @@ function normalizeSnapshot(value: unknown): BalletTrainingV3Snapshot {
   }
   const conditionRaw = getObject(raw.condition);
   const condition: BalletConditionSnapshot = {
+    consistencyStamina:
+      typeof conditionRaw.consistencyStamina === 'number'
+        ? conditionRaw.consistencyStamina
+        : BALLET_TRAINING_V3_RULES.consistencyStamina.initial,
     energy: numberField(conditionRaw.energy),
     nutrition: numberField(conditionRaw.nutrition),
     fatigue: numberField(conditionRaw.fatigue),
@@ -852,6 +1002,25 @@ function normalizeSnapshot(value: unknown): BalletTrainingV3Snapshot {
             deadlineAt: parseDate(cycleRaw.deadlineAt),
             completedAt: cycleRaw.completedAt === null ? null : parseDate(cycleRaw.completedAt),
             belowFloorException: cycleRaw.belowFloorException === true,
+            durationDays: typeof cycleRaw.durationDays === 'number' ? cycleRaw.durationDays : 7,
+            outcome:
+              cycleRaw.outcome === 'WEEKLY_GOAL_COMPLETED' ||
+              cycleRaw.outcome === 'WEEKLY_GOAL_MISSED'
+                ? cycleRaw.outcome
+                : null,
+            finalizedAt:
+              cycleRaw.finalizedAt === null || cycleRaw.finalizedAt === undefined
+                ? null
+                : parseDate(cycleRaw.finalizedAt),
+            staminaDelta: typeof cycleRaw.staminaDelta === 'number' ? cycleRaw.staminaDelta : null,
+            floorRollMicros:
+              typeof cycleRaw.floorRollMicros === 'number' ? cycleRaw.floorRollMicros : null,
+            targetRollMicros:
+              typeof cycleRaw.targetRollMicros === 'number' ? cycleRaw.targetRollMicros : null,
+            carryoverFromCycleNumber:
+              typeof cycleRaw.carryoverFromCycleNumber === 'number'
+                ? cycleRaw.carryoverFromCycleNumber
+                : null,
           },
     setback: {
       status,

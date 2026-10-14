@@ -34,11 +34,11 @@ Academy comfort is a fictional game value only. It increases through saved
 foundations and completed scheduled classes. It is not a measurement of a
 person, clothing size, health, or real-world readiness.
 
-V3 skill/condition/stamina effects remain locked during Pre-School Dance and
-Preparatory Dance, then join the existing class and activity loop from
-Pre-Primary onward. The earlier Academy stages still use their existing Ballet
-curriculum and progression; this gate only delays the newer structured-training
-effects until the intended transition.
+V3 skill and short-term condition effects remain locked during Pre-School Dance
+and Preparatory Dance, then join the existing class and activity loop from
+Pre-Primary onward. Weekly Preparation workload is recorded at every Academy
+stage, so the consistency plan is part of the full Academy curriculum. Earlier
+stages retain their existing Ballet curriculum and progression.
 
 ## Attendance and fair recovery
 

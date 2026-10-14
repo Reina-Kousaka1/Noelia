@@ -10,6 +10,7 @@ import { BALLET_CLASS_TYPE_CATALOG } from '../../ballet/class/catalog.js';
 import { isBalletClassType } from '../../ballet/class/curriculum.js';
 import { renderBalletClassMessage } from './class-presentation.js';
 import { BALLET_RECOVERY_ACTIONS } from '../../ballet/training-v3/types.js';
+import { BALLET_TRAINING_V3_RULES } from '../../ballet/training-v3/rules.js';
 
 const activityChoices = BALLET_ACTIVITY_CODES.map((code) => ({
   name: code
@@ -73,8 +74,7 @@ export const balletCommand: SlashCommand = {
       },
       {
         name: 'training',
-        description:
-          'View fictional training skills, condition, stamina cycle, and recovery status.',
+        description: 'View your weekly Preparation plan, Ballet readiness, and recovery status.',
         type: Eris.Constants.ApplicationCommandOptionTypes.SUB_COMMAND,
       },
       {
@@ -123,8 +123,8 @@ export const balletCommand: SlashCommand = {
         .join(' · ');
       const cycle =
         snapshot.staminaCycle === null
-          ? 'No stamina cycle has started; it begins with your next completed practice or class exercise.'
-          : `${snapshot.staminaCycle.status} · ${snapshot.staminaCycle.completedWorkload}/${snapshot.staminaCycle.targetWorkload} workload · deadline <t:${Math.floor(snapshot.staminaCycle.deadlineAt.getTime() / 1_000)}:R>`;
+          ? 'No Preparation period is active yet.'
+          : `${snapshot.staminaCycle.status} · ${snapshot.staminaCycle.completedWorkload}/${snapshot.staminaCycle.targetWorkload} exercises · ${snapshot.staminaCycle.durationDays} days · deadline <t:${Math.floor(snapshot.staminaCycle.deadlineAt.getTime() / 1_000)}:R>`;
       const setback =
         snapshot.setback.status === 'ACTIVE'
           ? `Active fictional training setback: ${snapshot.setback.completedRehabSessions}/${snapshot.setback.requiredRehabSessions} recovery sessions. It never diagnoses or describes a real injury.`
@@ -144,7 +144,9 @@ export const balletCommand: SlashCommand = {
               description: [
                 `**V3 skills:** ${skills}`,
                 `**Game condition:** Energy ${snapshot.condition.energy} · Nutrition ${snapshot.condition.nutrition} · Fatigue ${snapshot.condition.fatigue} · Sleep debt ${snapshot.condition.sleepDebt}`,
-                `**Stamina cycle:** ${cycle}`,
+                `**Long-term Academy stamina:** ${snapshot.condition.consistencyStamina}/${BALLET_TRAINING_V3_RULES.consistencyStamina.maximum}. It begins at ${BALLET_TRAINING_V3_RULES.consistencyStamina.initial}; a completed period adds ${BALLET_TRAINING_V3_RULES.consistencyStamina.completedPeriodGain}, a period at ${Math.round(BALLET_TRAINING_V3_RULES.consistencyStamina.partialPeriodThreshold * 100)}% adds ${BALLET_TRAINING_V3_RULES.consistencyStamina.partialPeriodGain}, and lower completion adds 0. Recovery actions restore short-term condition only.`,
+                `**Weekly Preparation / Gymnastics:** ${cycle}`,
+                '**Counted exercises:** complete Ballet practice activities or exercises in a guided Ballet class, including Conditioning classes. Up to five workload events count in any rolling 24 hours; class remains available when preparation is incomplete.',
                 `**Setback:** ${setback}`,
                 '**Note:** these are fictional gameplay values only, not real training, health, sleep, or nutrition guidance.',
               ].join('\n\n'),

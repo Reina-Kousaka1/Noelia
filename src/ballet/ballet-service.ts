@@ -476,6 +476,13 @@ export class BalletService implements BalletProgressPort {
             discordUserId,
             activityCode,
           });
+        } else {
+          await this.trainingV3.recordPreparationWorkloadWithinTransaction(client, {
+            interactionId,
+            discordUserId,
+            sourceType: 'BALLET_PRACTICE',
+            sourceReference: activityCode + ':' + interactionId,
+          });
         }
       }
 

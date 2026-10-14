@@ -20,6 +20,8 @@ export type BalletStaminaCycleStatus = 'ACTIVE' | 'COMPLETED' | 'EXPIRED';
 export type BalletTrainingSetbackKind = 'MINOR_TRAINING_STRAIN';
 
 export interface BalletConditionSnapshot {
+  /** Long-term, game-only consistency stamina; separate from short-term condition. */
+  readonly consistencyStamina: number;
   readonly energy: number;
   readonly nutrition: number;
   readonly fatigue: number;
@@ -36,6 +38,13 @@ export interface BalletStaminaCycleSnapshot {
   readonly deadlineAt: Date;
   readonly completedAt: Date | null;
   readonly belowFloorException: boolean;
+  readonly durationDays: number;
+  readonly outcome: 'WEEKLY_GOAL_COMPLETED' | 'WEEKLY_GOAL_MISSED' | null;
+  readonly finalizedAt: Date | null;
+  readonly staminaDelta: number | null;
+  readonly floorRollMicros: number | null;
+  readonly targetRollMicros: number | null;
+  readonly carryoverFromCycleNumber: number | null;
 }
 
 export interface BalletTrainingSetbackSnapshot {

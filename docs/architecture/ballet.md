@@ -64,9 +64,43 @@ increase Ballet Slippers rewards.
 
 The separate /ballet class flow stores a versioned, Academy-stage-aware
 session and uses the same six Ballet stats as weighted exercise inputs.
-Preparation is session-specific, optional, and persisted. Exercise outcomes,
-the single RNG roll, skill/preparation snapshots, corrections, interaction
-idempotency, and final review are saved independently from the existing
-deterministic /performance domain. Completed class/section evidence feeds the
-existing Academy activity-evidence query. See ballet-classes.md for the data
-flow and transaction boundaries.
+Preparation remains session-specific, persisted, and never a hard lock. A
+separate, independent preparation roll applies a centralized failure risk:
+zero required preparation reaches 65%, and partial preparation scales that
+risk down linearly until half of the requirements are met. The score RNG and
+preparation RNG are persisted separately, so saved outcomes replay without a
+new roll. Unprepared training can still be attempted.
+Class-attempt history stores neutral Preparation status/reason codes and a
+bounded repeated-failure streak for a later Madame-consequence phase.
+
+## Weekly Preparation and consistency stamina
+
+The V3 stamina workload tables are the durable source for Weekly Preparation /
+Gymnastics plans; no parallel plan or cooldown table is created. A new player
+gets a persisted 20-exercise, seven-day plan when `/ballet training` is opened.
+Successful guided-class exercises and Ballet practice activities record
+append-only workload events. This foundation workload is counted at every
+Academy stage, while V3 skills and short-term condition modifiers remain gated
+as before. The existing five-per-rolling-24-hour skill event ceiling also caps
+Preparation workload credit to prevent minute-scale grinding.
+
+Long-term consistency stamina is separate from the legacy Ballet `stamina`
+stat and short-term energy/fatigue. It starts at 100, is bounded to 0–150, and
+changes only when a period is finalized: a completed target adds 2, a missed
+period with at least 75% completion adds 1, and lower completion adds 0.
+Recovery actions affect only short-term condition.
+
+Targets are centrally bounded at 70. Completed periods can generate targets
+between the previous target and 125%; missed periods use capped half-missing
+carryover. The normal floor is 50% of the previous target. The named exception
+has probability exactly `0.000001` (0.0001%, one in one million) and can lower
+the target range below that floor. Periods use UTC elapsed time: 7 days through
+20 exercises, 14 days through 40, 21 days through 63, and 42 days above 63.
+RNG rolls, cycle number, outcome, stamina delta, and finalization time are
+stored with each cycle. A user row lock and the active-cycle unique index make
+lazy finalization safe across restarts and duplicate requests.
+
+Migration `027_weekly_preparation_stamina.sql` adds the long-term stamina value,
+cycle policy/audit fields, and separate performance-roll audit columns. It
+preserves existing cycles and class attempts. Migration `025` and `026` remain
+unchanged.

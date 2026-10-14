@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { buildBalletClassCurriculum } from '../../src/ballet/class/curriculum.js';
 import { BALLET_CLASS_EXERCISES } from '../../src/ballet/class/catalog.js';
-import { evaluateBalletExercise, getExerciseOutcome } from '../../src/ballet/class/performance.js';
+import {
+  evaluateBalletExercise,
+  getExerciseOutcome,
+  preparationFailureStreak,
+  preparationReasonCode,
+} from '../../src/ballet/class/performance.js';
 import { buildBalletClassReview } from '../../src/ballet/class/review.js';
 import type { BalletStats } from '../../src/ballet/types.js';
 import type { BalletClassAttempt } from '../../src/ballet/class/types.js';
@@ -91,18 +96,83 @@ describe('Ballet Academy class engine', () => {
   it('allows missing or partial preparation and applies a bounded score adjustment', () => {
     const exercise = buildBalletClassCurriculum('minis-bambinis', 'BARRE_FOCUS', classId)
       .exercises[0]!;
-    const withoutPreparation = evaluateBalletExercise(exercise, zeroStats, new Set(), 0.5);
-    const partial = evaluateBalletExercise(exercise, zeroStats, new Set(['GENERAL_WARM_UP']), 0.5);
+    const withoutPreparation = evaluateBalletExercise(exercise, zeroStats, new Set(), 0.5, {
+      preparationFailureRoll: 0.99,
+    });
+    const partial = evaluateBalletExercise(exercise, zeroStats, new Set(['GENERAL_WARM_UP']), 0.5, {
+      preparationFailureRoll: 0.99,
+    });
     const fullyPrepared = evaluateBalletExercise(
       exercise,
       zeroStats,
       new Set(exercise.preparationRequirements),
       0.5,
+      { preparationFailureRoll: 0.99 },
     );
 
     expect(withoutPreparation.score).toBeDefined();
     expect(partial.score).toBeGreaterThanOrEqual(withoutPreparation.score);
     expect(fullyPrepared.score).toBeGreaterThanOrEqual(partial.score);
+  });
+
+  it('applies the bounded 65% unprepared risk through an independent deterministic roll', () => {
+    const exercise = buildBalletClassCurriculum('minis-bambinis', 'BARRE_FOCUS', classId)
+      .exercises[0]!;
+    const unpreparedFail = evaluateBalletExercise(exercise, strongStats, new Set(), 0.99, {
+      preparationFailureRoll: 0.649999,
+    });
+    const unpreparedPass = evaluateBalletExercise(exercise, strongStats, new Set(), 0.99, {
+      preparationFailureRoll: 0.65,
+    });
+    const partial = evaluateBalletExercise(
+      { ...exercise, preparationRequirements: ['GENERAL_WARM_UP', 'MOBILITY'] },
+      strongStats,
+      new Set(['GENERAL_WARM_UP']),
+      0.99,
+      { preparationFailureRoll: 0.5 },
+    );
+    const prepared = evaluateBalletExercise(
+      exercise,
+      strongStats,
+      new Set(exercise.preparationRequirements),
+      0.99,
+      { preparationFailureRoll: 0 },
+    );
+
+    expect(unpreparedFail).toMatchObject({
+      outcome: 'FAIL',
+      preparationFailureProbability: 0.65,
+      preparationFailureTriggered: true,
+      preparationStatus: 'UNPREPARED',
+    });
+    expect(unpreparedFail.score).toBeLessThan(45);
+    expect(unpreparedPass).toMatchObject({
+      outcome: 'PERFECT',
+      preparationFailureProbability: 0.65,
+      preparationFailureTriggered: false,
+    });
+    expect(partial.preparationFailureProbability).toBeLessThan(0.65);
+    expect(prepared.preparationFailureProbability).toBe(0);
+    expect(prepared.outcome).toBe('PERFECT');
+  });
+
+  it('emits neutral reason codes and bounds repeated preparation-failure history', () => {
+    const prior = { outcome: 'FAIL' as const, status: 'UNPREPARED' as const, streak: 1 };
+    const streak = preparationFailureStreak(prior, 'FAIL', 'PARTIALLY_PREPARED');
+    expect(streak).toBe(2);
+    expect(preparationReasonCode('PARTIALLY_PREPARED', streak)).toBe(
+      'REPEATED_PREPARATION_FAILURE',
+    );
+    expect(preparationFailureStreak(prior, 'SUCCESS', 'UNPREPARED')).toBe(0);
+    expect(preparationFailureStreak(prior, 'FAIL', 'PREPARED')).toBe(0);
+    expect(
+      preparationFailureStreak(
+        { outcome: 'FAIL', status: 'UNPREPARED', streak: 100 },
+        'FAIL',
+        'UNPREPARED',
+      ),
+    ).toBe(100);
+    expect(preparationReasonCode('PREPARED', 0)).toBe('PREPARED');
   });
 
   it('uses the existing Ballet stats and one injected random roll for performance', () => {
@@ -156,16 +226,26 @@ describe('Ballet Academy class engine', () => {
     const prepared = new Set(beginnerExercise.preparationRequirements);
     const proficientStats = { ...zeroStats, technique: 20 };
 
-    expect(evaluateBalletExercise(beginnerExercise, strongStats, prepared, 0.99).outcome).toBe(
-      'PERFECT',
-    );
-    expect(evaluateBalletExercise(beginnerExercise, proficientStats, prepared, 0.5).outcome).toBe(
-      'SUCCESS',
-    );
-    expect(evaluateBalletExercise(beginnerExercise, zeroStats, new Set(), 0.5).outcome).toBe(
-      'SHAKY',
-    );
-    expect(evaluateBalletExercise(advancedExercise, zeroStats, new Set(), 0).outcome).toBe('FAIL');
+    expect(
+      evaluateBalletExercise(beginnerExercise, strongStats, prepared, 0.99, {
+        preparationFailureRoll: 0.99,
+      }).outcome,
+    ).toBe('PERFECT');
+    expect(
+      evaluateBalletExercise(beginnerExercise, proficientStats, prepared, 0.5, {
+        preparationFailureRoll: 0.99,
+      }).outcome,
+    ).toBe('SUCCESS');
+    expect(
+      evaluateBalletExercise(beginnerExercise, zeroStats, new Set(), 0.5, {
+        preparationFailureRoll: 0.99,
+      }).outcome,
+    ).toBe('SHAKY');
+    expect(
+      evaluateBalletExercise(advancedExercise, zeroStats, new Set(), 0, {
+        preparationFailureRoll: 0.99,
+      }).outcome,
+    ).toBe('FAIL');
   });
 
   it('maps the full outcome scale deterministically and rejects invalid random values', () => {

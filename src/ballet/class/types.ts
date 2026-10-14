@@ -54,6 +54,8 @@ export const BALLET_CORRECTION_CATEGORIES = [
 
 export type BalletCorrectionCategory = (typeof BALLET_CORRECTION_CATEGORIES)[number];
 export type BalletExerciseOutcome = 'PERFECT' | 'SUCCESS' | 'SHAKY' | 'FAIL';
+export type BalletPreparationStatus = 'PREPARED' | 'PARTIALLY_PREPARED' | 'UNPREPARED';
+export type BalletPreparationReasonCode = BalletPreparationStatus | 'REPEATED_PREPARATION_FAILURE';
 export type BalletSectionRating = 'EXCELLENT' | 'GOOD' | 'NEEDS_ATTENTION';
 
 export interface BalletExerciseDefinition {
@@ -95,6 +97,12 @@ export interface BalletClassAttempt {
   readonly outcome: BalletExerciseOutcome;
   readonly score: number;
   readonly rollMicros: number;
+  readonly preparationFailureRollMicros?: number;
+  readonly preparationFailureProbabilityMicros?: number;
+  readonly preparationFailureTriggered?: boolean;
+  readonly preparationStatus?: BalletPreparationStatus;
+  readonly preparationReasonCode?: BalletPreparationReasonCode;
+  readonly preparationFailureStreak?: number;
   readonly correction: {
     readonly category: BalletCorrectionCategory;
     readonly severity: number;

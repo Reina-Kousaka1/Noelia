@@ -87,13 +87,30 @@ describe('ballet command', () => {
         musicality: 0,
       },
       condition: {
+        consistencyStamina: 100,
         energy: 70,
         nutrition: 70,
         fatigue: 10,
         sleepDebt: 0,
         updatedAt: new Date('2026-10-04T12:00:00.000Z'),
       },
-      staminaCycle: null,
+      staminaCycle: {
+        cycleNumber: 1,
+        targetWorkload: 20,
+        completedWorkload: 5,
+        status: 'ACTIVE',
+        startedAt: new Date('2026-10-01T12:00:00.000Z'),
+        deadlineAt: new Date('2026-10-08T12:00:00.000Z'),
+        completedAt: null,
+        belowFloorException: false,
+        durationDays: 7,
+        outcome: null,
+        finalizedAt: null,
+        staminaDelta: null,
+        floorRollMicros: 500_000,
+        targetRollMicros: 500_000,
+        carryoverFromCycleNumber: null,
+      },
       setback: {
         status: 'NONE',
         kind: null,
@@ -113,6 +130,24 @@ describe('ballet command', () => {
         embeds: [
           expect.objectContaining({
             description: expect.stringContaining('fictional gameplay values only'),
+          }),
+        ],
+      }),
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            description: expect.stringContaining('5/20 exercises'),
+          }),
+        ],
+      }),
+    );
+    expect(editOriginalMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        embeds: [
+          expect.objectContaining({
+            description: expect.stringContaining('100/150. It begins at 100'),
           }),
         ],
       }),
@@ -149,6 +184,7 @@ describe('ballet command', () => {
           musicality: 0,
         },
         condition: {
+          consistencyStamina: 100,
           energy: 82,
           nutrition: 70,
           fatigue: 0,
