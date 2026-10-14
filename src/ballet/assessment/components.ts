@@ -2,6 +2,9 @@ import * as Eris from 'eris';
 
 import type { AcademyAssessmentOverview, AcademyAssessmentAttemptView } from './types.js';
 
+const LEGACY_ASSESSMENT_COMPONENT_PREFIX = 'noelia:academy-assessment:';
+const COMPACT_ASSESSMENT_COMPONENT_PREFIX = 'noelia:assessment:';
+
 export type AcademyAssessmentComponentAction =
   | { readonly action: 'start' }
   | {
@@ -15,6 +18,22 @@ export function parseAcademyAssessmentComponentId(
   customId: string,
 ): AcademyAssessmentComponentAction | null {
   const parts = customId.split(':');
+  if (parts[0] === 'noelia' && parts[1] === 'assessment') {
+    const [, , attemptId, questionId, answerId] = parts;
+    if (
+      parts.length === 5 &&
+      attemptId !== undefined &&
+      isUuid(attemptId) &&
+      questionId !== undefined &&
+      isAssessmentSlug(questionId) &&
+      answerId !== undefined &&
+      isAssessmentSlug(answerId)
+    ) {
+      return { action: 'answer', attemptId, questionId, answerId };
+    }
+    return null;
+  }
+
   if (parts[0] !== 'noelia' || parts[1] !== 'academy-assessment') return null;
   if (parts[2] === 'start' && parts.length === 3) return { action: 'start' };
   const [, , action, attemptId, questionId, answerId] = parts;
@@ -34,7 +53,10 @@ export function parseAcademyAssessmentComponentId(
 }
 
 export function isAcademyAssessmentComponentId(customId: string): boolean {
-  return customId.startsWith('noelia:academy-assessment:');
+  return (
+    customId.startsWith(LEGACY_ASSESSMENT_COMPONENT_PREFIX) ||
+    customId.startsWith(COMPACT_ASSESSMENT_COMPONENT_PREFIX)
+  );
 }
 
 export function createAcademyAssessmentComponents(
@@ -73,11 +95,16 @@ function attemptComponents(attempt: AcademyAssessmentAttemptView): Eris.ActionRo
         type: Eris.Constants.ComponentTypes.BUTTON,
         style: Eris.Constants.ButtonStyles.SECONDARY,
         custom_id:
-          `noelia:academy-assessment:answer:${attempt.attemptId}:` + `${question.id}:${answer.id}`,
+          `${COMPACT_ASSESSMENT_COMPONENT_PREFIX}${attempt.attemptId}:` +
+          `${question.id}:${answer.id}`,
         label: answer.label.slice(0, 80),
       },
     ],
   }));
+}
+
+function isAssessmentSlug(value: string): boolean {
+  return /^[a-z0-9]+(-[a-z0-9]+)*$/.test(value);
 }
 
 function isUuid(value: string): boolean {

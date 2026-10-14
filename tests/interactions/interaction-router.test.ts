@@ -8,6 +8,8 @@ import { CommandRegistry } from '../../src/commands/registry.js';
 import { InteractionRouter } from '../../src/interactions/interaction-router.js';
 import { StructuredLogger } from '../../src/infrastructure/logging/logger.js';
 import { buildBalletClassCurriculum } from '../../src/ballet/class/curriculum.js';
+import { buildAssessmentQuestions } from '../../src/ballet/assessment/assessment-content.js';
+import { parseAcademyAssessmentComponentId } from '../../src/ballet/assessment/components.js';
 
 function createInteraction(name: string, acknowledged = false): Eris.CommandInteraction {
   return {
@@ -360,10 +362,12 @@ describe('InteractionRouter', () => {
     });
   });
 
-  it('routes Academy assessment buttons through the persisted assessment service', async () => {
+  it('starts Pre-Primary to Primary from its button and returns valid answer button IDs', async () => {
+    const attemptId = '250aad21-50a6-4d43-a450-b2c8f8825070';
+    const primaryQuestion = buildAssessmentQuestions('primary', 1)[0]!;
     const editParent = vi.fn().mockResolvedValue(undefined);
     const assessment = {
-      start: vi.fn().mockResolvedValue({ attemptId: '250aad21-50a6-4d43-a450-b2c8f8825070' }),
+      start: vi.fn().mockResolvedValue({ attemptId }),
       answer: vi.fn(),
       getOverview: vi.fn().mockResolvedValue({
         currentStageId: 'pre-primary',
@@ -380,7 +384,7 @@ describe('InteractionRouter', () => {
           retakeRequiresNewClass: false,
         },
         activeAttempt: {
-          attemptId: '250aad21-50a6-4d43-a450-b2c8f8825070',
+          attemptId,
           sourceStageId: 'pre-primary',
           sourceStageName: 'Pre-Primary',
           targetStageId: 'primary',
@@ -392,12 +396,12 @@ describe('InteractionRouter', () => {
           currentQuestionIndex: 0,
           totalQuestions: 1,
           currentQuestion: {
-            id: 'ballet-theory-barre-01',
-            domain: 'ballet_theory',
-            domainName: 'Ballet Theory',
-            title: 'The barre as support',
-            question: 'How should the barre be used in class?',
-            answers: [{ id: 'a', label: 'As light support while maintaining one’s own control' }],
+            id: primaryQuestion.id,
+            domain: primaryQuestion.domain,
+            domainName: primaryQuestion.domainName,
+            title: primaryQuestion.title,
+            question: primaryQuestion.question,
+            answers: primaryQuestion.answers,
           },
           result: null,
         },
@@ -433,10 +437,31 @@ describe('InteractionRouter', () => {
     expect(editParent).toHaveBeenCalledWith(
       expect.objectContaining({
         embeds: [
-          expect.objectContaining({ description: expect.stringContaining('How should the barre') }),
+          expect.objectContaining({
+            description: expect.stringContaining(primaryQuestion.question),
+          }),
         ],
         components: expect.any(Array),
       }),
+    );
+
+    const response = editParent.mock.calls[0]?.[0] as {
+      components: Array<{ components: Array<{ custom_id?: string }> }>;
+    };
+    const answerCustomIds = response.components.flatMap((row) =>
+      row.components.flatMap((component) =>
+        component.custom_id === undefined ? [] : [component.custom_id],
+      ),
+    );
+    expect(answerCustomIds).toHaveLength(primaryQuestion.answers.length);
+    expect(answerCustomIds.every((customId) => customId.length <= 100)).toBe(true);
+    expect(answerCustomIds.map(parseAcademyAssessmentComponentId)).toEqual(
+      primaryQuestion.answers.map((answer) => ({
+        action: 'answer',
+        attemptId,
+        questionId: primaryQuestion.id,
+        answerId: answer.id,
+      })),
     );
   });
 });
