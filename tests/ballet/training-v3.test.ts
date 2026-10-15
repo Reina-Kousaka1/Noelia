@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { BalletTrainingCooldownError } from '../../src/ballet/training-v3/errors.js';
 import {
   BALLET_TRAINING_V3_RULES,
   applyExerciseCondition,
@@ -181,5 +182,23 @@ describe('Ballet Training V3 rules', () => {
       sleepDebt: 26,
     });
     expect(applyRecoveryAction(tired, 'NOURISH', now).nutrition).toBe(52);
+  });
+
+  it.each([
+    ['REST', 'Rest'],
+    ['SLEEP', 'Sleep'],
+    ['NOURISH', 'Nourish'],
+    ['REHABILITATE', 'Rehabilitate'],
+  ] as const)('reports %s with a human-friendly remaining duration', (action, label) => {
+    const now = new Date('2026-01-01T12:00:00.000Z');
+    const nextAllowedAt = new Date(now.getTime() + 102 * 60_000);
+
+    expect(new BalletTrainingCooldownError(action, nextAllowedAt, now).userMessage).toBe(
+      `${label} is available again in 1h 42m.`,
+    );
+    expect(
+      new BalletTrainingCooldownError('NOURISH', new Date(now.getTime() + 42 * 60_000), now)
+        .userMessage,
+    ).toBe('Nourish is available again in 42m.');
   });
 });

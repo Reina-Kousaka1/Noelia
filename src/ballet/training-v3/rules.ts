@@ -28,7 +28,7 @@ export const BALLET_TRAINING_V3_RULES = {
     partialPeriodThreshold: 0.75,
     partialPeriodGain: 1,
   },
-  recoveryCooldownHours: 2,
+  recoveryActionCooldownHours: 2,
   passiveRecovery: {
     energyPerHour: 2,
     fatiguePerHour: 2,

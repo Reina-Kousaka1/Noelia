@@ -162,14 +162,18 @@ export class BalletTrainingV3Service {
       await ensurePreparationCycle(client, discordUserId, now, this.random);
       const lastAction = await client.query<{ readonly created_at: Date }>(
         `SELECT created_at FROM ballet_training_actions
-         WHERE discord_user_id = $1 AND action_type <> 'SHOE_FIT'
+         WHERE discord_user_id = $1 AND action_type = $2
          ORDER BY created_at DESC LIMIT 1`,
-        [discordUserId],
+        [discordUserId, action],
       );
       const lastActionAt = lastAction.rows[0]?.created_at;
-      const cooldownMs = BALLET_TRAINING_V3_RULES.recoveryCooldownHours * 3_600_000;
+      const cooldownMs = BALLET_TRAINING_V3_RULES.recoveryActionCooldownHours * 3_600_000;
       if (lastActionAt !== undefined && now.getTime() < lastActionAt.getTime() + cooldownMs) {
-        throw new BalletTrainingCooldownError(new Date(lastActionAt.getTime() + cooldownMs));
+        throw new BalletTrainingCooldownError(
+          action,
+          new Date(lastActionAt.getTime() + cooldownMs),
+          now,
+        );
       }
 
       await ensureStateRows(client, discordUserId);

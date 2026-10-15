@@ -944,11 +944,23 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(recovery.replayed).toBe(false);
     expect(recoveryReplay.replayed).toBe(true);
     expect(recoveryReplay.snapshot).toEqual(recovery.snapshot);
-    const conditionBeforeBlockedAction = await training.getSnapshot(discordUserId);
-    await expect(training.recover(testSnowflake(), discordUserId, 'SLEEP')).rejects.toBeInstanceOf(
-      BalletTrainingCooldownError,
-    );
-    expect(await training.getSnapshot(discordUserId)).toEqual(conditionBeforeBlockedAction);
+    const reloadedTraining = new BalletTrainingV3Service(pool, () => 0.5);
+    await expect(
+      reloadedTraining.recover(testSnowflake(), discordUserId, 'REST'),
+    ).rejects.toMatchObject({
+      action: 'REST',
+      userMessage: expect.stringMatching(/^Rest is available again in /),
+    });
+    const sleep = await reloadedTraining.recover(testSnowflake(), discordUserId, 'SLEEP');
+    expect(sleep.action).toBe('SLEEP');
+    await expect(
+      reloadedTraining.recover(testSnowflake(), discordUserId, 'SLEEP'),
+    ).rejects.toBeInstanceOf(BalletTrainingCooldownError);
+    const nourish = await reloadedTraining.recover(testSnowflake(), discordUserId, 'NOURISH');
+    expect(nourish.action).toBe('NOURISH');
+    await expect(
+      reloadedTraining.recover(testSnowflake(), discordUserId, 'NOURISH'),
+    ).rejects.toBeInstanceOf(BalletTrainingCooldownError);
     await expect(
       pool.query(
         `SELECT interaction_id FROM ballet_training_actions
@@ -1035,8 +1047,18 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(rehab.snapshot.setback.completedRehabSessions).toBe(1);
     expect(rehabReplay.replayed).toBe(true);
     expect(rehabReplay.snapshot).toEqual(rehab.snapshot);
+    const restDuringRehabilitationCooldown = await training.recover(
+      testSnowflake(),
+      discordUserId,
+      'REST',
+    );
+    expect(restDuringRehabilitationCooldown.action).toBe('REST');
     await expect(
-      training.recover(testSnowflake(), discordUserId, 'REHABILITATE'),
+      new BalletTrainingV3Service(
+        pool,
+        () => 0.5,
+        async () => new Date(fakeNow),
+      ).recover(testSnowflake(), discordUserId, 'REHABILITATE'),
     ).rejects.toBeInstanceOf(BalletTrainingCooldownError);
 
     fakeNow = new Date(fakeNow.getTime() + 2 * 60 * 60 * 1_000);
