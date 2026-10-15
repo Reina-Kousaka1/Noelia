@@ -46,14 +46,23 @@ function id(): string {
 
 integrationDescribe('isolated early Academy gameplay PostgreSQL integration', () => {
   let pool: Pool;
+  let adminPool: Pool | undefined;
+  let schemaName: string | undefined;
 
   beforeAll(async () => {
-    pool = createIsolatedTestPool(process.env);
+    adminPool = createIsolatedTestPool(process.env);
+    schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
+    await adminPool.query(`CREATE SCHEMA ${schemaName}`);
+    pool = createIsolatedTestPool(process.env, schemaName);
     await runMigrations(pool);
   });
 
   afterAll(async () => {
     await pool?.end();
+    if (adminPool !== undefined) {
+      if (schemaName !== undefined) await adminPool.query(`DROP SCHEMA ${schemaName} CASCADE`);
+      await adminPool.end();
+    }
   });
 
   it('enrolls atomically, equips non-tradeable hand-me-downs once, and blocks XP-only readiness', async () => {
@@ -178,7 +187,16 @@ integrationDescribe('isolated early Academy gameplay PostgreSQL integration', ()
         [userId],
       ),
     ).resolves.toMatchObject({
-      rows: [{ skills: 0, condition_rows: 0, skill_events: 0, workload_events: 0 }],
+      rows: [{ skills: 0, condition_rows: 0, skill_events: 0, workload_events: 1 }],
+    });
+    await expect(
+      pool.query(
+        `SELECT target_workload, completed_workload, duration_days
+         FROM ballet_stamina_cycles WHERE discord_user_id = $1`,
+        [userId],
+      ),
+    ).resolves.toMatchObject({
+      rows: [{ target_workload: 20, completed_workload: 1, duration_days: 7 }],
     });
   });
 

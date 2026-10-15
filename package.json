@@ -15,7 +15,7 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "start": "node dist/main.js",
-    "test": "vitest run",
+    "test": "vitest run --maxWorkers=4",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

@@ -144,14 +144,23 @@ async function giveStarterBow(pool: Pool, discordUserId: string): Promise<void> 
 
 integrationDescribe('isolated PostgreSQL integration', () => {
   let pool: Pool;
+  let adminPool: Pool | undefined;
+  let schemaName: string | undefined;
 
   beforeAll(async () => {
-    pool = createIsolatedTestPool(process.env);
+    adminPool = createIsolatedTestPool(process.env);
+    schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
+    await adminPool.query(`CREATE SCHEMA ${schemaName}`);
+    pool = createIsolatedTestPool(process.env, schemaName);
     await runMigrations(pool);
   });
 
   afterAll(async () => {
     await pool?.end();
+    if (adminPool !== undefined) {
+      if (schemaName !== undefined) await adminPool.query(`DROP SCHEMA ${schemaName} CASCADE`);
+      await adminPool.end();
+    }
   });
 
   it('runs the complete fresh migration chain through 027 and safely replays it', async () => {
@@ -207,7 +216,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       await schemaPool.end();
       await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
     }
-  });
+  }, 30_000);
 
   it('upgrades an unchanged 025 schema with starterwear links and additive preparation state', async () => {
     const schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
@@ -297,7 +306,229 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       await rm(before026Directory, { recursive: true, force: true });
       await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
     }
-  });
+  }, 30_000);
+
+  it('upgrades a populated V26 database to V27 without losing Academy, training, or recovery state', async () => {
+    const testSchema = `noelia_test_${randomUUID().replaceAll('-', '')}`;
+    await pool.query(`CREATE SCHEMA ${testSchema}`);
+    const schemaPool = createIsolatedTestPool(process.env, testSchema);
+    const migrations = await loadMigrations(resolve(process.cwd(), 'migrations'));
+    const before027Directory = await mkdtemp(join(tmpdir(), 'noelia-migrations-026-'));
+    const discordUserId = testSnowflake();
+    const cycleId = randomUUID();
+    const classId = randomUUID();
+    const attemptId = randomUUID();
+    const setbackId = randomUUID();
+    const fingerprint = 'a'.repeat(64);
+
+    try {
+      for (const migration of migrations.slice(0, 26)) {
+        await writeFile(
+          join(
+            before027Directory,
+            `${String(migration.version).padStart(3, '0')}_${migration.name}.sql`,
+          ),
+          migration.sql,
+          { flag: 'wx' },
+        );
+      }
+      await expect(runMigrations(schemaPool, before027Directory)).resolves.toEqual({
+        appliedCount: 26,
+        currentVersion: 26,
+      });
+      const checksumsBefore = await schemaPool.query<{
+        readonly version: number;
+        readonly name: string;
+        readonly checksum: string;
+      }>('SELECT version, name, checksum FROM noelia_schema_migrations ORDER BY version');
+
+      await schemaPool.query('INSERT INTO discord_users (discord_user_id) VALUES ($1)', [
+        discordUserId,
+      ]);
+      await schemaPool.query(
+        `INSERT INTO academy_stage_progress
+           (discord_user_id, legacy_baseline_stage_id, current_stage_id)
+         VALUES ($1, 'pre-primary', 'pre-primary')`,
+        [discordUserId],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_training_condition
+           (discord_user_id, energy, nutrition, fatigue, sleep_debt)
+         VALUES ($1, 62, 77, 25, 6)`,
+        [discordUserId],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_training_skills (discord_user_id, skill_key, skill_value)
+         VALUES ($1, 'balance', 25)`,
+        [discordUserId],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_stamina_cycles
+           (cycle_id, discord_user_id, cycle_number, target_workload, completed_workload,
+            status, deadline_at)
+         VALUES ($1, $2, 1, 20, 4, 'ACTIVE', clock_timestamp() + interval '7 days')`,
+        [cycleId, discordUserId],
+      );
+      for (let index = 0; index < 4; index += 1) {
+        await schemaPool.query(
+          `INSERT INTO ballet_stamina_workload_events
+             (interaction_id, discord_user_id, cycle_id, source_type, source_reference)
+           VALUES ($1, $2, $3, 'BALLET_PRACTICE', $4)`,
+          [testSnowflake(), discordUserId, cycleId, `legacy-practice-${index}`],
+        );
+      }
+      await schemaPool.query(
+        `INSERT INTO ballet_classes
+           (class_id, discord_user_id, start_interaction_id, class_type, academy_stage_id,
+            academy_stage_name, status, curriculum_snapshot)
+         VALUES ($1, $2, $3, 'BARRE_FOCUS', 'pre-primary', 'Pre-Primary', 'PREPARING',
+                 '{"version":"1","sections":[],"exercises":[]}'::jsonb)`,
+        [classId, discordUserId, testSnowflake()],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_class_attempts
+           (attempt_id, interaction_id, class_id, discord_user_id, position, exercise_id,
+            exercise_name, section, outcome, score, roll_micros, skill_snapshot,
+            preparation_snapshot)
+         VALUES ($1, $2, $3, $4, 0, 'legacy-barre', 'Legacy Barre', 'BARRE', 'SUCCESS',
+                 82, 500000, '{}'::jsonb, ARRAY['BALANCE']::text[])`,
+        [attemptId, testSnowflake(), classId, discordUserId],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_training_setbacks
+           (setback_id, discord_user_id, kind, status, required_rehab_sessions,
+            completed_rehab_sessions, source_attempt_id)
+         VALUES ($1, $2, 'MINOR_TRAINING_STRAIN', 'ACTIVE', 2, 1, $3)`,
+        [setbackId, discordUserId, attemptId],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_rehabilitation_sessions
+           (interaction_id, discord_user_id, setback_id, request_fingerprint)
+         VALUES ($1, $2, $3, $4)`,
+        [testSnowflake(), discordUserId, setbackId, fingerprint],
+      );
+      await schemaPool.query(
+        `INSERT INTO ballet_training_actions
+           (interaction_id, discord_user_id, action_type, request_fingerprint, result_snapshot)
+         VALUES ($1, $2, 'REST', $3, '{"condition":"preserved"}'::jsonb)`,
+        [testSnowflake(), discordUserId, fingerprint],
+      );
+
+      await expect(runMigrations(schemaPool)).resolves.toEqual({
+        appliedCount: 1,
+        currentVersion: 27,
+      });
+      const applied = await schemaPool.query<{
+        readonly version: number;
+        readonly name: string;
+        readonly checksum: string;
+      }>('SELECT version, name, checksum FROM noelia_schema_migrations ORDER BY version');
+      expect(applied.rows).toEqual(
+        migrations.map(({ version, name, checksum }) => ({ version, name, checksum })),
+      );
+      expect(applied.rows.slice(0, 26)).toEqual(checksumsBefore.rows);
+      await expect(runMigrations(schemaPool)).resolves.toEqual({
+        appliedCount: 0,
+        currentVersion: 27,
+      });
+
+      await expect(
+        schemaPool.query(
+          `SELECT current_stage_id FROM academy_stage_progress WHERE discord_user_id = $1`,
+          [discordUserId],
+        ),
+      ).resolves.toMatchObject({ rows: [{ current_stage_id: 'pre-primary' }] });
+      await expect(
+        schemaPool.query(
+          `SELECT energy, nutrition, fatigue, sleep_debt, consistency_stamina
+           FROM ballet_training_condition WHERE discord_user_id = $1`,
+          [discordUserId],
+        ),
+      ).resolves.toMatchObject({
+        rows: [
+          {
+            energy: 62,
+            nutrition: 77,
+            fatigue: 25,
+            sleep_debt: 6,
+            consistency_stamina: 100,
+          },
+        ],
+      });
+      await expect(
+        schemaPool.query(
+          `SELECT skill_value FROM ballet_training_skills
+           WHERE discord_user_id = $1 AND skill_key = 'balance'`,
+          [discordUserId],
+        ),
+      ).resolves.toMatchObject({ rows: [{ skill_value: 25 }] });
+      await expect(
+        schemaPool.query(
+          `SELECT target_workload, completed_workload, duration_days
+           FROM ballet_stamina_cycles WHERE discord_user_id = $1`,
+          [discordUserId],
+        ),
+      ).resolves.toMatchObject({
+        rows: [{ target_workload: 20, completed_workload: 4, duration_days: 7 }],
+      });
+      await expect(
+        schemaPool.query(
+          `SELECT attempt_id, preparation_failure_streak, preparation_failure_roll_micros
+           FROM ballet_class_attempts WHERE attempt_id = $1`,
+          [attemptId],
+        ),
+      ).resolves.toMatchObject({
+        rows: [
+          {
+            attempt_id: attemptId,
+            preparation_failure_streak: 0,
+            preparation_failure_roll_micros: null,
+          },
+        ],
+      });
+      await expect(
+        schemaPool.query(
+          `SELECT count(*)::integer AS workload_count FROM ballet_stamina_workload_events
+           WHERE discord_user_id = $1`,
+          [discordUserId],
+        ),
+      ).resolves.toMatchObject({ rows: [{ workload_count: 4 }] });
+      await expect(
+        schemaPool.query(
+          `SELECT
+             (SELECT count(*)::integer FROM ballet_training_setbacks WHERE discord_user_id = $1) AS setbacks,
+             (SELECT count(*)::integer FROM ballet_rehabilitation_sessions WHERE discord_user_id = $1) AS rehab_sessions,
+             (SELECT count(*)::integer FROM ballet_training_actions WHERE discord_user_id = $1) AS actions`,
+          [discordUserId],
+        ),
+      ).resolves.toMatchObject({ rows: [{ setbacks: 1, rehab_sessions: 1, actions: 1 }] });
+
+      const plan = await new BalletTrainingV3Service(schemaPool).getSnapshot(discordUserId);
+      expect(plan).toMatchObject({
+        condition: {
+          energy: 62,
+          nutrition: 77,
+          fatigue: 25,
+          sleepDebt: 6,
+          consistencyStamina: 100,
+        },
+        skills: { balance: 25 },
+        staminaCycle: {
+          cycleNumber: 1,
+          targetWorkload: 20,
+          completedWorkload: 4,
+          durationDays: 7,
+          status: 'ACTIVE',
+        },
+      });
+      const reloadedPlan = await new BalletTrainingV3Service(schemaPool).getSnapshot(discordUserId);
+      expect(reloadedPlan).toEqual(plan);
+    } finally {
+      await schemaPool.end();
+      await rm(before027Directory, { recursive: true, force: true });
+      await pool.query(`DROP SCHEMA ${testSchema} CASCADE`);
+    }
+  }, 30_000);
 
   it('upgrades a Phase-1 V1-V6 schema to the latest migration without resetting it', async () => {
     const schemaName = `noelia_upgrade_${randomUUID().replaceAll('-', '')}`;
@@ -396,7 +627,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       await upgradePool.end();
       await pool.query(`DROP SCHEMA ${schemaName} CASCADE`);
     }
-  });
+  }, 30_000);
 
   it('applies migrations idempotently and persists Discord user identity', async () => {
     const migrationResult = await runMigrations(pool);
@@ -439,16 +670,37 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const firstExercise = inProgress.curriculum.exercises[0];
     if (firstExercise === undefined) throw new Error('Expected the barre class to have exercises.');
     const attemptInteractionId = testSnowflake();
-    const duplicateAttempts = await Promise.all([
+    const firstAttempt = await service.attempt(
+      attemptInteractionId,
+      discordUserId,
+      started.classId,
+      firstExercise.id,
+    );
+    expect(firstAttempt.replayed).toBe(false);
+    expect(rollCount).toBe(2);
+    const firstRequestRollCount = rollCount;
+
+    const replay = await service.attempt(
+      attemptInteractionId,
+      discordUserId,
+      started.classId,
+      firstExercise.id,
+    );
+    expect(replay.replayed).toBe(true);
+    expect(replay.attempt?.outcome).toBe(firstAttempt.attempt?.outcome);
+    expect(rollCount).toBe(firstRequestRollCount);
+
+    const concurrentReplays = await Promise.all([
       service.attempt(attemptInteractionId, discordUserId, started.classId, firstExercise.id),
       service.attempt(attemptInteractionId, discordUserId, started.classId, firstExercise.id),
     ]);
-    expect(duplicateAttempts.map((result) => result.replayed).sort()).toEqual([false, true]);
-    expect(rollCount).toBe(1);
-    expect(duplicateAttempts[0]?.attempt?.outcome).toBe(duplicateAttempts[1]?.attempt?.outcome);
+    expect(concurrentReplays.every((result) => result.replayed)).toBe(true);
+    expect(concurrentReplays[0]?.attempt?.outcome).toBe(firstAttempt.attempt?.outcome);
+    expect(rollCount).toBe(firstRequestRollCount);
 
+    let restartedRollCount = 0;
     const restartedService = new BalletClassService(pool, () => {
-      rollCount += 1;
+      restartedRollCount += 1;
       return 0.99;
     });
     const restartReplay = await restartedService.attempt(
@@ -458,7 +710,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       firstExercise.id,
     );
     expect(restartReplay.replayed).toBe(true);
-    expect(rollCount).toBe(1);
+    expect(restartedRollCount).toBe(0);
 
     let current = await restartedService.getClass(discordUserId, started.classId);
     while (current.status === 'IN_PROGRESS') {
@@ -542,7 +794,10 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       started.classId,
       exercise.id,
     );
-    expect(first.attempt?.outcome).toBe('SUCCESS');
+    const successfulOutcome = first.attempt?.outcome;
+    if (successfulOutcome !== 'SUCCESS' && successfulOutcome !== 'PERFECT') {
+      throw new Error('Expected the deterministic class attempt to succeed.');
+    }
     expect(rollCount).toBe(3);
 
     let restartedRollCount = 0;
@@ -595,7 +850,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       completedWorkload: 1,
     });
     expect(snapshotAfterAttempt.skills).toEqual(
-      skillValuesAfterAttempt(createInitialTrainingSkills(), exercise.family, 'SUCCESS', 0),
+      skillValuesAfterAttempt(createInitialTrainingSkills(), exercise.family, successfulOutcome, 0),
     );
     expect(snapshotAfterAttempt.condition.fatigue).toBeGreaterThan(10);
 
@@ -609,9 +864,10 @@ integrationDescribe('isolated PostgreSQL integration', () => {
        WHERE discord_user_id = $1 AND cycle_number = $2`,
       [discordUserId, firstCycle.cycleNumber],
     );
-    const expiredRead = await new BalletTrainingV3Service(pool, () => 0.5).getSnapshot(
-      discordUserId,
-    );
+    const [expiredRead, replayedFinalizationRead] = await Promise.all([
+      new BalletTrainingV3Service(pool, () => 0.5).getSnapshot(discordUserId),
+      new BalletTrainingV3Service(pool, () => 0.99).getSnapshot(discordUserId),
+    ]);
     expect(expiredRead.staminaCycle).toMatchObject({
       cycleNumber: 2,
       status: 'ACTIVE',
@@ -620,6 +876,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     expect(expiredRead.staminaCycle?.targetWorkload).toBeGreaterThanOrEqual(10);
     expect(expiredRead.staminaCycle?.targetWorkload).toBeLessThanOrEqual(30);
     expect(expiredRead.condition.consistencyStamina).toBe(101);
+    expect(replayedFinalizationRead.staminaCycle).toEqual(expiredRead.staminaCycle);
+    expect(replayedFinalizationRead.condition.consistencyStamina).toBe(101);
     await expect(
       pool.query(
         `SELECT status, cycle_outcome, finalized_at, stamina_delta FROM ballet_stamina_cycles

@@ -611,43 +611,43 @@ export class BalletAcademyGameplayService {
         [discordUserId],
       );
       const enrollment = enrollmentResult.rows[0];
-      const [actionsResult, attendanceResult, entriesResult, recentAttendanceResult] =
-        await Promise.all([
-          client.query<{ readonly action_code: string }>(
-            `SELECT DISTINCT action_code FROM ballet_academy_beginner_actions
-           WHERE discord_user_id = $1 ORDER BY action_code`,
-            [discordUserId],
-          ),
-          client.query<{ readonly status: string; readonly count: number }>(
-            `SELECT status, count(*)::integer AS count FROM ballet_academy_attendance
-           WHERE discord_user_id = $1 GROUP BY status`,
-            [discordUserId],
-          ),
-          client.query<ReportRow>(
-            `SELECT scheduled.scheduled_class_id::text, scheduled.academy_stage_name,
-                  scheduled.time_zone, scheduled.scheduled_at, scheduled.status,
-                  report.rhythm_grade, report.technique_grade, report.coordination_grade,
-                  report.preparation_grade, report.participation_grade, report.overall_grade
-           FROM ballet_academy_scheduled_classes AS scheduled
-           LEFT JOIN ballet_academy_attendance AS attendance
-             ON attendance.scheduled_class_id = scheduled.scheduled_class_id
-           LEFT JOIN ballet_academy_report_cards AS report
-             ON report.attendance_id = attendance.attendance_id
-           WHERE scheduled.discord_user_id = $1
-           ORDER BY scheduled.scheduled_at DESC LIMIT 10`,
-            [discordUserId],
-          ),
-          client.query<{ readonly status: string }>(
-            `SELECT attendance.status
-           FROM ballet_academy_attendance AS attendance
-           INNER JOIN ballet_academy_scheduled_classes AS scheduled
-             ON scheduled.scheduled_class_id = attendance.scheduled_class_id
-           WHERE attendance.discord_user_id = $1
-           ORDER BY scheduled.scheduled_at DESC, attendance.recorded_at DESC
-           LIMIT 10`,
-            [discordUserId],
-          ),
-        ]);
+      const actionsResult = await client.query<{ readonly action_code: string }>(
+        `SELECT DISTINCT action_code FROM ballet_academy_beginner_actions
+         WHERE discord_user_id = $1 ORDER BY action_code`,
+        [discordUserId],
+      );
+      const attendanceResult = await client.query<{
+        readonly status: string;
+        readonly count: number;
+      }>(
+        `SELECT status, count(*)::integer AS count FROM ballet_academy_attendance
+         WHERE discord_user_id = $1 GROUP BY status`,
+        [discordUserId],
+      );
+      const entriesResult = await client.query<ReportRow>(
+        `SELECT scheduled.scheduled_class_id::text, scheduled.academy_stage_name,
+                scheduled.time_zone, scheduled.scheduled_at, scheduled.status,
+                report.rhythm_grade, report.technique_grade, report.coordination_grade,
+                report.preparation_grade, report.participation_grade, report.overall_grade
+         FROM ballet_academy_scheduled_classes AS scheduled
+         LEFT JOIN ballet_academy_attendance AS attendance
+           ON attendance.scheduled_class_id = scheduled.scheduled_class_id
+         LEFT JOIN ballet_academy_report_cards AS report
+           ON report.attendance_id = attendance.attendance_id
+         WHERE scheduled.discord_user_id = $1
+         ORDER BY scheduled.scheduled_at DESC LIMIT 10`,
+        [discordUserId],
+      );
+      const recentAttendanceResult = await client.query<{ readonly status: string }>(
+        `SELECT attendance.status
+         FROM ballet_academy_attendance AS attendance
+         INNER JOIN ballet_academy_scheduled_classes AS scheduled
+           ON scheduled.scheduled_class_id = attendance.scheduled_class_id
+         WHERE attendance.discord_user_id = $1
+         ORDER BY scheduled.scheduled_at DESC, attendance.recorded_at DESC
+         LIMIT 10`,
+        [discordUserId],
+      );
       const counts = new Map(attendanceResult.rows.map((row) => [row.status, row.count]));
       const actions = actionsResult.rows.map((row) => parseBeginnerAction(row.action_code));
       const entries = entriesResult.rows.map((row) => ({

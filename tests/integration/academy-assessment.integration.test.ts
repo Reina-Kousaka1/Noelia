@@ -187,14 +187,23 @@ async function completeEarlyAcademyPrerequisites(pool: Pool, discordUserId: stri
 
 integrationDescribe('Academy assessment isolated PostgreSQL integration', () => {
   let pool: Pool;
+  let adminPool: Pool | undefined;
+  let schemaName: string | undefined;
 
   beforeAll(async () => {
-    pool = createIsolatedTestPool(process.env);
+    adminPool = createIsolatedTestPool(process.env);
+    schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
+    await adminPool.query(`CREATE SCHEMA ${schemaName}`);
+    pool = createIsolatedTestPool(process.env, schemaName);
     await runMigrations(pool);
   });
 
   afterAll(async () => {
     await pool?.end();
+    if (adminPool !== undefined) {
+      if (schemaName !== undefined) await adminPool.query(`DROP SCHEMA ${schemaName} CASCADE`);
+      await adminPool.end();
+    }
   });
 
   it('starts once, survives a service restart, answers replay-safely, and promotes exactly one stage', async () => {
