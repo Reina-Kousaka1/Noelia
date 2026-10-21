@@ -12,6 +12,7 @@ import { AcademyScheduleWorker } from '../ballet/academy-schedule-worker.js';
 import { BalletClassService } from '../ballet/class/class-service.js';
 import { AcademyAssessmentService } from '../ballet/assessment/assessment-service.js';
 import { BalletTrainingV3Service } from '../ballet/training-v3/training-v3-service.js';
+import { BalletStudioV22Service } from '../ballet/studio-v22/studio-service.js';
 import { ShopService } from '../shop/shop-service.js';
 import { InventoryService } from '../inventory/inventory-service.js';
 import { WardrobeService } from '../wardrobe/wardrobe-service.js';
@@ -109,14 +110,20 @@ export function createDiscordRuntime(
   });
   const economy = new EconomyService(pool);
   const daily = new DailyService(pool, economy);
-  const balletTrainingV3 = new BalletTrainingV3Service(pool);
+  const balletStudioV22 = new BalletStudioV22Service(pool);
+  const balletTrainingV3 = new BalletTrainingV3Service(
+    pool,
+    Math.random,
+    undefined,
+    balletStudioV22,
+  );
   const ballet = new BalletService(pool, economy, balletTrainingV3);
   const academy = new BalletAcademyService(pool);
   const academyGameplay = new BalletAcademyGameplayService(pool, academy);
   const academyScheduleWorker = new AcademyScheduleWorker(academyGameplay, (error) => {
     logger.error('academy.scheduler_tick_failed', error);
   });
-  const balletClass = new BalletClassService(pool, Math.random, balletTrainingV3);
+  const balletClass = new BalletClassService(pool, Math.random, balletTrainingV3, balletStudioV22);
   const academyAssessment = new AcademyAssessmentService(pool);
   const shop = new ShopService(pool, economy);
   const inventory = new InventoryService(pool);
@@ -171,6 +178,7 @@ export function createDiscordRuntime(
     ballet,
     balletClass,
     balletTrainingV3,
+    balletStudioV22,
     academyAssessment,
     academy,
     academyGameplay,

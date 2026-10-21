@@ -16,6 +16,7 @@ import {
   preparationReasonCode,
 } from './performance.js';
 import type { BalletTrainingV3Service } from '../training-v3/training-v3-service.js';
+import type { BalletStudioV22Port } from '../studio-v22/types.js';
 import { buildBalletClassReview } from './review.js';
 import {
   attachScheduledClassToBalletClass,
@@ -104,6 +105,7 @@ export class BalletClassService implements BalletClassPort {
     private readonly pool: Pool,
     private readonly random: () => number = Math.random,
     private readonly trainingV3?: BalletTrainingV3Service,
+    private readonly studioV22?: BalletStudioV22Port,
   ) {}
 
   public async startOrResume(
@@ -124,6 +126,12 @@ export class BalletClassService implements BalletClassPort {
         assertActionReplay(replay, discordUserId, 'START', requestFingerprint);
         const saved = await loadClassView(client, discordUserId, replay.class_id, true);
         if (saved.status === 'PREPARING' || saved.status === 'IN_PROGRESS') {
+          await this.studioV22?.ensureSessionWithinTransaction(
+            client,
+            discordUserId,
+            saved.classId,
+            saved.status,
+          );
           await attachScheduledClassToBalletClass(
             client,
             discordUserId,
@@ -142,6 +150,12 @@ export class BalletClassService implements BalletClassPort {
       const activeClass = active.rows[0];
       if (activeClass !== undefined) {
         const saved = await loadClassView(client, discordUserId, activeClass.class_id, false);
+        await this.studioV22?.ensureSessionWithinTransaction(
+          client,
+          discordUserId,
+          saved.classId,
+          saved.status,
+        );
         await recordAction(
           client,
           interactionId,
@@ -185,6 +199,12 @@ export class BalletClassService implements BalletClassPort {
           curriculum.academyStageName,
           JSON.stringify(curriculum),
         ],
+      );
+      await this.studioV22?.ensureSessionWithinTransaction(
+        client,
+        discordUserId,
+        classId,
+        'PREPARING',
       );
       await attachScheduledClassToBalletClass(
         client,
@@ -278,6 +298,12 @@ export class BalletClassService implements BalletClassPort {
       } else if (classRow.status !== 'IN_PROGRESS') {
         throw new BalletClassStateError('This class cannot be started in its current state.');
       }
+      await this.studioV22?.ensureSessionWithinTransaction(
+        client,
+        discordUserId,
+        classId,
+        'IN_PROGRESS',
+      );
       await recordAction(
         client,
         interactionId,
@@ -306,7 +332,21 @@ export class BalletClassService implements BalletClassPort {
         assertActionReplay(replay, discordUserId, 'ATTEMPT', requestFingerprint);
         const classView = await loadClassView(client, discordUserId, replay.class_id, true);
         const attempt = classView.attempts.find((item) => item.interactionId === interactionId);
-        return { class: classView, attempt: attempt ?? null, replayed: true };
+        const studioReaction =
+          attempt === undefined
+            ? null
+            : await this.studioV22?.loadAttemptResultWithinTransaction(
+                client,
+                discordUserId,
+                classId,
+                attempt.attemptId,
+              );
+        return {
+          class: classView,
+          attempt: attempt ?? null,
+          replayed: true,
+          ...(studioReaction === null || studioReaction === undefined ? {} : { studioReaction }),
+        };
       }
 
       const classRow = await lockClass(client, discordUserId, classId);
@@ -408,15 +448,36 @@ export class BalletClassService implements BalletClassPort {
 
       const nextIndex = classRow.current_exercise_index + 1;
       const completed = nextIndex >= curriculum.exercises.length;
+      const studioReaction = await this.studioV22?.recordAttemptWithinTransaction(client, {
+        discordUserId,
+        classId,
+        attemptId,
+        section: exercise.section,
+        outcome: evaluation.outcome,
+        preparationStatus: evaluation.preparationStatus,
+        preparationReasonCode: reasonCode,
+        finalExercise: completed,
+      });
+      const endedEarly = studioReaction?.sessionEndedEarly === true;
+
       await client.query(
-        "UPDATE ballet_classes SET current_exercise_index = $2, current_section = $3, status = $4, completed_at = CASE WHEN $4 = 'COMPLETED' THEN clock_timestamp() ELSE NULL END WHERE class_id = $1",
+        "UPDATE ballet_classes SET current_exercise_index = $2, current_section = $3, status = $4, completed_at = CASE WHEN $4 = 'COMPLETED' THEN clock_timestamp() ELSE NULL END, abandoned_at = CASE WHEN $4 = 'ABANDONED' THEN clock_timestamp() ELSE NULL END WHERE class_id = $1",
         [
           classId,
           nextIndex,
           curriculum.exercises[nextIndex]?.section ?? exercise.section,
-          completed ? 'COMPLETED' : 'IN_PROGRESS',
+          completed ? 'COMPLETED' : endedEarly ? 'ABANDONED' : 'IN_PROGRESS',
         ],
       );
+
+      if (completed) {
+        await this.studioV22?.closeSessionWithinTransaction(
+          client,
+          discordUserId,
+          classId,
+          'COMPLETED',
+        );
+      }
 
       if (completed) {
         const attempts = await loadAttempts(client, classId);
@@ -445,6 +506,14 @@ export class BalletClassService implements BalletClassPort {
           attemptId,
         );
       }
+      if (endedEarly) {
+        await this.studioV22?.closeSessionWithinTransaction(
+          client,
+          discordUserId,
+          classId,
+          'ABANDONED',
+        );
+      }
 
       await recordAction(
         client,
@@ -457,7 +526,12 @@ export class BalletClassService implements BalletClassPort {
       const classView = await loadClassView(client, discordUserId, classId, false);
       const attempt =
         classView.attempts.find((item) => item.interactionId === interactionId) ?? null;
-      return { class: classView, attempt, replayed: false };
+      return {
+        class: classView,
+        attempt,
+        replayed: false,
+        ...(studioReaction === undefined ? {} : { studioReaction }),
+      };
     });
   }
 
@@ -484,6 +558,12 @@ export class BalletClassService implements BalletClassPort {
       await client.query(
         "UPDATE ballet_classes SET status = 'ABANDONED', abandoned_at = clock_timestamp() WHERE class_id = $1",
         [classId],
+      );
+      await this.studioV22?.closeSessionWithinTransaction(
+        client,
+        discordUserId,
+        classId,
+        'ABANDONED',
       );
       await recordAction(
         client,

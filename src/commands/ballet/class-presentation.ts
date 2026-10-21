@@ -1,6 +1,7 @@
 import * as Eris from 'eris';
 
 import type { BalletClassAttempt, BalletClassView } from '../../ballet/class/types.js';
+import type { BalletStudioAttemptResult } from '../../ballet/studio-v22/types.js';
 import { createBalletClassComponents } from '../../ballet/class/components.js';
 import type { PersonaTextPort } from '../../persona/generator.js';
 import { renderPersonaEmbed } from '../../persona/presentation.js';
@@ -11,6 +12,7 @@ export async function renderBalletClassMessage(
   presenter: PersonaTextPort | undefined,
   discordUserId: string,
   latestAttempt?: BalletClassAttempt,
+  studioReaction?: BalletStudioAttemptResult,
 ): Promise<Eris.InteractionContentEdit> {
   const isReview = view.status === 'COMPLETED';
   const isPreparing = view.status === 'PREPARING';
@@ -19,10 +21,16 @@ export async function renderBalletClassMessage(
   const description = isReview
     ? renderReview(view)
     : isAbandoned
-      ? 'This session was left before completion. Its recorded attempts remain in the class history, and no completion evidence was granted.'
+      ? studioReaction?.sessionEndedEarly === true
+        ? 'Madame ended this session after repeated difficulties. Its recorded attempts remain in the class history, and no completion evidence was granted.'
+        : 'This session was left before completion. Its recorded attempts remain in the class history, and no completion evidence was granted.'
       : isPreparing
         ? renderPreparation(view)
         : renderInProgress(view, latestAttempt);
+  const fullDescription =
+    studioReaction === undefined
+      ? description
+      : [description, '', ...renderStudioReaction(studioReaction)].join('\n');
   const action = isReview
     ? 'class_review'
     : isAbandoned
@@ -49,7 +57,7 @@ export async function renderBalletClassMessage(
         facts,
         {
           title: 'Maison Noélia · ' + view.classTypeName,
-          description,
+          description: fullDescription,
           fields: [
             {
               name: 'Academy stage',
@@ -73,6 +81,60 @@ export async function renderBalletClassMessage(
     ],
     components: createBalletClassComponents(view),
   };
+}
+
+function renderStudioReaction(result: BalletStudioAttemptResult): string[] {
+  const lines: string[] = [];
+  for (const reaction of result.reactions) {
+    switch (reaction) {
+      case 'NORMAL_SUCCESS':
+        lines.push('Madame acknowledges this well-executed result.');
+        break;
+      case 'NORMAL_FAILURE':
+        lines.push('Madame has noted the difficulty. Continue with care.');
+        break;
+      case 'REPEATED_FAILURE':
+        lines.push('Madame is becoming more attentive to this repeated difficulty.');
+        break;
+      case 'PREPARATION_WARNING':
+        lines.push('Madame notes that this session was not fully prepared.');
+        break;
+      case 'CORRECTIVE_ASSIGNED':
+        if (result.correctiveTask !== null) {
+          lines.push(
+            'Madame assigned a corrective task: complete a successful ' +
+              sectionName(result.correctiveTask.targetSection) +
+              ' exercise by <t:' +
+              Math.floor(result.correctiveTask.dueAt.getTime() / 1_000) +
+              ':R>.',
+          );
+        }
+        break;
+      case 'CORRECTIVE_COMPLETED':
+        lines.push('Madame has marked the corrective task complete.');
+        break;
+      case 'PATIENCE_LOW':
+        lines.push('Madame’s patience is low. A successful exercise can restore it.');
+        break;
+      case 'SESSION_ENDED':
+        lines.push('Madame has ended this session; its recorded work is retained.');
+        break;
+      case 'FOLLOWUP_ASSIGNED':
+        if (result.followup !== null) {
+          lines.push(
+            'Madame assigned +' +
+              result.followup.extraWorkload +
+              ' follow-up workload to a future suitable week, valid until <t:' +
+              Math.floor(result.followup.expiresAt.getTime() / 1_000) +
+              ':R>.',
+          );
+        }
+        break;
+    }
+  }
+  lines.push('Madame’s current studio mood: ' + result.mood.toLowerCase() + '.');
+  lines.push('Patience: ' + result.patience + ' / ' + result.maximumPatience + '.');
+  return lines;
 }
 
 function renderPreparation(view: BalletClassView): string {

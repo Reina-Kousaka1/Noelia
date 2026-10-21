@@ -1,4 +1,5 @@
 import type { BalletStatKey } from '../types.js';
+import type { BalletStudioAttemptResult } from '../studio-v22/types.js';
 
 export const BALLET_CLASS_TYPES = [
   'REGULAR',
@@ -170,6 +171,7 @@ export interface BalletClassAttemptResult {
   readonly class: BalletClassView;
   readonly attempt: BalletClassAttempt | null;
   readonly replayed: boolean;
+  readonly studioReaction?: BalletStudioAttemptResult;
 }
 
 export interface BalletClassPort {

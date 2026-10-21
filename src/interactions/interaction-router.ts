@@ -250,6 +250,8 @@ export class InteractionRouter {
       await interaction.deferUpdate();
       let view: BalletClassView;
       let latestAttempt: BalletClassAttempt | undefined;
+      let studioReaction:
+        import('../ballet/studio-v22/types.js').BalletStudioAttemptResult | undefined;
       if (parsed.action === 'preparation') {
         view = await balletClass.markPreparation(
           interaction.id,
@@ -268,11 +270,18 @@ export class InteractionRouter {
         );
         view = result.class;
         latestAttempt = result.attempt ?? undefined;
+        studioReaction = result.studioReaction;
       } else {
         view = await balletClass.abandon(interaction.id, discordUserId, parsed.classId);
       }
       await interaction.editParent(
-        await renderBalletClassMessage(view, this.services.persona, discordUserId, latestAttempt),
+        await renderBalletClassMessage(
+          view,
+          this.services.persona,
+          discordUserId,
+          latestAttempt,
+          studioReaction,
+        ),
       );
     } catch (error) {
       if (error instanceof ExpectedDomainError) {

@@ -11,6 +11,7 @@ import { isBalletClassType } from '../../ballet/class/curriculum.js';
 import { renderBalletClassMessage } from './class-presentation.js';
 import { BALLET_RECOVERY_ACTIONS } from '../../ballet/training-v3/types.js';
 import { BALLET_TRAINING_V3_RULES } from '../../ballet/training-v3/rules.js';
+import { renderWeeklyStudioCard } from './studio-presentation.js';
 
 const activityChoices = BALLET_ACTIVITY_CODES.map((code) => ({
   name: code
@@ -118,6 +119,7 @@ export const balletCommand: SlashCommand = {
       const training = services.balletTrainingV3;
       if (training === undefined) throw new Error('Ballet Training V3 is not configured.');
       const snapshot = await training.getSnapshot(discordUserId);
+      const studioCard = await services.balletStudioV22?.getWeeklyCard(discordUserId, snapshot);
       const skills = Object.entries(snapshot.skills)
         .map(([key, value]) => `${key.replaceAll('_', ' ')}: ${value}`)
         .join(' · ');
@@ -148,6 +150,7 @@ export const balletCommand: SlashCommand = {
                 `**Weekly Preparation / Gymnastics:** ${cycle}`,
                 '**Counted exercises:** complete Ballet practice activities or exercises in a guided Ballet class, including Conditioning classes. Up to five workload events count in any rolling 24 hours; class remains available when preparation is incomplete.',
                 `**Setback:** ${setback}`,
+                ...(studioCard === undefined ? [] : [renderWeeklyStudioCard(studioCard)]),
                 '**Note:** these are fictional gameplay values only, not real training, health, sleep, or nutrition guidance.',
               ].join('\n\n'),
             },

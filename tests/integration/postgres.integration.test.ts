@@ -163,7 +163,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     }
   });
 
-  it('runs the complete fresh migration chain through 027 and safely replays it', async () => {
+  it('runs the complete fresh migration chain through 028 and safely replays it', async () => {
     const schemaName = `noelia_test_${randomUUID().replaceAll('-', '')}`;
     await pool.query(`CREATE SCHEMA ${schemaName}`);
     const schemaPool = createIsolatedTestPool(process.env, schemaName);
@@ -173,8 +173,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
         rows: [{ name: 'noelia_test' }],
       });
       await expect(runMigrations(schemaPool)).resolves.toEqual({
-        appliedCount: 27,
-        currentVersion: 27,
+        appliedCount: 28,
+        currentVersion: 28,
       });
 
       const migrations = await loadMigrations(resolve(process.cwd(), 'migrations'));
@@ -210,7 +210,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       ).resolves.toMatchObject({ rowCount: 0 });
       await expect(runMigrations(schemaPool)).resolves.toEqual({
         appliedCount: 0,
-        currentVersion: 27,
+        currentVersion: 28,
       });
     } finally {
       await schemaPool.end();
@@ -261,8 +261,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       }>('SELECT version, name, checksum FROM noelia_schema_migrations ORDER BY version');
 
       await expect(runMigrations(schemaPool)).resolves.toEqual({
-        appliedCount: 2,
-        currentVersion: 27,
+        appliedCount: 3,
+        currentVersion: 28,
       });
       const afterMemberships = await schemaPool.query<{
         readonly item_id: string;
@@ -293,7 +293,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       expect(checksumsAfter.rows).toEqual(checksumsBefore.rows);
       await expect(runMigrations(schemaPool)).resolves.toEqual({
         appliedCount: 0,
-        currentVersion: 27,
+        currentVersion: 28,
       });
       expect(
         await schemaPool.query(
@@ -308,7 +308,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     }
   }, 30_000);
 
-  it('upgrades a populated V26 database to V27 without losing Academy, training, or recovery state', async () => {
+  it('upgrades a populated V26 database through V28 without losing Academy, training, or recovery state', async () => {
     const testSchema = `noelia_test_${randomUUID().replaceAll('-', '')}`;
     await pool.query(`CREATE SCHEMA ${testSchema}`);
     const schemaPool = createIsolatedTestPool(process.env, testSchema);
@@ -415,8 +415,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(schemaPool)).resolves.toEqual({
-        appliedCount: 1,
-        currentVersion: 27,
+        appliedCount: 2,
+        currentVersion: 28,
       });
       const applied = await schemaPool.query<{
         readonly version: number;
@@ -429,7 +429,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       expect(applied.rows.slice(0, 26)).toEqual(checksumsBefore.rows);
       await expect(runMigrations(schemaPool)).resolves.toEqual({
         appliedCount: 0,
-        currentVersion: 27,
+        currentVersion: 28,
       });
 
       await expect(
@@ -592,8 +592,8 @@ integrationDescribe('isolated PostgreSQL integration', () => {
       );
 
       await expect(runMigrations(upgradePool)).resolves.toEqual({
-        appliedCount: 21,
-        currentVersion: 27,
+        appliedCount: 22,
+        currentVersion: 28,
       });
       await expect(
         upgradePool.query(
@@ -636,7 +636,7 @@ integrationDescribe('isolated PostgreSQL integration', () => {
     const first = await repository.findOrCreate(discordUserId);
     const second = await repository.findOrCreate(discordUserId);
 
-    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 27 });
+    expect(migrationResult).toEqual({ appliedCount: 0, currentVersion: 28 });
     expect(first.discordUserId).toBe(discordUserId);
     expect(second).toEqual(first);
   });

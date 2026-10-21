@@ -9,6 +9,7 @@ import {
   BALLET_TRAINING_V3_RULES,
   applyExerciseCondition,
   applyRecoveryAction,
+  cycleDurationDays,
   conditionScoreModifier,
   createInitialCondition,
   createInitialTrainingSkills,
@@ -37,6 +38,7 @@ import type {
   BalletTrainingSkillValues,
   BalletTrainingV3Snapshot,
 } from './types.js';
+import type { BalletStudioCycleAdjustmentPort } from '../studio-v22/types.js';
 
 interface ConditionRow extends QueryResultRow {
   readonly consistency_stamina: number;
@@ -125,6 +127,7 @@ export class BalletTrainingV3Service {
     private readonly pool: Pool,
     private readonly random: () => number = Math.random,
     private readonly clock: BalletTrainingClock = getDatabaseTime,
+    private readonly studioV22?: BalletStudioCycleAdjustmentPort,
   ) {}
 
   public async getSnapshot(discordUserId: string): Promise<BalletTrainingV3Snapshot> {
@@ -133,7 +136,7 @@ export class BalletTrainingV3Service {
       await ensureAndLockUser(client, discordUserId);
       await ensureStateRows(client, discordUserId);
       const now = await this.getCurrentTime(client);
-      await ensurePreparationCycle(client, discordUserId, now, this.random);
+      await ensurePreparationCycle(client, discordUserId, now, this.random, this.studioV22);
       return loadSnapshot(client, discordUserId, now);
     });
   }
@@ -159,7 +162,7 @@ export class BalletTrainingV3Service {
       }
 
       const now = await this.getCurrentTime(client);
-      await ensurePreparationCycle(client, discordUserId, now, this.random);
+      await ensurePreparationCycle(client, discordUserId, now, this.random, this.studioV22);
       const lastAction = await client.query<{ readonly created_at: Date }>(
         `SELECT created_at FROM ballet_training_actions
          WHERE discord_user_id = $1 AND action_type = $2
@@ -186,16 +189,24 @@ export class BalletTrainingV3Service {
       const nextCondition = applyRecoveryAction(condition, action, now);
       await saveCondition(client, discordUserId, nextCondition);
       if (action === 'REHABILITATE' && setback !== null) {
-        const update = await client.query(
+        const update = await client.query<{ readonly setback_id: string; readonly status: string }>(
           `UPDATE ballet_training_setbacks
            SET completed_rehab_sessions = completed_rehab_sessions + 1,
                status = CASE WHEN completed_rehab_sessions + 1 >= required_rehab_sessions THEN 'RECOVERED' ELSE 'ACTIVE' END,
                recovered_at = CASE WHEN completed_rehab_sessions + 1 >= required_rehab_sessions THEN $2::timestamptz ELSE NULL END
            WHERE discord_user_id = $1 AND status = 'ACTIVE'
-           RETURNING setback_id`,
+           RETURNING setback_id, status`,
           [discordUserId, now],
         );
         if (update.rows[0] === undefined) throw new BalletRehabilitationUnavailableError();
+        if (update.rows[0].status === 'RECOVERED') {
+          await this.studioV22?.recordRecoveryResolutionWithinTransaction(
+            client,
+            discordUserId,
+            update.rows[0].setback_id,
+            now,
+          );
+        }
         await client.query(
           `INSERT INTO ballet_rehabilitation_sessions
              (interaction_id, discord_user_id, setback_id, request_fingerprint, completed_at)
@@ -302,6 +313,7 @@ export class BalletTrainingV3Service {
       sourceReference: input.attemptId,
       now: input.context.capturedAt,
       random: this.random,
+      ...(this.studioV22 === undefined ? {} : { studioV22: this.studioV22 }),
     });
     const setbackRollQualified = shouldCreateTrainingSetback(
       input.outcome,
@@ -375,6 +387,7 @@ export class BalletTrainingV3Service {
       sourceReference: input.activityCode + ':' + input.interactionId,
       now,
       random: this.random,
+      ...(this.studioV22 === undefined ? {} : { studioV22: this.studioV22 }),
     });
     return loadSnapshot(client, input.discordUserId, now);
   }
@@ -394,6 +407,7 @@ export class BalletTrainingV3Service {
       ...input,
       now,
       random: this.random,
+      ...(this.studioV22 === undefined ? {} : { studioV22: this.studioV22 }),
     });
   }
 
@@ -674,9 +688,16 @@ async function recordWorkload(
     sourceReference: string;
     now: Date;
     random: () => number;
+    studioV22?: BalletStudioCycleAdjustmentPort;
   },
 ): Promise<void> {
-  await ensurePreparationCycle(client, input.discordUserId, input.now, input.random);
+  await ensurePreparationCycle(
+    client,
+    input.discordUserId,
+    input.now,
+    input.random,
+    input.studioV22,
+  );
   const recent = await client.query<{ readonly event_count: string }>(
     `SELECT count(*)::text AS event_count FROM ballet_stamina_workload_events
      WHERE discord_user_id = $1 AND recorded_at >= $2::timestamptz - interval '24 hours'`,
@@ -734,7 +755,13 @@ async function recordWorkload(
        WHERE discord_user_id = $1 AND cycle_number = $2 AND status = 'COMPLETED'`,
       [input.discordUserId, cycle.cycle_number, staminaDelta],
     );
-    await ensurePreparationCycle(client, input.discordUserId, input.now, input.random);
+    await ensurePreparationCycle(
+      client,
+      input.discordUserId,
+      input.now,
+      input.random,
+      input.studioV22,
+    );
   }
 }
 
@@ -743,6 +770,7 @@ async function ensurePreparationCycle(
   discordUserId: string,
   now: Date,
   random: () => number,
+  studioV22?: BalletStudioCycleAdjustmentPort,
 ): Promise<void> {
   const activeResult = await client.query<CycleRow>(
     `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at,
@@ -758,23 +786,41 @@ async function ensurePreparationCycle(
   }
   if (active !== undefined) return;
 
-  const previousResult = await client.query<CycleRow>(
-    `SELECT cycle_number, target_workload, completed_workload, status, started_at, deadline_at,
-            completed_at, below_floor_exception, duration_days, floor_roll_micros,
-            target_roll_micros, carryover_from_cycle_number, cycle_outcome, finalized_at, stamina_delta
-     FROM ballet_stamina_cycles WHERE discord_user_id = $1
-     ORDER BY cycle_number DESC LIMIT 1 FOR UPDATE`,
+  const previousResult = await client.query<CycleRow & { readonly base_target_workload: number }>(
+    `SELECT c.cycle_number, c.target_workload, c.completed_workload, c.status, c.started_at, c.deadline_at,
+            c.completed_at, c.below_floor_exception, c.duration_days, c.floor_roll_micros,
+            c.target_roll_micros, c.carryover_from_cycle_number, c.cycle_outcome, c.finalized_at, c.stamina_delta,
+            COALESCE(a.base_target_workload, c.target_workload)::integer AS base_target_workload
+     FROM ballet_stamina_cycles c
+     LEFT JOIN ballet_studio_cycle_adjustments a ON a.cycle_id = c.cycle_id
+     WHERE c.discord_user_id = $1
+     ORDER BY c.cycle_number DESC LIMIT 1 FOR UPDATE OF c`,
     [discordUserId],
   );
   const previous = previousResult.rows[0];
+  const previousBaseTarget = previous?.base_target_workload ?? previous?.target_workload ?? 0;
+  const previousBaseCompleted = Math.min(previous?.completed_workload ?? 0, previousBaseTarget);
   const generated = nextStaminaCycle(
     (previous?.cycle_number ?? 0) + 1,
-    previous?.completed_workload ?? 0,
+    previousBaseCompleted,
     now,
     random(),
     random(),
-    previous?.target_workload ?? 0,
+    previousBaseTarget,
   );
+  const adjustment = await studioV22?.prepareCycleAdjustmentWithinTransaction(
+    client,
+    discordUserId,
+    generated.targetWorkload,
+    now,
+  );
+  const targetWorkload = Math.min(
+    BALLET_TRAINING_V3_RULES.staminaCycle.maximumTargetWorkload,
+    generated.targetWorkload + (adjustment?.additionalWorkload ?? 0),
+  );
+  const durationDays = cycleDurationDays(targetWorkload);
+  const deadlineAt = new Date(now.getTime() + durationDays * 24 * 3_600_000);
+  const cycleId = randomUUID();
   await client.query(
     `INSERT INTO ballet_stamina_cycles
        (cycle_id, discord_user_id, cycle_number, target_workload, completed_workload, status,
@@ -782,18 +828,26 @@ async function ensurePreparationCycle(
         target_roll_micros, carryover_from_cycle_number)
      VALUES ($1, $2, $3, $4, 0, 'ACTIVE', $5, $6, $7, $8, $9, $10, $11)`,
     [
-      randomUUID(),
+      cycleId,
       discordUserId,
       generated.cycleNumber,
-      generated.targetWorkload,
+      targetWorkload,
       generated.belowFloorException,
       generated.startedAt,
-      generated.deadlineAt,
-      generated.durationDays,
+      deadlineAt,
+      durationDays,
       generated.floorRollMicros,
       generated.targetRollMicros,
       previous?.cycle_number ?? null,
     ],
+  );
+  await studioV22?.consumeCycleAdjustmentWithinTransaction(
+    client,
+    discordUserId,
+    cycleId,
+    generated.targetWorkload,
+    adjustment ?? null,
+    now,
   );
 }
 

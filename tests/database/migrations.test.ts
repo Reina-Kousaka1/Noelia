@@ -10,7 +10,7 @@ describe('PostgreSQL migrations', () => {
   it('loads contiguous fresh migrations with SHA-256 checksums', async () => {
     const migrations = await loadMigrations(migrationsDirectory);
 
-    expect(migrations).toHaveLength(27);
+    expect(migrations).toHaveLength(28);
     expect(migrations[0]).toMatchObject({
       version: 1,
       name: 'initial_schema',
@@ -195,6 +195,14 @@ describe('PostgreSQL migrations', () => {
     expect(migrations[26]?.sql).toContain('ADD COLUMN preparation_failure_roll_micros');
     expect(migrations[26]?.sql).toContain('duration_days BETWEEN 1 AND 42');
     expect(migrations[26]?.sql).not.toMatch(/\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i);
+    expect(migrations[27]).toMatchObject({ version: 28, name: 'studio_v22_madame_state' });
+    expect(migrations[27]?.sql).toContain('CREATE TABLE ballet_madame_mood_states');
+    expect(migrations[27]?.sql).toContain('CREATE TABLE ballet_studio_session_states');
+    expect(migrations[27]?.sql).toContain('CREATE TABLE ballet_corrective_tasks');
+    expect(migrations[27]?.sql).toContain('CREATE TABLE ballet_studio_followups');
+    expect(migrations[27]?.sql).toContain('CREATE TABLE ballet_studio_events');
+    expect(migrations[27]?.sql).toContain('ballet_studio_events_append_only');
+    expect(migrations[27]?.sql).not.toMatch(/\bDROP\s+(TABLE|SCHEMA|DATABASE|TRUNCATE)\b/i);
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_sales');
     expect(migrations[6]?.sql).toContain('CREATE TABLE marketplace_requests');
     expect(migrations[6]?.sql).toContain('CREATE TRIGGER marketplace_escrow_no_truncate');
@@ -210,8 +218,8 @@ describe('PostgreSQL migrations', () => {
     const pool = { connect: vi.fn().mockResolvedValue(client) } as unknown as Pool;
 
     await expect(runMigrations(pool, migrationsDirectory)).resolves.toEqual({
-      appliedCount: 27,
-      currentVersion: 27,
+      appliedCount: 28,
+      currentVersion: 28,
     });
 
     expect(statements).toContain('BEGIN');
