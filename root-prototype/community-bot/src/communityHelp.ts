@@ -3,35 +3,42 @@ import type {
   ChannelMessageCreateRequest,
   MessageGuid,
 } from "@rootsdk/server-bot";
-import { communityHelpResponse } from "@noelia-root/persona";
+import { parseCommunityCommand } from "./communityCommandParser";
+import { routeCommunityCommand } from "./communityCommandRouter";
 
 export type CommunityHelpInput = Readonly<{
   communityId?: string;
   channelId: ChannelGuid;
   messageId: MessageGuid;
-  messageContent: string;
+  messageContent: unknown;
   isUserMessage: boolean;
 }>;
 
-export function isHelpRequest(messageContent: string): boolean {
-  return /^!noelia\s+help\s*$/i.test(messageContent.trim());
+export function isHelpRequest(messageContent: unknown): boolean {
+  const parsed = parseCommunityCommand(messageContent);
+  return parsed.kind === "command" && parsed.command.name === "help";
 }
 
-export function createCommunityHelpReply(
+export function createCommunityReply(
   event: CommunityHelpInput,
   communityId: string,
 ): ChannelMessageCreateRequest | undefined {
-  if (!event.isUserMessage) return undefined;
-  if (event.communityId && event.communityId !== communityId) return undefined;
-  if (!isHelpRequest(event.messageContent)) return undefined;
+  if (!event || !event.isUserMessage) return undefined;
+  if (!communityId || event.communityId !== communityId) return undefined;
+  if (typeof event.channelId !== "string" || !event.channelId.trim()) return undefined;
+  if (typeof event.messageId !== "string" || !event.messageId.trim()) return undefined;
 
-  const response = communityHelpResponse(event.messageId);
-  if (isHelpRequest(response)) return undefined;
+  const parsed = parseCommunityCommand(event.messageContent);
+  const response = routeCommunityCommand(parsed, String(event.messageId));
+  if (!response || !response.message.trim()) return undefined;
 
   return {
     channelId: event.channelId,
-    content: response,
+    content: response.message,
     parentMessageIds: [event.messageId],
     needsParentMessageNotification: true,
   };
 }
+
+// Keep the original exported helper name for Root prototype consumers.
+export const createCommunityHelpReply = createCommunityReply;

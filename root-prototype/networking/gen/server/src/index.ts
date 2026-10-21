@@ -5,5 +5,7 @@
 
 export * from "./example.server";
 
+export * from "./community.server";
+
 export * from "./academy.server";
 

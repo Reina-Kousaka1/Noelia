@@ -30,10 +30,12 @@ npm run start:app
 npm run start:bot
 ```
 
-Each Root development credential is associated with a Root community. Use App and Bot credentials for the same community to have their interactions meet. The Bot answers only the `!noelia help` message in a channel. The App server relays that Bot-authored message through its generated Root client/server broadcast service, and the existing Madame UI presents it as an explanation. Root does not provide a direct Bot-to-App RPC; the shared Root community event and the App's supported broadcast mechanism form this bridge.
+Each Root development credential is associated with a Root community. Use App and Bot credentials for the same community to have their interactions meet. The Bot accepts a small set of explicit, stateless commands: `!noelia help`, `status`, `hello`, `chat`, `ballet [prepare|success|miss|again|encourage|warning|correct|confused|recover|stamina|ready]`, `style`, and `luxury`. Other messages are ignored. Unknown and malformed commands receive a short Madame response, and the Bot only replies to user messages in its configured community.
+
+The App server relays Bot-authored messages through its generated Root client/server broadcast service. The event preserves the original message and mood fields and adds typed context and signal enums; the client validates the message before updating Madame's existing presentation. Root does not provide a direct Bot-to-App RPC, so the community channel and the App's supported broadcast mechanism form this bridge.
 
 ## Scope and safety
 
-This is an opt-in development preview, not a production ownership transfer. The Root App and Bot do not share a Root server process or a Root-managed persistent store. This help path is presentation-only and does not write gameplay state. The App remains the Root UI runtime; the Bot remains a channel-message adapter. No Discord/Eris authentication is used here.
+This is an opt-in development preview, not a production ownership transfer. The Root App and Bot do not share a Root server process or a Root-managed persistent store. These community interactions are presentation-only and do not write gameplay state. The App remains the Root UI runtime; the Bot remains a channel-message adapter. No Discord/Eris authentication is used here.
 
-The Root App client receives no credentials. Its event handler updates the existing Madame presentation only. The Bot ignores system messages, messages from other communities, and anything except the narrow help trigger; its response does not match that trigger, preventing a self-reply loop.
+The Root App client receives no credentials. Its event handler updates the existing Madame presentation only. The App and Bot remain separate runtimes and do not share a persistent store. Root Economy V2 is not implemented: bank and cash balances, earnings, deposits and withdrawals, purchase funding, transfers and progressive tax, treasury accounting, admin insight, and an atomic idempotent ledger remain a later phase. The next Root foundation should establish a shared persistent store and ledger rules before any economy commands are exposed.

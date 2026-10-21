@@ -5,5 +5,7 @@
 
 export * from "./example.client";
 
+export * from "./community.client";
+
 export * from "./academy.client";
 

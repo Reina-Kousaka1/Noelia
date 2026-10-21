@@ -1,6 +1,6 @@
 {
   "name": "@noelia-root/gen-shared",
-  "version": "1.0.1791305984019",
+  "version": "1.0.1792621948288",
   "main": "./dist/cjs/index.js",
   "typings": "./dist/cjs/index.d.ts",
   "module": "./dist/mjs/index.js",

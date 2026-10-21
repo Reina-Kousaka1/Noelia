@@ -4,6 +4,8 @@ export const {
   academyWelcome,
   dialogueLine,
   madameLine,
+  madameInteraction,
+  teacherInteraction,
   moodLabels,
   sectionGreeting,
   exerciseGuidance,

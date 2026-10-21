@@ -13,6 +13,15 @@ const contexts = [
   "boutique",
   "profile",
   "community",
+  "casual",
+  "ballet",
+  "fashion",
+  "luxury",
+  "system",
+  "command",
+  "recovery",
+  "stamina",
+  "readiness",
   "error",
 ];
 const intensities = ["low", "medium", "high", "very-high"];
@@ -123,7 +132,7 @@ test("feature contexts express their own tone without changing Madame's states",
     intensity: "high",
     variationKey,
   }));
-  assert.ok(community.some((line) => /competitive|attention|coordination/i.test(line)));
+  assert.ok(community.some((line) => /finish first|notice|coordination/i.test(line)));
 
   const academy = persona.dialogueLine({
     context: "academy",
@@ -163,6 +172,68 @@ test("community help uses the shared Madame response system", () => {
   })));
 });
 
+test("Madame interactions cover community, casual, style, and high-standard choices", () => {
+  const intents = ["greeting", "help", "status", "casual", "fashion", "luxury", "command_error"];
+  for (const intent of intents) {
+    for (const variationKey of keys) {
+      const interaction = persona.madameInteraction(intent, variationKey);
+      assert.ok(interaction.message.trim());
+      assert.equal(typeof interaction.mood, "string");
+      assert.ok(interaction.context);
+      assert.ok(interaction.signal);
+    }
+  }
+
+  const luxuryLines = keys.map((variationKey) =>
+    persona.madameInteraction("luxury", variationKey).message,
+  );
+  assert.ok(luxuryLines.some((line) => /finer finish|stitching|loveliest drape|sits beautifully/i.test(line)));
+  assert.ok(luxuryLines.some((line) => /why would we choose the other/i.test(line)));
+  assert.ok(luxuryLines.every((line) => !/\b(?:rich|spoiled|privileged|superior|princess)\b/i.test(line)));
+});
+
+test("ballet teacher signals stay structured, supportive, and safely demanding", () => {
+  const signals = [
+    "preparation",
+    "success",
+    "failure",
+    "repeated_failure",
+    "encouragement",
+    "warning",
+    "corrective_task",
+    "confusion",
+    "recovery",
+    "readiness",
+    "stamina",
+  ];
+  for (const kind of signals) {
+    const interaction = persona.teacherInteraction({ kind, variationKey: `teacher-${kind}` });
+    assert.equal(interaction.context, "ballet");
+    assert.equal(interaction.signal, kind);
+    assert.ok(interaction.message.trim());
+  }
+
+  const balletLines = keys.map((variationKey) =>
+    persona.teacherInteraction({ kind: "preparation", variationKey }).message,
+  );
+  assert.ok(balletLines.some((line) => /plié|port de bras|tendu|relevé|épaulement/i.test(line)));
+  assert.ok(balletLines.every((line) => !/force your turnout|push through pain|keep going through pain|diagnos|calories|lose weight/i.test(line)));
+
+  const repeated = keys.map((variationKey) =>
+    persona.teacherInteraction({ kind: "failure", repeatCount: 2, variationKey }).message,
+  );
+  assert.ok(repeated.every((line) => /again|reset|slow|pause|correct|second miss/i.test(line)));
+  assert.ok(repeated.every((line) => !/you are (?:bad|stupid|worthless)/i.test(line)));
+  assert.ok(repeated.some((line) => /second miss|must correct|higher standard/i.test(line)));
+
+  const supportive = persona.teacherInteraction({ kind: "encouragement", variationKey: "supportive" });
+  assert.equal(supportive.mood, "approving");
+  assert.match(supportive.message, /good|better|thoughtful|well done/i);
+  assert.match(persona.teacherInteraction({ kind: "stamina", variationKey: "stamina" }).message, /stamina|phrase|pace/i);
+  assert.match(persona.teacherInteraction({ kind: "recovery", variationKey: "recovery" }).message, /pause|breath|moment|ready/i);
+  assert.match(persona.teacherInteraction({ kind: "readiness", variationKey: "readiness" }).message, /ready|prepared|beginning/i);
+});
+
 test("error dialogue remains calm and helpful regardless of requested intensity", () => {
   const messages = keys.flatMap((variationKey) => [
     persona.dialogueLine({
@@ -195,7 +266,8 @@ test("curated dialogue stays non-self-aware, non-cruel, and focused on work rath
   }
 
   const corpus = allLines.join(" ");
-  assert.doesNotMatch(corpus, /I am (?:rich|spoiled|arrogant|the queen|better than everyone)/i);
+  assert.doesNotMatch(corpus, /\b(?:rich|spoiled|privileged|superior|princess)\b/i);
+  assert.doesNotMatch(corpus, /I am (?:arrogant|the queen|better than everyone)/i);
   assert.doesNotMatch(corpus, /you are (?:bad|stupid|ordinary|poor|worthless)/i);
   assert.doesNotMatch(corpus, /(?:poor people|people who cannot afford|your weight|you are fat)/i);
 });
@@ -207,4 +279,8 @@ test("invalid inputs receive a safe neutral fallback", () => {
   );
   assert.ok(persona.exerciseGuidance("unknown", "unknown"));
   assert.ok(persona.trainingFeedback("UNKNOWN", "unknown", "key"));
+  assert.equal(
+    persona.teacherInteraction({ kind: "unknown", variationKey: "invalid" }).context,
+    "system",
+  );
 });

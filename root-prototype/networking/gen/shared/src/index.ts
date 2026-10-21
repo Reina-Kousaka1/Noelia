@@ -5,6 +5,8 @@
 
 export * from "./example";
 
+export * from "./community";
+
 export * from "./academy";
 
 export * from "./rootsdk/types";

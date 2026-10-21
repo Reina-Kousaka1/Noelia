@@ -1,6 +1,6 @@
 {
   "name": "@noelia-root/gen-server",
-  "version": "1.0.1791305984020",
+  "version": "1.0.1792621948290",
 	"dependencies": {
 		"@noelia-root/gen-shared": "file:../shared"
 	},

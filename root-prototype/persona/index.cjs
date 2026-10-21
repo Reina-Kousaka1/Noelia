@@ -18,7 +18,7 @@ const dialoguePools = {
         "Let us take things in order. It is usually the most elegant approach.",
       ],
       medium: [
-        "I am very patient, naturally. We shall simply do it properly.",
+        "There is no rush at all, ma chère. We shall simply do it properly.",
         "A little preparation prevents such unnecessary confusion.",
       ],
     },
@@ -40,8 +40,8 @@ const dialoguePools = {
         "One step at a time, please. Precision is much kinder than guesswork.",
       ],
       medium: [
-        "Surely we can make this simpler by giving it a little structure.",
-        "I do not need anything elaborate. A well-considered plan will do beautifully.",
+        "A little structure will make the whole thing easier. Shall we arrange it properly?",
+        "A well-considered plan will do beautifully. Let us place each detail in order.",
       ],
     },
     approving: {
@@ -67,7 +67,7 @@ const dialoguePools = {
       ],
       high: [
         "No. That simply will not do. Reset your position and try the sequence again, please.",
-        "The result is beneath the standard we established. Begin again, one count at a time.",
+        "We have a higher standard to meet. Begin again, one count at a time; I shall stay with you.",
         "We shall pretend that was the rehearsal. Take a breath, then repeat the passage with control.",
       ],
     },
@@ -97,7 +97,7 @@ const dialoguePools = {
         "A lovely day for beginning well. I have, naturally, already made a list.",
       ],
       medium: [
-        "I do not ask for much: a little discipline, a clear plan, and perhaps a proper cup of tea.",
+        "A little discipline, a clear plan, and a proper cup of tea. That is quite a lovely way to begin.",
       ],
     },
   },
@@ -148,7 +148,7 @@ const dialoguePools = {
       high: [
         "No. That simply will not do. Take a breath, return to the first count, and try again.",
         "The execution was not ready. We shall slow the sequence down and place each step properly.",
-        "I am not competitive; I simply dislike leaving a passage unfinished. Again, please.",
+        "We shall finish the passage properly before moving on. Again, please; I will stay with you.",
       ],
     },
     celebrating: {
@@ -176,9 +176,9 @@ const dialoguePools = {
         "That is much more considered. I knew you would eventually see the difference.",
       ],
       high: [
-        "Impeccable. I do not need anything elaborate; well-made and properly balanced is quite enough.",
-        "That arrangement is decidedly more sophisticated. The previous one was… rather ordinary.",
-        "I do not care about appearances. I simply cannot ignore a hem that is fighting the line.",
+        "Impeccable. The fabric falls beautifully, and the line is exactly where it should be.",
+        "That arrangement is decidedly more sophisticated. The previous one was a little plain beside it.",
+        "That hem is pulling against the line, ma chère. Let us try the finer finish; it will sit beautifully.",
       ],
     },
     correcting: {
@@ -191,8 +191,8 @@ const dialoguePools = {
   boutique: {
     greeting: {
       medium: [
-        "We need not choose anything extravagant. Something well-made will do.",
-        "I had assumed that was standard. No matter; we shall find something appropriate.",
+        "This finish is lovely. Shall we compare it with the piece beside it?",
+        "The stitching is already rather promising. Let us see how the fabric falls.",
       ],
     },
     approving: {
@@ -229,10 +229,16 @@ const dialoguePools = {
     },
   },
   community: {
+    idle: {
+      low: [
+        "The studio is ready, the barre is in place. Shall we begin, ma chère?",
+        "Everything is in order here. I am ready whenever you are.",
+      ],
+    },
     greeting: {
       medium: [
         "Bonjour, everyone. I assume we are all being perfectly sensible today.",
-        "I never understood why a little preparation becomes such an ordeal. Anyway, how lovely to see you.",
+        "A little preparation makes such a lovely difference. Anyway, how nice to see you.",
       ],
     },
     approving: {
@@ -241,14 +247,112 @@ const dialoguePools = {
         "That was a good idea. I was beginning to think I would have to suggest it myself.",
       ],
       high: [
-        "I am not particularly competitive. I simply prefer to finish first when it is done properly.",
-        "I do not need attention. Excellence tends to attract enough on its own.",
+        "Let us finish first, shall we? The whole room is ready, and the plan is quite clear.",
+        "That is beautifully done. People do tend to notice when every detail is in its place.",
       ],
     },
     correcting: {
       medium: [
         "That plan is a little disorganized. Shall we put the useful parts in order?",
-        "I would never judge the choice. It simply would not be mine; shall we compare the options?",
+        "That choice is a little unexpected, ma chère. Shall we compare the other options?",
+        "I do not recognize that command, ma chère. Try !noelia help and we shall find the right thing.",
+        "That command needs one more detail. Try !noelia help for the available choices, please.",
+      ],
+    },
+  },
+  casual: {
+    greeting: {
+      low: [
+        "Bonjour, ma chère. How has your day been treating you?",
+        "Ah, there you are. Tell me what is on your mind; I have a moment.",
+        "Come in, darling. We can take the day one lovely detail at a time.",
+      ],
+    },
+    explaining: {
+      low: [
+        "That sounds like quite a day. Shall we untangle it gently, one thought at a time?",
+        "I see. Tell me a little more, and we shall find the sensible next step together.",
+        "How curious. I am listening, ma chère; there is no need to rush the story.",
+      ],
+    },
+    approving: {
+      low: [
+        "That sounds lovely. I am glad you told me.",
+        "A rather nice turn of events. Let us enjoy it for a moment.",
+      ],
+    },
+  },
+  ballet: {
+    explaining: {
+      low: [
+        "Find a comfortable première position and let the count settle before you move. No forcing the turnout, please.",
+        "For this petit plié, bend only within a comfortable range and let the knees follow the toes.",
+        "Begin in bras bas, then follow the port de bras slowly. Breathe naturally and keep the movement easy.",
+      ],
+      medium: [
+        "For a tendu, brush the foot along the floor and finish with a clear point. Keep the supporting leg quiet, ma chère.",
+        "A steady relevé begins with a calm count. Rise only as far as feels comfortable, then lower with control.",
+        "Let us place the épaulement gently: the head follows the line, and the shoulders remain at ease.",
+      ],
+    },
+    approving: {
+      medium: [
+        "Much better. Your port de bras has a clear beginning and a lovely, unhurried finish.",
+        "Good. The tendu is more deliberate now; keep that same quiet attention through the next count.",
+        "That was a thoughtful adjustment. The line reads more clearly when the timing is settled.",
+      ],
+    },
+    correcting: {
+      medium: [
+        "Not quite, ma chère. Reset in a comfortable position and let us place the count again, slowly.",
+        "The timing slipped. Take a breath, reduce the range, and try the passage once more with control.",
+        "Again, let the foot brush through tendu rather than forcing the shape. We can refine the line together.",
+      ],
+      high: [
+        "No, we must correct that before moving on. Pause, reset, and return to the first count with care.",
+        "That is the second miss. We shall slow it down and place each count properly; precision matters here.",
+        "Again, please. Keep the movement comfortable, attend to the count, and let the detail become clear.",
+      ],
+    },
+    celebrating: {
+      high: [
+        "Très bien. Every count landed with intention; that was an impeccable little passage.",
+        "Excellent. The line stayed clear from the first plié to the final breath. Voilà.",
+        "That was magnificent, ma chère. You gave each detail exactly the attention it deserved.",
+      ],
+      "very-high": [
+        "Magnifique. A clean count, a calm finish, and not one detail left to chance. I am delighted for you.",
+      ],
+    },
+  },
+  fashion: {
+    approving: {
+      medium: [
+        "The colour suits the silhouette, and the finish is especially lovely.",
+        "That is a thoughtful combination. The proportions feel balanced now.",
+        "Much more polished, ma chère. The small details are making the whole look sing.",
+      ],
+    },
+    correcting: {
+      medium: [
+        "Those pieces are lovely on their own. A softer wrap would bring the whole line together.",
+        "The colours are competing a little. Let us keep the delicate one and choose a quieter partner.",
+      ],
+    },
+  },
+  luxury: {
+    approving: {
+      high: [
+        "The hand-finished edge is much nicer. Why would we choose the other one?",
+        "This silk has the loveliest drape, and the stitching is exact. It is the obvious choice, ma chère.",
+        "That one sits beautifully. Good materials do make everything feel quite effortless.",
+        "The clasp is finished so neatly. Yes, this is the piece we want; the other one feels unfinished beside it.",
+      ],
+    },
+    correcting: {
+      medium: [
+        "The finish on that one is a little rough. Let us choose the piece that feels lovely in the hand.",
+        "This detail is not quite right. The finer finish is beside it, ma chère; shall we take a look?",
       ],
     },
   },
@@ -263,6 +367,53 @@ const dialoguePools = {
       low: [
         "I could not read that response. Your attempt is still here; please try again.",
         "The connection interrupted us. Please send the same attempt again when you are ready.",
+      ],
+    },
+  },
+  system: {
+    explaining: {
+      low: [
+        "The studio connection has paused. Your work is still here; please try once more when you are ready.",
+        "Something interrupted us, ma chère. Nothing has been decided; please send that again.",
+        "I could not read that just now. Take your time, then try once more; I am here.",
+      ],
+    },
+  },
+  command: {
+    explaining: {
+      low: [
+        "I do not recognize that command, ma chère. Try !noelia help and we shall find the right thing.",
+        "That command needs one more detail. Try !noelia help for the available choices, please.",
+      ],
+    },
+  },
+  recovery: {
+    explaining: {
+      low: [
+        "A quiet pause between phrases is perfectly sensible, ma chère. Let your breath settle before we return to the barre.",
+        "Take a moment, sip some water if you wish, and begin again only when you feel ready.",
+      ],
+    },
+  },
+  stamina: {
+    explaining: {
+      medium: [
+        "Stamina grows gradually. Keep each phrase controlled and let your instructor set a comfortable pace.",
+        "One clear phrase at a time, ma chère. Consistency is far more useful than rushing through the whole combination.",
+      ],
+    },
+  },
+  readiness: {
+    explaining: {
+      low: [
+        "When you feel settled and prepared, we can begin with a gentle count at the barre.",
+        "A clear plan and a comfortable starting position are quite enough for a thoughtful beginning.",
+      ],
+    },
+    approving: {
+      medium: [
+        "You are ready to begin, ma chère. Take your place, find the count, and let us start with care.",
+        "Everything is in order for a measured beginning. We shall take the first phrase together.",
       ],
     },
   },
@@ -307,11 +458,71 @@ const sectionContexts = {
 };
 
 const trainingReactions = {
-  PERFECT: { state: "celebrating", intensity: "high" },
-  SUCCESS: { state: "approving", intensity: "medium" },
-  SHAKY: { state: "correcting", intensity: "medium" },
-  FAIL: { state: "correcting", intensity: "high" },
+  PERFECT: "success",
+  SUCCESS: "encouragement",
+  SHAKY: "warning",
+  FAIL: "failure",
 };
+
+const interactionProfiles = Object.freeze({
+  greeting: { context: "community", state: "greeting", intensity: "medium", signal: "greeting" },
+  help: { context: "community", state: "explaining", intensity: "medium", signal: "help" },
+  status: { context: "community", state: "idle", intensity: "low", signal: "status" },
+  casual: { context: "casual", state: "explaining", intensity: "low", signal: "casual" },
+  preparation: { context: "ballet", state: "explaining", intensity: "medium", signal: "preparation" },
+  success: { context: "ballet", state: "celebrating", intensity: "high", signal: "success" },
+  failure: { context: "ballet", state: "correcting", intensity: "medium", signal: "failure" },
+  repeated_failure: { context: "ballet", state: "correcting", intensity: "high", signal: "repeated_failure" },
+  encouragement: { context: "ballet", state: "approving", intensity: "medium", signal: "encouragement" },
+  warning: { context: "ballet", state: "correcting", intensity: "medium", signal: "warning" },
+  corrective_task: { context: "ballet", state: "correcting", intensity: "high", signal: "corrective_task" },
+  confusion: { context: "ballet", state: "explaining", intensity: "low", signal: "confusion" },
+  recovery: {
+    context: "ballet",
+    dialogueContext: "recovery",
+    state: "explaining",
+    intensity: "low",
+    signal: "recovery",
+  },
+  stamina: {
+    context: "ballet",
+    dialogueContext: "stamina",
+    state: "explaining",
+    intensity: "medium",
+    signal: "stamina",
+  },
+  readiness: {
+    context: "ballet",
+    dialogueContext: "readiness",
+    state: "approving",
+    intensity: "medium",
+    signal: "readiness",
+  },
+  fashion: { context: "fashion", state: "approving", intensity: "medium", signal: "fashion" },
+  luxury: { context: "luxury", state: "approving", intensity: "high", signal: "luxury_choice" },
+  system_error: { context: "system", state: "explaining", intensity: "low", signal: "system_error" },
+  command_error: {
+    context: "community",
+    dialogueContext: "command",
+    state: "explaining",
+    intensity: "low",
+    signal: "confusion",
+  },
+});
+
+const teacherIntentBySignal = Object.freeze({
+  preparation: "preparation",
+  success: "success",
+  failure: "failure",
+  repeated_failure: "repeated_failure",
+  encouragement: "encouragement",
+  warning: "warning",
+  corrective_task: "corrective_task",
+  confusion: "confusion",
+  recovery: "recovery",
+  readiness: "readiness",
+  stamina: "stamina",
+});
 
 function stableIndex(options, key) {
   let hash = 2166136261;
@@ -365,6 +576,39 @@ function madameLine(mood, variationKey = "default", context = "general", intensi
   return dialogueLine({ context, state: mood, intensity, variationKey });
 }
 
+function madameInteraction(intent, variationKey = String(intent || "default")) {
+  const profile = Object.prototype.hasOwnProperty.call(interactionProfiles, intent)
+    ? interactionProfiles[intent]
+    : interactionProfiles.system_error;
+  return Object.freeze({
+    mood: profile.state,
+    context: profile.context,
+    signal: profile.signal,
+    message: dialogueLine({
+      context: profile.dialogueContext || profile.context,
+      state: profile.state,
+      intensity: profile.intensity,
+      variationKey,
+    }),
+  });
+}
+
+function teacherInteraction(request = {}) {
+  const kind = request && request.kind;
+  let intent = Object.prototype.hasOwnProperty.call(teacherIntentBySignal, kind)
+    ? teacherIntentBySignal[kind]
+    : "system_error";
+  const repeatCount = Number.isInteger(request && request.repeatCount)
+    ? Math.max(0, Math.min(request.repeatCount, 100))
+    : 0;
+  if (kind === "failure" && repeatCount > 1) intent = "repeated_failure";
+
+  const variationKey = typeof (request && request.variationKey) === "string"
+    ? request.variationKey
+    : `${kind || "unknown"}:${repeatCount}`;
+  return madameInteraction(intent, variationKey);
+}
+
 function sectionGreeting(section, variationKey = section) {
   const context = Object.prototype.hasOwnProperty.call(sectionContexts, section)
     ? sectionContexts[section]
@@ -388,21 +632,12 @@ function exerciseGuidance(exerciseId, phase, variationKey = `${exerciseId}:${pha
 }
 
 function trainingFeedback(outcome, exerciseId, variationKey = exerciseId) {
-  const reaction = trainingReactions[outcome];
-  if (!reaction) {
-    return dialogueLine({
-      context: "error",
-      state: "explaining",
-      variationKey: `${exerciseId}:${variationKey}`,
-    });
-  }
-
-  return dialogueLine({
-    context: "training",
-    state: reaction.state,
-    intensity: reaction.intensity,
+  const intent = trainingReactions[outcome];
+  if (!intent) return madameInteraction("system_error", `${exerciseId}:${variationKey}`).message;
+  return teacherInteraction({
+    kind: intent,
     variationKey: `${exerciseId}:${variationKey}`,
-  });
+  }).message;
 }
 
 function wardrobeFeedback(appearanceId, variationKey = appearanceId) {
@@ -433,14 +668,8 @@ function connectionFeedback(variationKey = "connection") {
 }
 
 function communityHelpResponse(variationKey = "root-community-help") {
-  const introduction = dialogueLine({
-    context: "community",
-    state: "explaining",
-    intensity: "medium",
-    variationKey,
-  });
-
-  return `${introduction} In the Root App, you can explore the Academy, your profile, training, and wardrobe.`;
+  const introduction = madameInteraction("help", variationKey).message;
+  return `${introduction} In the Root App, you can explore the Academy, your profile, training, and wardrobe. Here, try !noelia ballet for a studio note, !noelia style for a look, or !noelia status to check in.`;
 }
 
 const academyWelcome = Object.freeze({
@@ -452,6 +681,8 @@ module.exports = {
   academyWelcome,
   dialogueLine,
   madameLine,
+  madameInteraction,
+  teacherInteraction,
   moodLabels: Object.freeze(moodLabels),
   sectionGreeting,
   exerciseGuidance,

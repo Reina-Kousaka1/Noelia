@@ -2,8 +2,9 @@ const assert = require("node:assert/strict");
 const { EventEmitter } = require("node:events");
 const test = require("node:test");
 const { createCommunityHelpReply } = require("../community-bot/dist/communityHelp.js");
-const { isMadameBotMessage } = require("../server/dist/community-relay.js");
+const { createMadameCommunityEvent } = require("../server/dist/community-relay.js");
 const { applyCommunityMadameEvent } = require("../client/src/communityEvent.mjs");
+const { MadameCommunityContext, MadameCommunitySignal } = require("@noelia-root/gen-shared");
 
 test("Root Bot -> shared Madame -> Root App client works within one community", async () => {
   const communityId = "community-test";
@@ -35,12 +36,11 @@ test("Root Bot -> shared Madame -> Root App client works within one community", 
     });
   });
 
-  if (isMadameBotMessage(incomingBotMessage, { communityId, botUserId })) {
-    broadcast.emit("broadcastCreated", {
-      message: incomingBotMessage.messageContent,
-      mood: "explaining",
-    });
-  }
+  const appEvent = createMadameCommunityEvent(incomingBotMessage, { communityId, botUserId });
+  assert.ok(appEvent);
+  assert.equal(appEvent.context, MadameCommunityContext.COMMUNITY);
+  assert.equal(appEvent.signal, MadameCommunitySignal.COMMUNITY_REPLY);
+  broadcast.emit("broadcastCreated", appEvent);
 
   assert.deepEqual(clientPresentation, {
     mood: "explaining",

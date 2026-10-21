@@ -37,10 +37,14 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const onCommunityEvent = (event: MadameCommunityEvent): void => {
-      applyCommunityMadameEvent(event, (mood, message) => {
-        setMadameMood(mood);
-        setMadameMessage(message);
-      });
+      try {
+        applyCommunityMadameEvent(event, (mood, message) => {
+          setMadameMood(mood);
+          setMadameMessage(message);
+        });
+      } catch {
+        console.error("Root App could not present a community update.");
+      }
     };
 
     madameCommunityServiceClient.on(

@@ -5,7 +5,7 @@ import {
   RootAppStartState,
 } from "@rootsdk/server-app";
 import { academyTrainingService } from "./academyTrainingService";
-import { isMadameBotMessage } from "./community-relay";
+import { createMadameCommunityEvent } from "./community-relay";
 import { madameCommunityService } from "./madameCommunityService";
 
 function configuredBotUserId(): string | undefined {
@@ -23,12 +23,17 @@ async function onStarting(state: RootAppStartState) {
 
   botMessageListener = (event) => {
     if (!event.communityId) return;
-    if (!isMadameBotMessage(event, { communityId: state.communityId, botUserId })) return;
-
-    madameCommunityService.broadcastMadameEvent({
-      message: event.messageContent,
-      mood: "explaining",
+    const communityEvent = createMadameCommunityEvent(event, {
+      communityId: state.communityId,
+      botUserId,
     });
+    if (!communityEvent) return;
+
+    try {
+      madameCommunityService.broadcastMadameEvent(communityEvent);
+    } catch {
+      console.error("Root App could not broadcast a community reply.");
+    }
   };
   rootServer.community.channelMessages.on(
     ChannelMessageEvent.ChannelMessageCreated,

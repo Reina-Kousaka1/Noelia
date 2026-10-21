@@ -15,8 +15,81 @@ export type DialogueContext =
   | "boutique"
   | "profile"
   | "community"
+  | "casual"
+  | "ballet"
+  | "fashion"
+  | "luxury"
+  | "system"
+  | "command"
+  | "recovery"
+  | "stamina"
+  | "readiness"
   | "error";
 export type DialogueIntensity = "low" | "medium" | "high" | "very-high";
+export type MadameInteractionIntent =
+  | "greeting"
+  | "help"
+  | "status"
+  | "casual"
+  | "preparation"
+  | "success"
+  | "failure"
+  | "repeated_failure"
+  | "encouragement"
+  | "warning"
+  | "corrective_task"
+  | "confusion"
+  | "recovery"
+  | "stamina"
+  | "readiness"
+  | "fashion"
+  | "luxury"
+  | "command_error"
+  | "system_error";
+export type BalletTeacherSignal =
+  | "preparation"
+  | "success"
+  | "failure"
+  | "repeated_failure"
+  | "encouragement"
+  | "warning"
+  | "corrective_task"
+  | "confusion"
+  | "recovery"
+  | "readiness"
+  | "stamina";
+export type MadameEventContext = "community" | "ballet" | "fashion" | "luxury" | "system";
+export type MadameSignal =
+  | "greeting"
+  | "help"
+  | "status"
+  | "casual"
+  | "preparation"
+  | "success"
+  | "failure"
+  | "repeated_failure"
+  | "encouragement"
+  | "warning"
+  | "corrective_task"
+  | "confusion"
+  | "recovery"
+  | "stamina"
+  | "readiness"
+  | "fashion"
+  | "luxury_choice"
+  | "system_error"
+  | "community_reply";
+export type MadameInteraction = Readonly<{
+  mood: MadameMood;
+  context: MadameEventContext;
+  signal: MadameSignal;
+  message: string;
+}>;
+export type BalletTeacherRequest = Readonly<{
+  kind: BalletTeacherSignal;
+  repeatCount?: number;
+  variationKey?: string;
+}>;
 export type DialogueRequest = Readonly<{
   context: DialogueContext;
   state: MadameMood;
@@ -45,6 +118,11 @@ export declare function madameLine(
   context?: DialogueContext,
   intensity?: DialogueIntensity,
 ): string;
+export declare function madameInteraction(
+  intent: MadameInteractionIntent,
+  variationKey?: string,
+): MadameInteraction;
+export declare function teacherInteraction(request: BalletTeacherRequest): MadameInteraction;
 export declare function sectionGreeting(section: RootSection, variationKey?: string): string;
 export declare function exerciseGuidance(
   exerciseId: ExerciseId,
