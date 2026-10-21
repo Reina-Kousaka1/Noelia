@@ -22,3 +22,19 @@ test("Vite development keeps the interactive TypeScript checker", async () => {
     true,
   );
 });
+
+test("Vite can skip opening a browser inside the runtime container", async () => {
+  const previous = process.env.NOELIA_ROOT_DISABLE_BROWSER_OPEN;
+  process.env.NOELIA_ROOT_DISABLE_BROWSER_OPEN = "true";
+
+  try {
+    const resolved = await config({ command: "serve", mode: "test" });
+    assert.equal(resolved.server.open, false);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.NOELIA_ROOT_DISABLE_BROWSER_OPEN;
+    } else {
+      process.env.NOELIA_ROOT_DISABLE_BROWSER_OPEN = previous;
+    }
+  }
+});

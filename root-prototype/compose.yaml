@@ -1,0 +1,109 @@
+name: noelia-root-runtime-test
+
+services:
+  root-image:
+    image: noelia-root-runtime-test:ba616879
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    profiles: [build]
+    command: ["node", "--version"]
+    network_mode: none
+    restart: "no"
+
+  app-server:
+    image: noelia-root-runtime-test:ba616879
+    platform: linux/arm64
+    container_name: noelia-root-runtime-test-app-server
+    command: ["node", "scripts/start-root-devhost.cjs", "app"]
+    init: true
+    environment:
+      NODE_ENV: development
+      NOELIA_ROOT_APP_DEV_TOKEN: ${NOELIA_ROOT_APP_DEV_TOKEN:-}
+      NOELIA_ROOT_BOT_USER_ID: ${NOELIA_ROOT_BOT_USER_ID:-}
+    networks: [root-test]
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "node", "scripts/runtime-healthcheck.cjs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  app-client:
+    image: noelia-root-runtime-test:ba616879
+    platform: linux/arm64
+    container_name: noelia-root-runtime-test-app-client
+    command:
+      [
+        "npm",
+        "run",
+        "client",
+        "--workspace",
+        "@noelia-root/client",
+        "--",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "5173",
+        "--strictPort",
+      ]
+    init: true
+    environment:
+      NODE_ENV: development
+      NOELIA_ROOT_DISABLE_BROWSER_OPEN: "true"
+    networks: [root-test]
+    ports:
+      - "127.0.0.1:5173:5173"
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:5173/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  community-bot:
+    image: noelia-root-runtime-test:ba616879
+    platform: linux/arm64
+    container_name: noelia-root-runtime-test-community-bot
+    command: ["node", "scripts/start-root-devhost.cjs", "bot"]
+    init: true
+    environment:
+      NODE_ENV: development
+      NOELIA_ROOT_BOT_DEV_TOKEN: ${NOELIA_ROOT_BOT_DEV_TOKEN:-}
+    networks: [root-test]
+    restart: "no"
+    stop_grace_period: 15s
+    healthcheck:
+      test: ["CMD", "node", "scripts/runtime-healthcheck.cjs"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    logging:
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  root-test:
+    name: noelia-root-runtime-test-net
+    driver: bridge
