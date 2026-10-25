@@ -1,0 +1,12 @@
+services:
+  postgres:
+    networks:
+      default: {}
+      dbx-ops:
+        aliases:
+          - noelia-postgres
+
+networks:
+  dbx-ops:
+    external: true
+    name: dbx-ops
