@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
--- Run interactively with psql against Noélia's existing database as a
--- database administrator. Pass dbx_database and dbx_schema_owner with -v,
+-- Execute with psql against Noélia's existing database as a database
+-- administrator. Pass dbx_database and dbx_schema_owner with -v,
 -- after reading the actual values locally on the Pi. This is not a migration.
 -- It deliberately fails if the role already exists; inspect existing grants
 -- rather than silently changing an existing principal.
