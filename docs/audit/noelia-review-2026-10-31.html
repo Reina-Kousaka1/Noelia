@@ -25,7 +25,7 @@
           system-ui,
           -apple-system,
           BlinkMacSystemFont,
-          "Segoe UI",
+          'Segoe UI',
           sans-serif;
       }
       * {
@@ -37,11 +37,7 @@
       body {
         margin: 0;
         background:
-          radial-gradient(
-            ellipse at 12% 0%,
-            rgba(220, 177, 171, 0.22),
-            transparent 34rem
-          ),
+          radial-gradient(ellipse at 12% 0%, rgba(220, 177, 171, 0.22), transparent 34rem),
           var(--paper);
         color: var(--ink);
         line-height: 1.58;
@@ -75,7 +71,7 @@
       h1,
       h2,
       h3 {
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: Georgia, 'Times New Roman', serif;
         font-weight: 500;
       }
       h1 {
@@ -476,15 +472,11 @@
           <p class="eyebrow">Noélia · technisches Review</p>
           <h1>Neun Befunde.<br />Zehn saubere Stellen.</h1>
           <p class="subtitle">
-            Ein quellengebundener Bericht zum aktuellen Hauptstand. Die
-            Patch-Angaben beschreiben konkrete Korrekturen; Quellcode-Fixes sind
-            in diesem Bericht nicht enthalten.
+            Ein quellengebundener Bericht zum aktuellen Hauptstand. Die Patch-Angaben beschreiben
+            konkrete Korrekturen; Quellcode-Fixes sind in diesem Bericht nicht enthalten.
           </p>
         </div>
-        <div
-          class="stamp"
-          aria-label="Prüfstempel: Kein kritischer Sicherheitsfehler festgestellt"
-        >
+        <div class="stamp" aria-label="Prüfstempel: Kein kritischer Sicherheitsfehler festgestellt">
           <span>PRÜFSTEMPEL</span>
           <strong>KEIN KRITISCHER<br />SICHERHEITSFEHLER</strong>
         </div>
@@ -492,35 +484,25 @@
       <div class="metadata">
         <span>Repository: Reina-Kousaka1/Noelia</span>
         <span>Branch: main</span>
-        <span
-          >Stand: <code>a68a6c3c4c109490c8e496caa0e1c1f1ae1fb4ff</code></span
-        >
+        <span>Stand: <code>a68a6c3c4c109490c8e496caa0e1c1f1ae1fb4ff</code></span>
         <span>Review: 31. Oktober 2026</span>
       </div>
     </header>
 
     <main class="page">
       <div class="summary" aria-label="Zusammenfassung der Befunde">
-        <div class="summary-card high">
-          <strong>1</strong><span>Hoher Impact</span>
-        </div>
-        <div class="summary-card medium">
-          <strong>3</strong><span>Mittlerer Impact</span>
-        </div>
-        <div class="summary-card low">
-          <strong>4</strong><span>Niedriger Impact</span>
-        </div>
-        <div class="summary-card note">
-          <strong>1</strong><span>Testabdeckungs-Hinweis</span>
-        </div>
+        <div class="summary-card high"><strong>1</strong><span>Hoher Impact</span></div>
+        <div class="summary-card medium"><strong>3</strong><span>Mittlerer Impact</span></div>
+        <div class="summary-card low"><strong>4</strong><span>Niedriger Impact</span></div>
+        <div class="summary-card note"><strong>1</strong><span>Testabdeckungs-Hinweis</span></div>
       </div>
 
       <section id="findings">
         <div class="section-head">
           <h2>Die neun Befunde</h2>
           <p>
-            Jeder Eintrag nennt die Fundstelle, den konkreten Beleg, die
-            Auswirkung und einen Patchvorschlag.
+            Jeder Eintrag nennt die Fundstelle, den konkreten Beleg, die Auswirkung und einen
+            Patchvorschlag.
           </p>
         </div>
 
@@ -528,20 +510,14 @@
           <article class="finding high" id="finding-1">
             <div class="finding-head">
               <div>
-                <span class="severity high"
-                  >Hoch · Interaktionszuverlässigkeit</span
-                >
-                <h3>
-                  Moderationsbefehl bestätigt die Interaktion erst nach
-                  REST-Roundtrips
-                </h3>
+                <span class="severity high">Hoch · Interaktionszuverlässigkeit</span>
+                <h3>Moderationsbefehl bestätigt die Interaktion erst nach REST-Roundtrips</h3>
               </div>
               <span class="pill">01 / 09</span>
             </div>
             <div class="quote-wrap" data-draw-oval>
               <blockquote>
-                „Zwei mögliche REST-Abfragen laufen, bevor das Defer die
-                Interaktion bestätigt.“
+                „Zwei mögliche REST-Abfragen laufen, bevor das Defer die Interaktion bestätigt.“
               </blockquote>
               <pre>
 targetMember = await getRestMember(...)  // Zeile 107
@@ -573,35 +549,32 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
                     href="https://docs.discord.com/developers/interactions/receiving-and-responding#interaction-callback"
                     target="_blank"
                     rel="noopener noreferrer"
-                    >Discord-Dokumentation: Initialantwort innerhalb von 3
-                    Sekunden</a
+                    >Discord-Dokumentation: Initialantwort innerhalb von 3 Sekunden</a
                   >.
                 </dd>
               </div>
               <div class="field">
                 <dt>Beleg</dt>
                 <dd>
-                  Bei Cache-Miss werden Target-Mitglied und Bot-Mitglied
-                  nacheinander per <code>getRestMember</code> geladen. Erst
-                  danach kommt <code>deferCommand</code>.
+                  Bei Cache-Miss werden Target-Mitglied und Bot-Mitglied nacheinander per
+                  <code>getRestMember</code> geladen. Erst danach kommt <code>deferCommand</code>.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Überschreitet die Verarbeitung die Discord-Frist, wird der
-                  Interaktionstoken ungültig. Der Aufruf kann mit Fehler 10062
-                  enden; die Moderationsaktion erhält dann keine gültige
-                  Interaktionsantwort.
+                  Überschreitet die Verarbeitung die Discord-Frist, wird der Interaktionstoken
+                  ungültig. Der Aufruf kann mit Fehler 10062 enden; die Moderationsaktion erhält
+                  dann keine gültige Interaktionsantwort.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patchvorschlag</dt>
                 <dd>
-                  Nach synchroner Eingabe- und Guild-Prüfung sofort ephemer
-                  deferen, vor beiden REST-Fallbacks. Spätere Hierarchie- oder
-                  Berechtigungsablehnungen müssen die bereits deferred Antwort
-                  editieren; die Sicherheitsprüfungen selbst bleiben bestehen.
+                  Nach synchroner Eingabe- und Guild-Prüfung sofort ephemer deferen, vor beiden
+                  REST-Fallbacks. Spätere Hierarchie- oder Berechtigungsablehnungen müssen die
+                  bereits deferred Antwort editieren; die Sicherheitsprüfungen selbst bleiben
+                  bestehen.
                 </dd>
               </div>
             </dl>
@@ -630,17 +603,16 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
               <div class="field">
                 <dt>Beleg</dt>
                 <dd>
-                  Bei <code>gain === 0</code> liefert die Funktion
-                  <code>current</code> zurück. Der Gewinnpfad erzeugt dagegen
-                  mit <code>{ ...current }</code> eine Kopie.
+                  Bei <code>gain === 0</code> liefert die Funktion <code>current</code> zurück. Der
+                  Gewinnpfad erzeugt dagegen mit <code>{ ...current }</code> eine Kopie.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Aufrufer bekommen je nach Ergebnis unterschiedliche
-                  Referenzsemantik. Eine spätere Änderung am Ergebnis kann ohne
-                  Gewinn unbemerkt das ursprüngliche Skill-Objekt verändern.
+                  Aufrufer bekommen je nach Ergebnis unterschiedliche Referenzsemantik. Eine spätere
+                  Änderung am Ergebnis kann ohne Gewinn unbemerkt das ursprüngliche Skill-Objekt
+                  verändern.
                 </dd>
               </div>
               <div class="field full">
@@ -657,9 +629,7 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
             <div class="finding-head">
               <div>
                 <span class="severity medium">Mittel · Skill-Konsistenz</span>
-                <h3>
-                  Unbekannte Übungsfamilien erhalten heimlich Koordination
-                </h3>
+                <h3>Unbekannte Übungsfamilien erhalten heimlich Koordination</h3>
               </div>
               <span class="pill">03 / 09</span>
             </div>
@@ -678,27 +648,24 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
               <div class="field">
                 <dt>Beleg</dt>
                 <dd>
-                  <code>skillValuesAfterAttempt</code> verwendet
-                  <code>{ coordination: 1 }</code>, wenn die Familie unbekannt
-                  ist. <code>trainingSkillContribution</code> liefert für
+                  <code>skillValuesAfterAttempt</code> verwendet <code>{ coordination: 1 }</code>,
+                  wenn die Familie unbekannt ist. <code>trainingSkillContribution</code> liefert für
                   dieselbe Familie <code>0</code>.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Ein erfolgreicher Versuch kann Koordination erhöhen, obwohl
-                  die Bewertung keinen Trainingsbeitrag aus dieser Familie
-                  berechnet. Tippfehler oder neue Familien bleiben dadurch still
-                  und schwer erkennbar.
+                  Ein erfolgreicher Versuch kann Koordination erhöhen, obwohl die Bewertung keinen
+                  Trainingsbeitrag aus dieser Familie berechnet. Tippfehler oder neue Familien
+                  bleiben dadurch still und schwer erkennbar.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patchvorschlag</dt>
                 <dd>
-                  Die Gewichtsauflösung teilen und unbekannte Familien
-                  einheitlich behandeln: als ungültige Eingabe ablehnen oder
-                  ohne Skillgewinn zurückgeben. Keine implizite
+                  Die Gewichtsauflösung teilen und unbekannte Familien einheitlich behandeln: als
+                  ungültige Eingabe ablehnen oder ohne Skillgewinn zurückgeben. Keine implizite
                   Koordinations-Standardgewichtung verwenden.
                 </dd>
               </div>
@@ -708,12 +675,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="finding" id="finding-4">
             <div class="finding-head">
               <div>
-                <span class="severity medium"
-                  >Mittel · Ressourcenlebenszyklus</span
-                >
-                <h3>
-                  Beim Discord-Disconnect wird der Presence-Timer nicht gestoppt
-                </h3>
+                <span class="severity medium">Mittel · Ressourcenlebenszyklus</span>
+                <h3>Beim Discord-Disconnect wird der Presence-Timer nicht gestoppt</h3>
               </div>
               <span class="pill">04 / 09</span>
             </div>
@@ -739,26 +702,25 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
                 <dt>Beleg</dt>
                 <dd>
                   Der Disconnect-Handler stoppt den Academy-Worker, aber nicht
-                  <code>presence</code>. Der <code>ready</code>-Handler startet
-                  den Rotator bei Verbindung; der reguläre <code>stop()</code>-
-                  und Startfehlerpfad stoppen ihn ausdrücklich.
+                  <code>presence</code>. Der <code>ready</code>-Handler startet den Rotator bei
+                  Verbindung; der reguläre <code>stop()</code>- und Startfehlerpfad stoppen ihn
+                  ausdrücklich.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Das zweiminütige Intervall bleibt während einer Trennung aktiv
-                  und versucht weiter Statusänderungen. Bei reconnectenden
-                  Sitzungen laufen damit unnötige Timer-Callbacks und
-                  Fehlerpfade weiter.
+                  Das zweiminütige Intervall bleibt während einer Trennung aktiv und versucht weiter
+                  Statusänderungen. Bei reconnectenden Sitzungen laufen damit unnötige
+                  Timer-Callbacks und Fehlerpfade weiter.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patchvorschlag</dt>
                 <dd>
-                  <code>presence.stop()</code> im Disconnect-Handler aufrufen.
-                  Der vorhandene <code>ready</code>-Handler kann den Timer nach
-                  erfolgreichem Reconnect wieder starten.
+                  <code>presence.stop()</code> im Disconnect-Handler aufrufen. Der vorhandene
+                  <code>ready</code>-Handler kann den Timer nach erfolgreichem Reconnect wieder
+                  starten.
                 </dd>
               </div>
             </dl>
@@ -801,8 +763,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Operatoren und Mitwirkende erwarten eine andere Wechselrate
-                  als der Bot tatsächlich verwendet.
+                  Operatoren und Mitwirkende erwarten eine andere Wechselrate als der Bot
+                  tatsächlich verwendet.
                 </dd>
               </div>
               <div class="field full">
@@ -816,9 +778,7 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
             <div class="finding-head">
               <div>
                 <span class="severity low">Niedrig · Dokumentation</span>
-                <h3>
-                  README endet beim Migrationsstand V25, der Baum ist bei V28
-                </h3>
+                <h3>README endet beim Migrationsstand V25, der Baum ist bei V28</h3>
               </div>
               <span class="pill">06 / 09</span>
             </div>
@@ -843,25 +803,23 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
               <div class="field">
                 <dt>Beleg</dt>
                 <dd>
-                  Der Migrationsüberblick im README beschreibt V25 als letzten
-                  Eintrag. Der Migrationstest erwartet
-                  <code>appliedCount: 28</code> und
-                  <code>currentVersion: 28</code>.
+                  Der Migrationsüberblick im README beschreibt V25 als letzten Eintrag. Der
+                  Migrationstest erwartet
+                  <code>appliedCount: 28</code> und <code>currentVersion: 28</code>.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Der dokumentierte Datenbankstand ist veraltet und lässt drei
-                  additive Migrationen unerklärt.
+                  Der dokumentierte Datenbankstand ist veraltet und lässt drei additive Migrationen
+                  unerklärt.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patchvorschlag</dt>
                 <dd>
-                  V26–V28 knapp ergänzen oder den Abschnitt als laufenden
-                  Überblick formulieren und ausdrücklich auf den aktuellen Stand
-                  V28 verweisen.
+                  V26–V28 knapp ergänzen oder den Abschnitt als laufenden Überblick formulieren und
+                  ausdrücklich auf den aktuellen Stand V28 verweisen.
                 </dd>
               </div>
             </dl>
@@ -871,10 +829,7 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
             <div class="finding-head">
               <div>
                 <span class="severity low">Niedrig · Redundanter Guard</span>
-                <h3>
-                  Ein Gewicht-Check kann wegen des vorherigen Guards nicht
-                  erreicht werden
-                </h3>
+                <h3>Ein Gewicht-Check kann wegen des vorherigen Guards nicht erreicht werden</h3>
               </div>
               <span class="pill">07 / 09</span>
             </div>
@@ -894,26 +849,24 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
                 <dt>Beleg</dt>
                 <dd>
                   Die Bedingung prüft <code>!Number.isInteger(weight)</code> vor
-                  <code>weight === undefined</code>. Für
-                  <code>undefined</code> ist
-                  <code>Number.isInteger</code> bereits <code>false</code>; der
-                  linke Operand macht die gesamte ODER-Kette sofort wahr.
+                  <code>weight === undefined</code>. Für <code>undefined</code> ist
+                  <code>Number.isInteger</code> bereits <code>false</code>; der linke Operand macht
+                  die gesamte ODER-Kette sofort wahr.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Kein derzeitiger Laufzeitfehler; die zweite Prüfung ist
-                  unerreichbar und verschleiert, welche Eingaben tatsächlich
-                  validiert werden.
+                  Kein derzeitiger Laufzeitfehler; die zweite Prüfung ist unerreichbar und
+                  verschleiert, welche Eingaben tatsächlich validiert werden.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patchvorschlag</dt>
                 <dd>
                   <code>weight === undefined</code> vor
-                  <code>!Number.isInteger(weight)</code> verschieben oder
-                  entfernen, falls der Typvertrag die Abwesenheit ausschließt.
+                  <code>!Number.isInteger(weight)</code> verschieben oder entfernen, falls der
+                  Typvertrag die Abwesenheit ausschließt.
                 </dd>
               </div>
             </dl>
@@ -923,10 +876,7 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
             <div class="finding-head">
               <div>
                 <span class="severity low">Niedrig · Rückgabewert</span>
-                <h3>
-                  Reconciliation zählt ausgewählte Zeilen statt erfolgreicher
-                  Updates
-                </h3>
+                <h3>Reconciliation zählt ausgewählte Zeilen statt erfolgreicher Updates</h3>
               </div>
               <span class="pill">08 / 09</span>
             </div>
@@ -945,26 +895,21 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
               <div class="field">
                 <dt>Beleg</dt>
                 <dd>
-                  Bei <code>updated.rowCount !== 1</code> wird die Schleife
-                  fortgesetzt. Am Ende gibt die Methode trotzdem
-                  <code>due.rows.length</code> zurück.
+                  Bei <code>updated.rowCount !== 1</code> wird die Schleife fortgesetzt. Am Ende
+                  gibt die Methode trotzdem <code>due.rows.length</code> zurück.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Der Rückgabewert kann die Zahl tatsächlich verbuchter Klassen
-                  überschätzen. Der aktuelle Schedule-Worker verwirft den
-                  Zähler; die Abweichung betrifft daher vor allem Aufrufer,
-                  Telemetrie und spätere Nutzung des Rückgabewerts.
+                  Der Rückgabewert kann die Zahl tatsächlich verbuchter Klassen überschätzen. Der
+                  aktuelle Schedule-Worker verwirft den Zähler; die Abweichung betrifft daher vor
+                  allem Aufrufer, Telemetrie und spätere Nutzung des Rückgabewerts.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patchvorschlag</dt>
-                <dd>
-                  Einen Zähler erst nach erfolgreichem Update erhöhen und diesen
-                  zurückgeben.
-                </dd>
+                <dd>Einen Zähler erst nach erfolgreichem Update erhöhen und diesen zurückgeben.</dd>
               </div>
             </dl>
           </article>
@@ -1005,26 +950,25 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
                 <dt>Beleg</dt>
                 <dd>
                   Die Suite überspringt die PostgreSQL-Gruppe, wenn
-                  <code>NOELIA_TEST_DATABASE_URL</code> fehlt. Der übermittelte
-                  Laufstand zählt 59 von 365 Tests als bedingt/inaktiv.
+                  <code>NOELIA_TEST_DATABASE_URL</code> fehlt. Der übermittelte Laufstand zählt 59
+                  von 365 Tests als bedingt/inaktiv.
                 </dd>
               </div>
               <div class="field">
                 <dt>Auswirkung</dt>
                 <dd>
-                  Escrow, konkurrierende Row-Locks und Idempotenz sind mit einem
-                  Lauf ohne diese Gruppe nicht dynamisch abgesichert. Der
-                  Quellcode dieser Pfade wurde dadurch nicht zur Laufzeit
-                  verifiziert.
+                  Escrow, konkurrierende Row-Locks und Idempotenz sind mit einem Lauf ohne diese
+                  Gruppe nicht dynamisch abgesichert. Der Quellcode dieser Pfade wurde dadurch nicht
+                  zur Laufzeit verifiziert.
                 </dd>
               </div>
               <div class="field full">
                 <dt>Patch / nächste Aktion</dt>
                 <dd>
-                  Den vollständigen Testlauf in CI oder lokal mit einer
-                  isolierten Loopback-PostgreSQL-Datenbank namens
-                  <code>noelia_test</code> ausführen. Keine Produktionsdatenbank
-                  verwenden; der Test-Guard lehnt Remote-Ziele ab.
+                  Den vollständigen Testlauf in CI oder lokal mit einer isolierten
+                  Loopback-PostgreSQL-Datenbank namens
+                  <code>noelia_test</code> ausführen. Keine Produktionsdatenbank verwenden; der
+                  Test-Guard lehnt Remote-Ziele ab.
                 </dd>
               </div>
             </dl>
@@ -1036,17 +980,16 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
         <div class="section-head">
           <h2>Sauber geprüft</h2>
           <p>
-            Zehn Stellen, an denen die Prüfung keinen zusätzlichen Befund
-            ergeben hat. Die Links führen direkt zu Implementierung oder
-            Testbeleg.
+            Zehn Stellen, an denen die Prüfung keinen zusätzlichen Befund ergeben hat. Die Links
+            führen direkt zu Implementierung oder Testbeleg.
           </p>
         </div>
         <div class="clean-list">
           <article class="clean-item">
             <h3>01 · Wallet</h3>
             <p>
-              Ganzzahlige Beträge, Idempotenzschlüssel, Zeilensperren und
-              Ledger-Buchungen werden im Transferpfad zusammengeführt.
+              Ganzzahlige Beträge, Idempotenzschlüssel, Zeilensperren und Ledger-Buchungen werden im
+              Transferpfad zusammengeführt.
             </p>
             <div class="source">
               <a
@@ -1060,8 +1003,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>02 · Escrow</h3>
             <p>
-              Listing, Inventar und Escrow sind transaktional gekoppelt;
-              Konflikte pro Listing werden gesperrt und Idempotenz wird geprüft.
+              Listing, Inventar und Escrow sind transaktional gekoppelt; Konflikte pro Listing
+              werden gesperrt und Idempotenz wird geprüft.
             </p>
             <div class="source">
               <a
@@ -1081,8 +1024,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>03 · Paginierung</h3>
             <p>
-              Seitennummern sind begrenzt; die Inventarabfrage nutzt feste
-              Seitengröße und gebundene LIMIT/OFFSET-Werte.
+              Seitennummern sind begrenzt; die Inventarabfrage nutzt feste Seitengröße und gebundene
+              LIMIT/OFFSET-Werte.
             </p>
             <div class="source">
               <a
@@ -1096,9 +1039,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>04 · Snowflake-IDs</h3>
             <p>
-              IDs werden auf 17–20 Ziffern geprüft; den enthaltenen Zeitstempel
-              liest der Code mit BigInt statt verlustbehafteter
-              Number-Arithmetik.
+              IDs werden auf 17–20 Ziffern geprüft; den enthaltenen Zeitstempel liest der Code mit
+              BigInt statt verlustbehafteter Number-Arithmetik.
             </p>
             <div class="source">
               <a
@@ -1112,9 +1054,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>05 · Migrations-Runner</h3>
             <p>
-              Versionen müssen lückenlos sein; Checksummen schützen angewandte
-              Migrationen, ein Advisory Lock serialisiert Läufe und wird im
-              finally freigegeben.
+              Versionen müssen lückenlos sein; Checksummen schützen angewandte Migrationen, ein
+              Advisory Lock serialisiert Läufe und wird im finally freigegeben.
             </p>
             <div class="source">
               <a
@@ -1128,8 +1069,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>06 · SQL-Parametrisierung</h3>
             <p>
-              Werte in Abfragen werden als Parameter übergeben; der
-              Inventar-Endpunkt bindet Nutzer-ID, Limit und Offset getrennt.
+              Werte in Abfragen werden als Parameter übergeben; der Inventar-Endpunkt bindet
+              Nutzer-ID, Limit und Offset getrennt.
             </p>
             <div class="source">
               <a
@@ -1143,8 +1084,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>07 · Persona-Validierung</h3>
             <p>
-              Domain und Action sind begrenzt; Fakten werden gefiltert und
-              gekappt, und der sichere Kontext wird eingefroren.
+              Domain und Action sind begrenzt; Fakten werden gefiltert und gekappt, und der sichere
+              Kontext wird eingefroren.
             </p>
             <div class="source">
               <a
@@ -1158,9 +1099,8 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>08 · DST-Auflösung</h3>
             <p>
-              Lokale Zeiten werden gegen Zeitzonenoffsets aufgelöst;
-              Sommerzeitlücken und doppelte Wandzeiten werden nicht still auf
-              einen beliebigen Zeitpunkt abgebildet.
+              Lokale Zeiten werden gegen Zeitzonenoffsets aufgelöst; Sommerzeitlücken und doppelte
+              Wandzeiten werden nicht still auf einen beliebigen Zeitpunkt abgebildet.
             </p>
             <div class="source">
               <a
@@ -1174,10 +1114,9 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>09 · Defer-Reihenfolge der übrigen 15 Commands</h3>
             <p>
-              Die anderen Command-Handler deferen vor dem ersten asynchronen
-              Datenzugriff: help, shop, daily, learn, market, ballet, balance,
-              profile, automod, academy, marriage, inventory, wardrobe,
-              performance und achievements.
+              Die anderen Command-Handler deferen vor dem ersten asynchronen Datenzugriff: help,
+              shop, daily, learn, market, ballet, balance, profile, automod, academy, marriage,
+              inventory, wardrobe, performance und achievements.
             </p>
             <div class="source">
               <a
@@ -1191,9 +1130,9 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           <article class="clean-item">
             <h3>10 · Isolation der Integrationstests</h3>
             <p>
-              Nur NODE_ENV=test, Loopback, die Datenbank noelia_test und ein
-              isoliertes Schema werden akzeptiert; Remote-/Produktionsziele
-              werden vor dem Verbindungsaufbau abgelehnt.
+              Nur NODE_ENV=test, Loopback, die Datenbank noelia_test und ein isoliertes Schema
+              werden akzeptiert; Remote-/Produktionsziele werden vor dem Verbindungsaufbau
+              abgelehnt.
             </p>
             <div class="source">
               <a
@@ -1206,21 +1145,17 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           </article>
         </div>
         <p class="scope-note">
-          <strong>Prüfstempel, richtig gelesen:</strong> In den hier
-          abgegrenzten Review-Bereichen wurde kein kritischer Sicherheitsfehler
-          festgestellt. Das ist keine Aussage, dass die genannten
-          Funktionsbefunde bereits behoben oder alle DB-Integrationstests
-          ausgeführt sind.
+          <strong>Prüfstempel, richtig gelesen:</strong> In den hier abgegrenzten Review-Bereichen
+          wurde kein kritischer Sicherheitsfehler festgestellt. Das ist keine Aussage, dass die
+          genannten Funktionsbefunde bereits behoben oder alle DB-Integrationstests ausgeführt sind.
         </p>
       </section>
 
       <aside class="test-note" id="tests">
-        <strong>Teststatus:</strong> Dieser Bericht dokumentiert den Quellstand;
-        in dieser Umgebung wurde kein lokaler Testlauf ausgeführt. Für die 59
-        bedingten PostgreSQL-Tests ist
-        <code>NOELIA_TEST_DATABASE_URL</code> erforderlich. README und
-        Test-Guard verlangen dafür eine Loopback-Datenbank
-        <code>noelia_test</code> und ein isoliertes Testschema.
+        <strong>Teststatus:</strong> Dieser Bericht dokumentiert den Quellstand; in dieser Umgebung
+        wurde kein lokaler Testlauf ausgeführt. Für die 59 bedingten PostgreSQL-Tests ist
+        <code>NOELIA_TEST_DATABASE_URL</code> erforderlich. README und Test-Guard verlangen dafür
+        eine Loopback-Datenbank <code>noelia_test</code> und ein isoliertes Testschema.
       </aside>
 
       <footer>
@@ -1234,28 +1169,27 @@ await deferCommand(interaction, 'ephemeral') // Zeile 148</pre>
           >.
         </p>
         <p>
-          Patchvorschläge sind Review-Empfehlungen. Der Quellcode und die
-          Datenbank wurden durch diesen Bericht nicht verändert.
+          Patchvorschläge sind Review-Empfehlungen. Der Quellcode und die Datenbank wurden durch
+          diesen Bericht nicht verändert.
         </p>
       </footer>
     </main>
     <script>
-      const focus = document.querySelector("[data-draw-oval]");
-      const stroke = focus && focus.querySelector(".oval path");
+      const focus = document.querySelector('[data-draw-oval]');
+      const stroke = focus && focus.querySelector('.oval path');
       if (focus && stroke) {
         const length = stroke.getTotalLength();
         stroke.style.strokeDasharray = String(length);
         stroke.style.strokeDashoffset = String(length);
-        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-          stroke.style.strokeDashoffset = "0";
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          stroke.style.strokeDashoffset = '0';
         } else {
           const observer = new IntersectionObserver(
             (entries) => {
               if (entries.some((entry) => entry.isIntersecting)) {
                 requestAnimationFrame(() => {
-                  stroke.style.transition =
-                    "stroke-dashoffset 1450ms cubic-bezier(.4,0,.18,1)";
-                  stroke.style.strokeDashoffset = "0";
+                  stroke.style.transition = 'stroke-dashoffset 1450ms cubic-bezier(.4,0,.18,1)';
+                  stroke.style.strokeDashoffset = '0';
                 });
                 observer.disconnect();
               }
