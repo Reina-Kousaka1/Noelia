@@ -1,11 +1,13 @@
 version: 2
 updates:
+  # Keep Dependabot PR heads stable; resolve outdated branches manually.
   - package-ecosystem: npm
     directory: '/'
     schedule:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    rebase-strategy: disabled
 
   - package-ecosystem: github-actions
     directory: '/'
@@ -13,3 +15,4 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 3
+    rebase-strategy: disabled
