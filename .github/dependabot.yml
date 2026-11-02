@@ -2,17 +2,58 @@ version: 2
 updates:
   # Keep Dependabot PR heads stable; resolve outdated branches manually.
   - package-ecosystem: npm
-    directory: '/'
+    directory: "/"
     schedule:
       interval: weekly
-      day: monday
-    open-pull-requests-limit: 5
-    rebase-strategy: disabled
-
-  - package-ecosystem: github-actions
-    directory: '/'
-    schedule:
-      interval: weekly
-      day: monday
+      day: wednesday
+      time: "09:00"
+      timezone: Europe/Berlin
     open-pull-requests-limit: 3
     rebase-strategy: disabled
+    cooldown:
+      semver-patch-days: 3
+      semver-minor-days: 7
+      semver-major-days: 21
+    groups:
+      runtime-non-major:
+        applies-to: version-updates
+        dependency-type: production
+        update-types:
+          - minor
+          - patch
+      types-non-major:
+        applies-to: version-updates
+        dependency-type: development
+        patterns:
+          - "@types/*"
+        update-types:
+          - minor
+          - patch
+      dev-tooling-non-major:
+        applies-to: version-updates
+        dependency-type: development
+        exclude-patterns:
+          - "@types/*"
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "09:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 3
+    rebase-strategy: disabled
+    cooldown:
+      default-days: 5
+    groups:
+      actions-non-major:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
