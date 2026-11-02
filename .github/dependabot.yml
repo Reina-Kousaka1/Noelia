@@ -2,11 +2,11 @@ version: 2
 updates:
   # Keep Dependabot PR heads stable; resolve outdated branches manually.
   - package-ecosystem: npm
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
       day: wednesday
-      time: "09:00"
+      time: '09:00'
       timezone: Europe/Berlin
     open-pull-requests-limit: 3
     rebase-strategy: disabled
@@ -25,7 +25,7 @@ updates:
         applies-to: version-updates
         dependency-type: development
         patterns:
-          - "@types/*"
+          - '@types/*'
         update-types:
           - minor
           - patch
@@ -33,17 +33,17 @@ updates:
         applies-to: version-updates
         dependency-type: development
         exclude-patterns:
-          - "@types/*"
+          - '@types/*'
         update-types:
           - minor
           - patch
 
   - package-ecosystem: github-actions
-    directory: "/"
+    directory: '/'
     schedule:
       interval: weekly
       day: wednesday
-      time: "09:00"
+      time: '09:00'
       timezone: Europe/Berlin
     open-pull-requests-limit: 3
     rebase-strategy: disabled
@@ -53,7 +53,7 @@ updates:
       actions-non-major:
         applies-to: version-updates
         patterns:
-          - "*"
+          - '*'
         update-types:
           - minor
           - patch
